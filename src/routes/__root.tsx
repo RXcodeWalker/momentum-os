@@ -98,7 +98,7 @@ function BottomNav() {
         <ul className="flex items-center justify-between">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = item.exact ? loc.pathname === item.to : loc.pathname.startsWith(item.to);
+            const active = "exact" in item && item.exact ? loc.pathname === item.to : item.to !== "/" && loc.pathname.startsWith(item.to);
             return (
               <li key={item.to} className="flex-1">
                 <Link
