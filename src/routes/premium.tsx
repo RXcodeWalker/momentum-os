@@ -23,9 +23,9 @@ const features = [
 ];
 
 const plans = [
-  { id: "monthly", price: "$9", per: "/mo", note: "Cancel anytime" },
-  { id: "annual", price: "$72", per: "/yr", note: "Save 33% · 2 months free", best: true },
-] as const;
+  { id: "monthly" as const, price: "$9", per: "/mo", note: "Cancel anytime", best: false },
+  { id: "annual" as const, price: "$72", per: "/yr", note: "Save 33% · 2 months free", best: true },
+];
 
 function Premium() {
   const premium = useApp((s) => s.premium);
