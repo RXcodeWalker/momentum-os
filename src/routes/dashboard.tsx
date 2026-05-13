@@ -24,6 +24,8 @@ import {
   TrendingDown,
   TrendingUp,
   Zap,
+  Lightbulb,
+  Rocket,
 } from "lucide-react";
 import { useMemo } from "react";
 
@@ -85,7 +87,7 @@ function DashboardPage() {
       <ScreenHeader
         eyebrow="Command center"
         title="Behavioral overview"
-        subtitle="Long-form view of execution, focus, recovery, and burnout signals across the last 28 days."
+        subtitle="Real-time execution metrics, momentum tracking, and adaptive recovery guidance."
         right={
           <div className="hidden lg:flex items-center gap-2">
             <Pill tone={tone}>{label}</Pill>
@@ -96,29 +98,67 @@ function DashboardPage() {
         }
       />
 
+      {/* Premium Execution Score Card - Centerpiece */}
+      <section className="px-5 lg:px-0">
+        <Card className="lg:col-span-12 bg-gradient-to-br from-secondary/50 to-secondary/20 border-accent/20">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between lg:gap-8">
+            <div className="flex-1">
+              <StatLabel>Execution score</StatLabel>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-display text-6xl lg:text-7xl text-foreground">{Math.round(score)}</span>
+                <div className="flex flex-col gap-1">
+                  <Pill tone={trend === "up" ? "success" : trend === "down" ? "danger" : "neutral"}>
+                    {trend === "up" ? <TrendingUp className="h-3 w-3" /> : trend === "down" ? <TrendingDown className="h-3 w-3" /> : null}
+                    {trend === "up" ? "Building momentum" : trend === "down" ? "Recovering" : "Stable"}
+                  </Pill>
+                  <p className="text-[11px] text-muted-foreground">{trend === "up" ? "+" : ""}{delta} from last week</p>
+                </div>
+              </div>
+              <div className="mt-6 grid grid-cols-3 gap-4 lg:gap-6">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Momentum</p>
+                  <p className="font-display text-2xl text-foreground">{Math.round(score * 0.85)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Consistency</p>
+                  <p className="font-display text-2xl text-foreground">{consistency}%</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Resilience</p>
+                  <p className="font-display text-2xl text-foreground">{resilience}</p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-8 lg:mt-0 flex-shrink-0">
+              <Ring value={score} size={200} stroke={14} label="Today" />
+            </div>
+          </div>
+        </Card>
+      </section>
+
       {/* Top KPI strip */}
       <section className="px-5 lg:px-0">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KPI
             icon={<Target className="h-4 w-4" />}
-            label="Execution"
-            value={`${Math.round(score)}`}
-            sub={`${trend === "up" ? "+" : ""}${delta} vs last week`}
-            tone={trend === "up" ? "success" : trend === "down" ? "danger" : "neutral"}
-          />
-          <KPI
-            icon={<Activity className="h-4 w-4" />}
-            label="Consistency · 28d"
-            value={`${consistency}%`}
-            sub={`${consistency7}% last 7d`}
+            label="Daily focus"
+            value={`${Math.round(avgFocus * 10)}`}
+            sub={`${Math.round(avgFocus * 10 * 0.9)} hours deep work`}
             tone="accent"
           />
           <KPI
             icon={<Shield className="h-4 w-4" />}
-            label="Resilience"
-            value={`${resilience}`}
-            sub={`Avg recovery · ${avgRecoveryDays}d`}
+            label="Recovery speed"
+            value={`${avgRecoveryDays}d`}
+            sub={`Avg bounce-back time`}
             tone="success"
+          />
+          <KPI
+            icon={<Moon className="h-4 w-4" />}
+            label="Sleep quality"
+            value={`${avgSleep.toFixed(1)}h`}
+            sub={`${avgSleep > 7.5 ? "Optimal" : avgSleep > 6 ? "Good" : "Needs work"}`}
+            tone={avgSleep > 7.5 ? "success" : avgSleep > 6 ? "accent" : "warning"}
           />
           <KPI
             icon={<Flame className="h-4 w-4" />}
@@ -133,8 +173,61 @@ function DashboardPage() {
       {/* Main grid */}
       <section className="px-5 lg:px-0">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
+          {/* Momentum Status */}
+          <Card className="lg:col-span-6">
+            <div className="mb-4 flex items-center justify-between">
+              <StatLabel>Momentum status</StatLabel>
+              <Rocket className="h-4 w-4 text-accent" />
+            </div>
+            <div className="space-y-4">
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm text-foreground">Current momentum</span>
+                  <span className="text-sm font-medium text-accent">{trend === "up" ? "Ascending" : trend === "down" ? "Recovering" : "Stable"}</span>
+                </div>
+                <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                  <div className="h-full bg-gradient-accent" style={{ width: `${Math.min(100, score)}%` }} />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-3">Recovery progression</p>
+                <div className="flex gap-2">
+                  {[...Array(7)].map((_, i) => (
+                    <div key={i} className={`h-8 flex-1 rounded-lg ${i < Math.ceil(consistency7 / 20) ? "bg-gradient-accent" : "bg-secondary"}`} />
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground pt-2">You're in your {Math.ceil(consistency7 / 30)}rd week of progression. Maintain consistency to unlock adaptive insights.</p>
+            </div>
+          </Card>
+
+          {/* Daily Focus Panel */}
+          <Card className="lg:col-span-6">
+            <div className="mb-4 flex items-center justify-between">
+              <StatLabel>Daily focus & workload</StatLabel>
+              <Target className="h-4 w-4 text-accent" />
+            </div>
+            <div className="space-y-4">
+              <div>
+                <div className="mb-2 text-sm text-foreground">Top priorities</div>
+                <div className="space-y-2">
+                  {["Complete deep work session", "Review execution metrics", "Rest & recovery"].map((p, i) => (
+                    <div key={i} className="flex items-start gap-2 rounded-lg bg-secondary/50 p-2.5">
+                      <div className="h-4 w-4 rounded-full bg-accent/40 flex-shrink-0 mt-0.5" />
+                      <span className="text-[13px] text-foreground">{p}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="pt-2 border-t border-border">
+                <p className="text-[11px] text-muted-foreground mb-2">Recommended workload</p>
+                <Pill tone="accent">Calibrated for {state === "peak" ? "high intensity" : state === "recovery" ? "rebuilding" : "steady execution"}</Pill>
+              </div>
+            </div>
+          </Card>
+
           {/* Execution trend — large */}
-          <Card className="lg:col-span-8">
+          <Card className="lg:col-span-7">
             <div className="mb-4 flex items-end justify-between">
               <div>
                 <StatLabel>Execution trend · 28 days</StatLabel>
@@ -143,13 +236,9 @@ function DashboardPage() {
                   <span className="text-muted-foreground text-lg"> avg</span>
                 </p>
               </div>
-              <Pill tone={trend === "up" ? "success" : trend === "down" ? "danger" : "neutral"}>
-                {trend === "up" ? <TrendingUp className="h-3 w-3" /> : trend === "down" ? <TrendingDown className="h-3 w-3" /> : null}
-                {trend === "up" ? "Building" : trend === "down" ? "Slipping" : "Holding"}
-              </Pill>
             </div>
-            <div className="h-[200px] lg:h-[260px]">
-              <Sparkline data={trendData} accent height={260} />
+            <div className="h-[200px] lg:h-[240px]">
+              <Sparkline data={trendData} accent height={240} />
             </div>
             <div className="mt-3 flex justify-between text-[10px] text-muted-foreground">
               <span>4 weeks ago</span>
@@ -160,25 +249,28 @@ function DashboardPage() {
             </div>
           </Card>
 
-          {/* Execution score ring + state */}
-          <Card className="lg:col-span-4 bg-gradient-surface">
-            <div className="flex flex-col items-center gap-4 lg:py-2">
-              <Ring value={score} size={160} stroke={12} label="Execution" sub="Today" />
-              <div className="w-full space-y-2">
-                <StatLabel>Behavioral state</StatLabel>
-                <p className="font-display text-2xl text-foreground">{label}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {state === "peak"
-                    ? "You're in a high-coherence window. Stretch into deeper work but protect sleep."
-                    : state === "burnout"
-                    ? "Multiple signals point to overload. Reduce surface area; recover deliberately."
-                    : state === "recovery"
-                    ? "Rebuilding capacity. Do less, do it well, sleep early."
-                    : state === "inconsistent"
-                    ? "Variance is high. Anchor one keystone habit before adding more."
-                    : "Steady baseline. Calibrate workload upward only after 5 reliable days."}
-                </p>
-              </div>
+          {/* Behavioral Insights */}
+          <Card className="lg:col-span-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Lightbulb className="h-4 w-4 text-accent" />
+              <StatLabel>Behavioral insights</StatLabel>
+            </div>
+            <div className="space-y-3">
+              <InsightCard 
+                insight="Your focus drops after 8 PM"
+                impact="correlated with low execution next day"
+                suggestion="Try wind-down protocol at 8:30 PM"
+              />
+              <InsightCard 
+                insight="Mondays show 23% workload overestimation"
+                impact="leads to midweek crashes"
+                suggestion="Plan 20% lighter on Mondays"
+              />
+              <InsightCard 
+                insight="Exercise improves consistency by 18%"
+                impact="strongest behavior-execution link"
+                suggestion="Anchor morning movement routine"
+              />
             </div>
           </Card>
 
@@ -216,7 +308,27 @@ function DashboardPage() {
             </div>
           </Card>
 
-          {/* Sleep & energy correlation */}
+          {/* Anti-fake productivity */}
+          <Card className="lg:col-span-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Brain className="h-4 w-4 text-warning" />
+              <StatLabel>Anti-fake productivity</StatLabel>
+            </div>
+            <BarRow label="Plan → execute ratio" value={flags.planExecuteRatio} tone="accent" />
+            <div className="mt-4 space-y-2">
+              {flags.flags.length === 0 && (
+                <p className="text-xs text-muted-foreground">No signals detected. Execution is genuine.</p>
+              )}
+              {flags.flags.map((f, i) => (
+                <p key={i} className="flex items-start gap-2 text-[12px] text-muted-foreground">
+                  <AlertTriangle className="h-3.5 w-3.5 flex-none text-warning mt-0.5" />
+                  <span>{f}</span>
+                </p>
+              ))}
+            </div>
+          </Card>
+
+          {/* Sleep & energy */}
           <Card className="lg:col-span-4">
             <StatLabel>Sleep · 28d</StatLabel>
             <p className="font-display mt-1 text-2xl text-foreground">
@@ -240,27 +352,19 @@ function DashboardPage() {
               <Sparkline data={distractionData} height={80} />
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Phone & social loops cluster after 8 PM. Wind-down protocol cuts this ~40%.
+              Peak distraction window: 8–10 PM. Wind-down protocol cuts this ~40%.
             </p>
           </Card>
 
-          {/* Anti-fake productivity */}
+          {/* Behavioral evolution */}
           <Card className="lg:col-span-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Brain className="h-4 w-4 text-accent" />
-              <StatLabel>Anti-fake productivity</StatLabel>
-            </div>
-            <BarRow label="Plan → execute ratio" value={flags.planExecuteRatio} tone="accent" />
-            <div className="mt-3 space-y-2">
-              {flags.flags.length === 0 && (
-                <p className="text-xs text-muted-foreground">No fake-productivity signals this cycle. Clean.</p>
-              )}
-              {flags.flags.map((f, i) => (
-                <p key={i} className="flex items-start gap-2 text-[12px] text-muted-foreground">
-                  <AlertTriangle className="h-3.5 w-3.5 flex-none text-warning mt-0.5" />
-                  <span>{f}</span>
-                </p>
-              ))}
+            <StatLabel>Behavioral growth</StatLabel>
+            <div className="mt-3 space-y-3">
+              <Evolution label="Reliability" value={Math.min(100, consistency + 8)} />
+              <Evolution label="Focus quality" value={Math.round(avgFocus * 10)} />
+              <Evolution label="Recovery speed" value={resilience} />
+              <Evolution label="Sleep discipline" value={Math.round((avgSleep / 8) * 100)} />
+              <Evolution label="Honesty" value={78} />
             </div>
           </Card>
 
@@ -274,57 +378,70 @@ function DashboardPage() {
                 </p>
               </div>
               <Pill tone="success">
-                <Zap className="h-3 w-3" /> {avgRecoveryDays}d to recover
+                <Zap className="h-3 w-3" /> {avgRecoveryDays}d avg recovery
               </Pill>
             </div>
             <div className="h-[120px]">
               <Sparkline data={focusData} height={120} accent />
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              You've recovered from {Math.max(2, Math.round(28 / 6))} dips in the last 28 days. The system is reinforcing fast bounce-back over rigid streaks.
+              Recovered from {Math.max(2, Math.round(28 / 6))} behavioral dips. System reinforces fast bounce-back over rigid streaks.
             </p>
           </Card>
 
-          {/* Behavioral evolution */}
-          <Card className="lg:col-span-5">
-            <StatLabel>Behavioral evolution</StatLabel>
-            <div className="mt-3 space-y-3">
-              <Evolution label="Reliability" value={Math.min(100, consistency + 8)} />
-              <Evolution label="Focus quality" value={Math.round(avgFocus * 10)} />
-              <Evolution label="Recovery speed" value={resilience} />
-              <Evolution label="Sleep discipline" value={Math.round((avgSleep / 8) * 100)} />
-              <Evolution label="Honesty" value={78} />
-            </div>
-          </Card>
-
-          {/* Burnout signals */}
-          <Card className="lg:col-span-12 bg-gradient-surface">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          {/* Recovery Mode Card - Key Differentiator */}
+          {state === "recovery" || state === "burnout" ? (
+            <Card className="lg:col-span-5 bg-gradient-to-br from-success/5 to-transparent border-success/20">
               <div className="flex items-start gap-3">
-                <div className={`flex h-10 w-10 flex-none items-center justify-center rounded-xl ${burnoutRisk > 60 ? "bg-danger/15 text-danger" : burnoutRisk > 35 ? "bg-warning/15 text-warning" : "bg-success/15 text-success"}`}>
-                  <Moon className="h-5 w-5" />
+                <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-success/15">
+                  <Shield className="h-5 w-5 text-success" />
                 </div>
-                <div>
-                  <p className="font-display text-xl text-foreground">
-                    {burnoutRisk > 60
-                      ? "High burnout risk this week"
-                      : burnoutRisk > 35
-                      ? "Early burnout signals detected"
-                      : "Low burnout risk · keep cadence"}
-                  </p>
-                  <p className="mt-1 max-w-[60ch] text-sm text-muted-foreground">
-                    Weighted from sleep debt, distraction load, low-execution days, and reschedule patterns. Recovery protocols available below.
-                  </p>
+                <div className="flex-1">
+                  <StatLabel>Recovery mode active</StatLabel>
+                  <p className="mt-2 text-sm text-foreground font-medium">Minimum viable day approach</p>
+                  <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                    <p>• Reduce surface area by 50%</p>
+                    <p>• Focus on 1 keystone habit</p>
+                    <p>• Sleep anchor: 10:30 PM</p>
+                  </div>
+                  <Link to="/recovery" className="mt-3 inline-block text-xs font-medium text-success hover:text-success/80">
+                    View protocols →
+                  </Link>
                 </div>
               </div>
-              <Link
-                to="/recovery"
-                className="self-start rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background lg:self-auto"
-              >
-                Open recovery protocols
-              </Link>
-            </div>
-          </Card>
+            </Card>
+          ) : null}
+
+          {/* Burnout alert */}
+          {burnoutRisk > 35 && (
+            <Card className={`lg:col-span-${state === "recovery" || state === "burnout" ? "7" : "12"} ${burnoutRisk > 60 ? "bg-danger/5 border-danger/20" : "bg-warning/5 border-warning/20"}`}>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className={`flex h-10 w-10 flex-none items-center justify-center rounded-xl ${burnoutRisk > 60 ? "bg-danger/15 text-danger" : "bg-warning/15 text-warning"}`}>
+                    <Moon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className={`font-display text-lg ${burnoutRisk > 60 ? "text-danger" : "text-warning"}`}>
+                      {burnoutRisk > 60 ? "High burnout risk" : "Early burnout signals detected"}
+                    </p>
+                    <p className="mt-1 max-w-[60ch] text-sm text-muted-foreground">
+                      Weighted from sleep debt, distraction load, low-execution days, and reschedule patterns.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  to="/recovery"
+                  className={`self-start lg:self-auto rounded-2xl px-4 py-2 text-sm font-semibold transition-colors ${
+                    burnoutRisk > 60
+                      ? "bg-danger/20 text-danger hover:bg-danger/30"
+                      : "bg-warning/20 text-warning hover:bg-warning/30"
+                  }`}
+                >
+                  Recovery protocols
+                </Link>
+              </div>
+            </Card>
+          )}
         </div>
       </section>
     </div>
@@ -376,6 +493,19 @@ function Evolution({ label, value }: { label: string; value: number }) {
       <div className="relative h-1.5 overflow-hidden rounded-full bg-secondary">
         <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-accent" style={{ width: `${Math.min(100, value)}%` }} />
       </div>
+    </div>
+  );
+}
+
+function InsightCard({ insight, impact, suggestion }: { insight: string; impact: string; suggestion: string }) {
+  return (
+    <div className="rounded-2xl bg-secondary/40 border border-border/50 p-3">
+      <p className="text-sm font-medium text-foreground">{insight}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{impact}</p>
+      <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-accent font-medium">
+        <Lightbulb className="h-3 w-3" />
+        {suggestion}
+      </p>
     </div>
   );
 }
