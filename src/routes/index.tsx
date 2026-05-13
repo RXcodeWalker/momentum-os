@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, Pill, Ring, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
-import { ArrowUpRight, Check, Crown, Plus, RotateCcw, Sparkles } from "lucide-react";
-import { useApp, useConsistency, useExecutionScore, useMomentum } from "@/lib/store";
+import { ArrowUpRight, Check, Crown, Plus, RotateCcw, Sparkles, Sunrise, Sun, Moon } from "lucide-react";
+import { useApp, useConsistency, useExecutionScore, useMomentum, useResilience, useUserState } from "@/lib/store";
 import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/")({
