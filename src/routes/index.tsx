@@ -255,7 +255,7 @@ function TasksSection({ tasks, toggleTask, completed }: { tasks: ReturnType<type
   const resetDemo = useApp((s) => s.resetDemo);
 
   return (
-    <section className="px-5">
+    <section className="px-5 lg:px-0">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold tracking-tight text-foreground">Today's priorities</h2>
         <span className="text-[11px] text-muted-foreground num-tabular">{completed} of {tasks.length}</span>
