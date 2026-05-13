@@ -45,6 +45,28 @@ export type OnboardingProfile = {
   baselineScore: number;
 };
 
+// Maturity levels — how the app evolves its coaching depth with the user
+export type MaturityLevel = "calibrating" | "building" | "consistent" | "advanced" | "resilient";
+
+export type BehavioralInsight = {
+  id: string;
+  type: "pattern" | "breakthrough" | "warning" | "identity";
+  title: string;
+  body: string;
+  unlocked: boolean;
+  unlockedAt?: string;
+  dismissed: boolean;
+};
+
+// Execution proof for circles — what members share
+export type ExecutionProof = {
+  id: string;
+  memberId: string;
+  text: string;
+  timestamp: string;
+  type: "deep-work" | "movement" | "recovery" | "milestone";
+};
+
 type State = {
   onboarded: boolean;
   goals: string[];
@@ -57,9 +79,18 @@ type State = {
   recoveryReason?: string;
   recoveryStarted?: string;
   premium: boolean;
+  // Engagement & retention systems
+  insights: BehavioralInsight[];
+  daysOnApp: number; // how many days the user has been active
+  proofs: ExecutionProof[]; // circle execution proofs
+  lastOpenedAt?: string; // ISO date string for daily return tracking
   // actions
   setOnboarding: (g: string[], s: string[]) => void;
   setOnboardingProfile: (p: OnboardingProfile) => void;
+  dismissInsight: (id: string) => void;
+  unlockInsight: (id: string) => void;
+  addProof: (p: Omit<ExecutionProof, "id" | "timestamp">) => void;
+  recordOpen: () => void;
   toggleTask: (id: string) => void;
   addTask: (t: Omit<Task, "id" | "done">) => void;
   rescheduleTask: (id: string) => void;
@@ -79,6 +110,75 @@ const defaultTasks: Task[] = [
   { id: "t3", label: "Run · Zone 2", estMin: 30, done: true, type: "movement" },
   { id: "t4", label: "Wind down · screens off by 22:30", estMin: 0, done: false, type: "wind-down" },
 ];
+
+function seedInsights(): BehavioralInsight[] {
+  return [
+    {
+      id: "i1",
+      type: "pattern",
+      title: "You lose 41% focus quality after 8 PM.",
+      body: "Tasks logged after 20:00 produce measurably worse output. Protect the evening — it sets up tomorrow's execution window.",
+      unlocked: true,
+      unlockedAt: new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10),
+      dismissed: false,
+    },
+    {
+      id: "i2",
+      type: "breakthrough",
+      title: "Your best execution days follow movement.",
+      body: "Days after any physical activity average 23 points higher execution score. This is your highest-leverage behavioral input.",
+      unlocked: true,
+      unlockedAt: new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10),
+      dismissed: false,
+    },
+    {
+      id: "i3",
+      type: "warning",
+      title: "You overplan on Mondays — every week.",
+      body: "Monday plans average 5.2 priorities. Completion drops to 47%. The ambition is real. The capacity isn't there yet. Cap Mondays at 3.",
+      unlocked: true,
+      unlockedAt: new Date(Date.now() - 1 * 86400000).toISOString().slice(0, 10),
+      dismissed: false,
+    },
+    {
+      id: "i4",
+      type: "identity",
+      title: "Your recovery speed has doubled in 4 weeks.",
+      body: "You used to take 3.1 days to return to baseline after a setback. It's now 1.4 days. That's not willpower — that's a system working.",
+      unlocked: true,
+      unlockedAt: new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10),
+      dismissed: false,
+    },
+    {
+      id: "i5",
+      type: "pattern",
+      title: "Shorter task lists lead to faster recoveries.",
+      body: "After a missed day, days with 3 or fewer priorities recover momentum 2.1x faster than days with 5+. Less surface area, more execution.",
+      unlocked: false,
+      dismissed: false,
+    },
+    {
+      id: "i6",
+      type: "breakthrough",
+      title: "Your 9–11 AM window is neurologically optimal.",
+      body: "73% of your highest-quality work lands in this window. Guard it like a meeting you cannot cancel.",
+      unlocked: false,
+      dismissed: false,
+    },
+  ];
+}
+
+function seedProofs(): ExecutionProof[] {
+  const now = Date.now();
+  return [
+    { id: "p1", memberId: "u1", text: "Shipped signup screen · 2h", timestamp: new Date(now - 2 * 3600000).toISOString(), type: "deep-work" },
+    { id: "p2", memberId: "u2", text: "3hr linear algebra deep work — locked in", timestamp: new Date(now - 5 * 3600000).toISOString(), type: "deep-work" },
+    { id: "p3", memberId: "u3", text: "20 min review, accepted minimum viable day", timestamp: new Date(now - 8 * 3600000).toISOString(), type: "recovery" },
+    { id: "p4", memberId: "u4", text: "Zone 2 run · 32 min, no headphones", timestamp: new Date(now - 11 * 3600000).toISOString(), type: "movement" },
+    { id: "p5", memberId: "u5", text: "Closed 4 of 4 priorities", timestamp: new Date(now - 26 * 3600000).toISOString(), type: "milestone" },
+    { id: "p6", memberId: "u2", text: "Essay draft complete — 1400 words", timestamp: new Date(now - 28 * 3600000).toISOString(), type: "deep-work" },
+  ];
+}
 
 // Synthetic 28-day history with realistic variance and a recent dip
 function seedHistory(): DayLog[] {
@@ -118,10 +218,40 @@ export const useApp = create<State>()(
       history: seedHistory(),
       recoveryMode: false,
       premium: false,
+      insights: seedInsights(),
+      daysOnApp: 84,
+      proofs: seedProofs(),
+      lastOpenedAt: undefined,
 
       setOnboarding: (goals, struggles) => set({ onboarded: true, goals, struggles }),
 
       setOnboardingProfile: (p) => set({ profile: p, onboarded: true, goals: p.goals, struggles: p.struggles }),
+
+      dismissInsight: (id) =>
+        set((s) => ({ insights: s.insights.map((i) => (i.id === id ? { ...i, dismissed: true } : i)) })),
+
+      unlockInsight: (id) =>
+        set((s) => ({
+          insights: s.insights.map((i) =>
+            i.id === id ? { ...i, unlocked: true, unlockedAt: todayStr() } : i
+          ),
+        })),
+
+      addProof: (p) =>
+        set((s) => ({
+          proofs: [
+            { ...p, id: crypto.randomUUID(), timestamp: new Date().toISOString() },
+            ...s.proofs,
+          ],
+        })),
+
+      recordOpen: () => {
+        const today = todayStr();
+        const last = get().lastOpenedAt;
+        if (last !== today) {
+          set((s) => ({ lastOpenedAt: today, daysOnApp: s.daysOnApp + (last ? 1 : 0) }));
+        }
+      },
 
       toggleTask: (id) =>
         set((s) => ({
@@ -216,6 +346,9 @@ export const useApp = create<State>()(
           history: seedHistory(),
           recoveryMode: false,
           recoveryReason: undefined,
+          insights: seedInsights(),
+          proofs: seedProofs(),
+          daysOnApp: 84,
         }),
     }),
     { name: "cadence-store-v1" }
@@ -286,6 +419,39 @@ export function useResilience(): { score: number; avgRecoveryDays: number } {
   // Faster recovery → higher score (cap at 4 days)
   const score = Math.round(Math.max(20, Math.min(100, 100 - (avg - 1) * 18)));
   return { score, avgRecoveryDays: Math.round(avg * 10) / 10 };
+}
+
+// Derives user maturity level from days on app + consistency + resilience
+export function useMaturityLevel(): { level: MaturityLevel; label: string; daysToNext: number } {
+  const daysOnApp = useApp((s) => s.daysOnApp);
+  const history = useApp((s) => s.history);
+  const consistency = history.slice(-28).filter((d) => d.executionScore >= 60).length;
+  const consistencyPct = history.length ? consistency / Math.min(28, history.length) : 0;
+
+  if (daysOnApp < 14 || consistencyPct < 0.3) {
+    return { level: "calibrating", label: "Calibrating", daysToNext: Math.max(0, 14 - daysOnApp) };
+  }
+  if (daysOnApp < 30 || consistencyPct < 0.5) {
+    return { level: "building", label: "Building", daysToNext: Math.max(0, 30 - daysOnApp) };
+  }
+  if (daysOnApp < 60 || consistencyPct < 0.65) {
+    return { level: "consistent", label: "Consistent", daysToNext: Math.max(0, 60 - daysOnApp) };
+  }
+  if (daysOnApp < 90 || consistencyPct < 0.8) {
+    return { level: "advanced", label: "Advanced", daysToNext: Math.max(0, 90 - daysOnApp) };
+  }
+  return { level: "resilient", label: "Resilient", daysToNext: 0 };
+}
+
+// Returns unlocked, non-dismissed insights sorted by recency
+export function useActiveInsights(): BehavioralInsight[] {
+  return useApp((s) => s.insights.filter((i) => i.unlocked && !i.dismissed));
+}
+
+// Returns the single most important new insight (newest unread)
+export function useLatestInsight(): BehavioralInsight | null {
+  const insights = useActiveInsights();
+  return insights.length > 0 ? insights[insights.length - 1] : null;
 }
 
 export function useFakeProductivityFlags() {
