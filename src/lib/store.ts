@@ -228,6 +228,50 @@ export function useConsistency(days = 14): number {
   return Math.round((above / h.length) * 100);
 }
 
+export type UserState = "peak" | "steady" | "inconsistent" | "burnout" | "recovery";
+
+export function useUserState(): { state: UserState; label: string; tone: "success" | "accent" | "warning" | "danger" | "neutral" } {
+  const h = useApp((s) => s.history);
+  const recovery = useApp((s) => s.recoveryMode);
+  if (recovery) return { state: "recovery", label: "Recovery mode", tone: "warning" };
+  const last7 = h.slice(-7);
+  if (!last7.length) return { state: "steady", label: "Calibrating", tone: "neutral" };
+  const avg = last7.reduce((a, d) => a + d.executionScore, 0) / last7.length;
+  const lowSleep = last7.filter((d) => d.sleepHours < 6).length;
+  const lowDays = last7.filter((d) => d.executionScore < 50).length;
+  const mean = avg;
+  const variance = last7.reduce((a, d) => a + (d.executionScore - mean) ** 2, 0) / last7.length;
+  const sd = Math.sqrt(variance);
+  if (lowDays >= 3 && lowSleep >= 3) return { state: "burnout", label: "Burnout signals", tone: "danger" };
+  if (avg >= 75) return { state: "peak", label: "Peak window", tone: "success" };
+  if (sd > 14) return { state: "inconsistent", label: "Inconsistent", tone: "warning" };
+  return { state: "steady", label: "Steady state", tone: "accent" };
+}
+
+export function useResilience(): { score: number; avgRecoveryDays: number } {
+  const h = useApp((s) => s.history);
+  let dips = 0, totalDays = 0;
+  for (let i = 1; i < h.length; i++) {
+    if (h[i - 1].executionScore < 50 && h[i].executionScore >= 50) {
+      // find prior dip start
+      let start = i - 1;
+      while (start > 0 && h[start - 1].executionScore < 50) start--;
+      // find recovery to ≥65
+      for (let j = i; j < h.length; j++) {
+        if (h[j].executionScore >= 65) {
+          dips++;
+          totalDays += j - start;
+          break;
+        }
+      }
+    }
+  }
+  const avg = dips ? totalDays / dips : 2;
+  // Faster recovery → higher score (cap at 4 days)
+  const score = Math.round(Math.max(20, Math.min(100, 100 - (avg - 1) * 18)));
+  return { score, avgRecoveryDays: Math.round(avg * 10) / 10 };
+}
+
 export function useFakeProductivityFlags() {
   const h = useApp((s) => s.history).slice(-14);
   const tasks = useApp((s) => s.tasks);

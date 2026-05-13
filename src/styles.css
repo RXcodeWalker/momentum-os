@@ -99,6 +99,30 @@
   /* same as root — dark-first */
 }
 
+/* Adaptive UI states — environment shifts based on behavioral state */
+:root[data-mode="burnout"] {
+  --accent: oklch(0.72 0.06 230);
+  --accent-glow: oklch(0.78 0.08 230);
+  --gradient-accent: linear-gradient(135deg, oklch(0.78 0.08 230), oklch(0.65 0.06 250));
+  --gradient-glow: radial-gradient(60% 60% at 50% 0%, oklch(0.7 0.06 230 / 0.10), transparent 70%);
+}
+:root[data-mode="recovery"] {
+  --accent: oklch(0.78 0.10 200);
+  --accent-glow: oklch(0.84 0.11 200);
+  --gradient-accent: linear-gradient(135deg, oklch(0.84 0.11 200), oklch(0.72 0.10 220));
+  --gradient-glow: radial-gradient(60% 60% at 50% 0%, oklch(0.78 0.10 200 / 0.14), transparent 70%);
+}
+:root[data-mode="peak"] {
+  --accent: oklch(0.82 0.16 145);
+  --accent-glow: oklch(0.88 0.18 145);
+  --gradient-accent: linear-gradient(135deg, oklch(0.88 0.18 145), oklch(0.78 0.16 80));
+  --gradient-glow: radial-gradient(60% 60% at 50% 0%, oklch(0.82 0.16 145 / 0.22), transparent 70%);
+}
+:root[data-mode="inconsistent"] {
+  --accent: oklch(0.82 0.14 60);
+  --accent-glow: oklch(0.86 0.16 60);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
