@@ -10,7 +10,19 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
-import { Home, ClipboardCheck, LifeBuoy, BarChart3, User } from "lucide-react";
+import {
+  Home,
+  ClipboardCheck,
+  LifeBuoy,
+  BarChart3,
+  User,
+  LayoutDashboard,
+  Users,
+  Crown,
+  Calendar,
+} from "lucide-react";
+import { useUserState } from "@/lib/store";
+import { useEffect } from "react";
 
 function NotFoundComponent() {
   return (
@@ -79,26 +91,43 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-const navItems = [
-  { to: "/", label: "Home", icon: Home, exact: true },
+const primaryNav = [
+  { to: "/", label: "Today", icon: Home, exact: true },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/check-in", label: "Check-in", icon: ClipboardCheck },
+  { to: "/insights", label: "Insights", icon: BarChart3 },
+  { to: "/weekly", label: "Weekly", icon: Calendar },
+  { to: "/recovery", label: "Recovery", icon: LifeBuoy },
+  { to: "/circles", label: "Circles", icon: Users },
+  { to: "/identity", label: "Identity", icon: User },
+] as const;
+
+// Tighter mobile bottom nav (5 items)
+const mobileNav = [
+  { to: "/", label: "Today", icon: Home, exact: true },
   { to: "/check-in", label: "Check-in", icon: ClipboardCheck },
   { to: "/recovery", label: "Recovery", icon: LifeBuoy },
   { to: "/insights", label: "Insights", icon: BarChart3 },
-  { to: "/identity", label: "Identity", icon: User },
+  { to: "/identity", label: "You", icon: User },
 ] as const;
+
+function isActive(pathname: string, to: string, exact?: boolean) {
+  if (exact) return pathname === to;
+  return to !== "/" && pathname.startsWith(to);
+}
 
 function BottomNav() {
   const loc = useLocation();
   const hide = loc.pathname === "/onboarding";
   if (hide) return null;
   return (
-    <nav className="sticky bottom-0 z-30 mt-auto">
+    <nav className="sticky bottom-0 z-30 mt-auto lg:hidden">
       <div className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-t from-background to-transparent" />
       <div className="glass mx-3 mb-3 rounded-3xl px-2 py-2 shadow-elegant">
         <ul className="flex items-center justify-between">
-          {navItems.map((item) => {
+          {mobileNav.map((item) => {
             const Icon = item.icon;
-            const active = "exact" in item && item.exact ? loc.pathname === item.to : item.to !== "/" && loc.pathname.startsWith(item.to);
+            const active = isActive(loc.pathname, item.to, "exact" in item ? item.exact : false);
             return (
               <li key={item.to} className="flex-1">
                 <Link
@@ -119,24 +148,105 @@ function BottomNav() {
   );
 }
 
-function PhoneFrame({ children }: { children: React.ReactNode }) {
+function Sidebar() {
+  const loc = useLocation();
+  const { state, label, tone } = useUserState();
+  const toneClass: Record<string, string> = {
+    success: "bg-success/15 text-success border-success/20",
+    accent: "bg-accent/15 text-accent border-accent/20",
+    warning: "bg-warning/15 text-warning border-warning/20",
+    danger: "bg-danger/15 text-danger border-danger/20",
+    neutral: "bg-secondary text-muted-foreground border-border",
+  };
   return (
-    <div className="relative mx-auto flex min-h-screen w-full max-w-[440px] flex-col bg-background lg:my-6 lg:min-h-[calc(100vh-3rem)] lg:max-w-[420px] lg:rounded-[44px] lg:border lg:border-border lg:shadow-elegant lg:overflow-hidden">
-      <div className="flex flex-1 flex-col">{children}</div>
-      <BottomNav />
-    </div>
+    <aside className="hidden lg:flex lg:w-[260px] lg:flex-col lg:gap-2 lg:border-r lg:border-border lg:px-5 lg:py-7 lg:sticky lg:top-0 lg:h-screen">
+      <Link to="/" className="mb-6 flex items-center gap-2.5 px-2">
+        <div className="relative h-8 w-8 rounded-xl bg-gradient-accent shadow-glow" />
+        <div>
+          <p className="font-display text-xl leading-none text-foreground">Cadence</p>
+          <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Behavioral OS</p>
+        </div>
+      </Link>
+
+      <div className={`mb-4 rounded-2xl border px-3 py-2.5 text-[11px] ${toneClass[tone]}`}>
+        <p className="text-[9px] uppercase tracking-[0.18em] opacity-70">Current state</p>
+        <p className="mt-1 text-sm font-medium">{label}</p>
+        <p className="mt-0.5 text-[10px] opacity-70 capitalize">{state}</p>
+      </div>
+
+      <nav className="flex flex-col gap-0.5">
+        {primaryNav.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(loc.pathname, item.to, "exact" in item ? item.exact : false);
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
+                active
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+              }`}
+            >
+              <Icon
+                className={`h-[17px] w-[17px] ${active ? "text-accent" : "opacity-70 group-hover:opacity-100"}`}
+                strokeWidth={1.75}
+              />
+              <span className="font-medium tracking-tight">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="mt-auto">
+        <Link
+          to="/premium"
+          className="flex items-center gap-3 rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/10 to-transparent px-3 py-3 transition-all hover:border-accent/50"
+        >
+          <Crown className="h-4 w-4 text-accent" />
+          <div className="flex-1">
+            <p className="text-[12px] font-semibold text-foreground">Cadence Pro</p>
+            <p className="text-[10px] text-muted-foreground">Adaptive coaching</p>
+          </div>
+        </Link>
+      </div>
+    </aside>
   );
+}
+
+function AdaptiveStateBinding() {
+  const { state } = useUserState();
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.mode = state;
+  }, [state]);
+  return null;
 }
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const loc = useLocation();
+  const isOnboarding = loc.pathname === "/onboarding";
+
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen lg:flex lg:items-start lg:justify-center lg:bg-black lg:py-6">
-        <PhoneFrame>
+      <AdaptiveStateBinding />
+      {isOnboarding ? (
+        <div className="min-h-screen bg-background">
           <Outlet />
-        </PhoneFrame>
-      </div>
+        </div>
+      ) : (
+        <div className="min-h-screen bg-background lg:flex">
+          <Sidebar />
+          {/* Mobile: phone-like single column. Desktop: full command center. */}
+          <main className="relative mx-auto flex min-h-screen w-full max-w-[460px] flex-col lg:max-w-none lg:flex-1 lg:px-10 lg:py-8 lg:overflow-x-hidden">
+            <div className="flex flex-1 flex-col lg:max-w-[1280px] lg:mx-auto lg:w-full">
+              <Outlet />
+            </div>
+            <BottomNav />
+          </main>
+        </div>
+      )}
     </QueryClientProvider>
   );
 }
