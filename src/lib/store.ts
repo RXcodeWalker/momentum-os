@@ -34,10 +34,22 @@ export type DayLog = {
   recovery: boolean;
 };
 
+export type OnboardingProfile = {
+  goals: string[];
+  struggles: string[];
+  energyPeak: string[];
+  sleep: string[];
+  focus: string[];
+  workload: string[];
+  recovery: string[];
+  baselineScore: number;
+};
+
 type State = {
   onboarded: boolean;
   goals: string[];
   struggles: string[];
+  profile: OnboardingProfile | null;
   tasks: Task[];
   checkIns: CheckIn[];
   history: DayLog[]; // last 28d synthetic + new
@@ -47,6 +59,7 @@ type State = {
   premium: boolean;
   // actions
   setOnboarding: (g: string[], s: string[]) => void;
+  setOnboardingProfile: (p: OnboardingProfile) => void;
   toggleTask: (id: string) => void;
   addTask: (t: Omit<Task, "id" | "done">) => void;
   rescheduleTask: (id: string) => void;
@@ -99,6 +112,7 @@ export const useApp = create<State>()(
       onboarded: true,
       goals: ["coding", "studying", "fitness"],
       struggles: ["inconsistency", "overplanning"],
+      profile: null,
       tasks: defaultTasks,
       checkIns: [],
       history: seedHistory(),
@@ -106,6 +120,8 @@ export const useApp = create<State>()(
       premium: false,
 
       setOnboarding: (goals, struggles) => set({ onboarded: true, goals, struggles }),
+
+      setOnboardingProfile: (p) => set({ profile: p, onboarded: true, goals: p.goals, struggles: p.struggles }),
 
       toggleTask: (id) =>
         set((s) => ({
