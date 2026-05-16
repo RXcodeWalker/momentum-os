@@ -23,6 +23,11 @@ import {
 } from "lucide-react";
 import { useUserState } from "@/lib/store";
 import { useEffect } from "react";
+import { AuroraBackground } from "@/components/atmosphere/AuroraBackground";
+import { CommandPalette, CommandHint } from "@/components/command/CommandPalette";
+import { PageTransition } from "@/lib/motion";
+import { Toaster } from "sonner";
+import { motion, LayoutGroup } from "framer-motion";
 
 function NotFoundComponent() {
   return (
@@ -124,25 +129,34 @@ function BottomNav() {
     <nav className="sticky bottom-0 z-30 mt-auto lg:hidden">
       <div className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-t from-background to-transparent" />
       <div className="glass mx-3 mb-3 rounded-3xl px-2 py-2 shadow-elegant">
-        <ul className="flex items-center justify-between">
-          {mobileNav.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(loc.pathname, item.to, "exact" in item ? item.exact : false);
-            return (
-              <li key={item.to} className="flex-1">
-                <Link
-                  to={item.to}
-                  className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-2 transition-all ${
-                    active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Icon className={`h-[18px] w-[18px] ${active ? "text-accent" : ""}`} strokeWidth={1.75} />
-                  <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <LayoutGroup id="mobile-nav">
+          <ul className="relative flex items-center justify-between">
+            {mobileNav.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(loc.pathname, item.to, "exact" in item ? item.exact : false);
+              return (
+                <li key={item.to} className="relative flex-1">
+                  <Link
+                    to={item.to}
+                    className={`relative flex flex-col items-center gap-1 rounded-2xl px-2 py-2 transition-colors ${
+                      active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="mobile-nav-pill"
+                        className="absolute inset-0 -z-10 rounded-2xl bg-secondary"
+                        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                      />
+                    )}
+                    <Icon className={`h-[18px] w-[18px] ${active ? "text-accent" : ""}`} strokeWidth={1.75} />
+                    <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </LayoutGroup>
       </div>
     </nav>
   );
@@ -174,29 +188,38 @@ function Sidebar() {
         <p className="mt-0.5 text-[10px] opacity-70 capitalize">{state}</p>
       </div>
 
-      <nav className="flex flex-col gap-0.5">
-        {primaryNav.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(loc.pathname, item.to, "exact" in item ? item.exact : false);
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
-                active
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-              }`}
-            >
-              <Icon
-                className={`h-[17px] w-[17px] ${active ? "text-accent" : "opacity-70 group-hover:opacity-100"}`}
-                strokeWidth={1.75}
-              />
-              <span className="font-medium tracking-tight">{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      <LayoutGroup id="sidebar-nav">
+        <nav className="flex flex-col gap-0.5">
+          {primaryNav.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(loc.pathname, item.to, "exact" in item ? item.exact : false);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                  active
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+                }`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="sidebar-nav-pill"
+                    className="absolute inset-0 -z-10 rounded-xl bg-secondary"
+                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                  />
+                )}
+                <Icon
+                  className={`h-[17px] w-[17px] ${active ? "text-accent" : "opacity-70 group-hover:opacity-100"}`}
+                  strokeWidth={1.75}
+                />
+                <span className="font-medium tracking-tight">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </LayoutGroup>
 
       <div className="mt-auto">
         <Link
@@ -231,17 +254,35 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AdaptiveStateBinding />
+      <AuroraBackground />
+      <CommandPalette />
+      <Toaster
+        theme="dark"
+        position="bottom-center"
+        toastOptions={{
+          style: {
+            background: "var(--card)",
+            border: "1px solid var(--border)",
+            color: "var(--foreground)",
+            borderRadius: "14px",
+          },
+        }}
+      />
       {isOnboarding ? (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-transparent">
           <Outlet />
         </div>
       ) : (
-        <div className="min-h-screen bg-background lg:flex">
+        <div className="min-h-screen bg-transparent lg:flex">
           <Sidebar />
-          {/* Mobile: phone-like single column. Desktop: full command center. */}
           <main className="relative mx-auto flex min-h-screen w-full max-w-[460px] flex-col lg:max-w-none lg:flex-1 lg:px-10 lg:py-8 lg:overflow-x-hidden">
+            <div className="hidden lg:flex justify-end pb-4">
+              <CommandHint />
+            </div>
             <div className="flex flex-1 flex-col lg:max-w-[1280px] lg:mx-auto lg:w-full">
-              <Outlet />
+              <PageTransition>
+                <Outlet />
+              </PageTransition>
             </div>
             <BottomNav />
           </main>
