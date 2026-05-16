@@ -254,6 +254,7 @@ function FlowRow({
   label,
   desc,
   active,
+  done,
   to,
 }: {
   icon: React.ReactNode;
