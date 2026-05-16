@@ -53,6 +53,8 @@ function Home() {
     ? "Slipping"
     : "Steady";
 
+  const latestInsight = useLatestInsight();
+
   return (
     <div className="flex flex-col gap-4 pb-6 lg:gap-6 lg:pb-8">
       <ScreenHeader
@@ -69,55 +71,64 @@ function Home() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 px-5 lg:px-0 lg:grid-cols-12 lg:gap-5">
-        <section className="lg:col-span-7">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-surface p-6 hairline shadow-elegant lg:p-7">
-            <div className="bg-glow absolute inset-0" />
-            <div className="relative flex items-center gap-6 lg:gap-8">
-              <Ring value={score} size={140} stroke={11} label="Execution" sub="Today" />
-              <div className="flex-1 space-y-3">
-                <div>
-                  <StatLabel>Momentum</StatLabel>
-                  <p className="mt-1 text-lg font-medium text-foreground">{momentumLabel}</p>
-                  <div className={`mt-1 flex items-center gap-1.5 text-xs ${delta >= 0 ? "text-success" : "text-danger"}`}>
-                    <ArrowUpRight className={`h-3.5 w-3.5 ${delta < 0 ? "rotate-90" : ""}`} />
-                    <span className="num-tabular">{delta >= 0 ? "+" : ""}{delta} pts vs last week</span>
+      <FadeUp delay={0.05}>
+        <StateRibbon />
+      </FadeUp>
+
+      <Stagger className="grid grid-cols-1 gap-4 px-5 lg:px-0 lg:grid-cols-12 lg:gap-5" gap={0.07}>
+        <StaggerItem className="lg:col-span-7">
+          <TapCard>
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-surface p-6 hairline shadow-elegant lg:p-7">
+              <div className="bg-glow absolute inset-0 animate-pulse-glow" />
+              <div className="relative flex items-center gap-6 lg:gap-8">
+                <Ring value={score} size={140} stroke={11} label="Execution" sub="Today" />
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <StatLabel>Momentum</StatLabel>
+                    <p className="mt-1 text-lg font-medium text-foreground">{momentumLabel}</p>
+                    <div className={`mt-1 flex items-center gap-1.5 text-xs ${delta >= 0 ? "text-success" : "text-danger"}`}>
+                      <ArrowUpRight className={`h-3.5 w-3.5 ${delta < 0 ? "rotate-90" : ""}`} />
+                      <span className="num-tabular">{delta >= 0 ? "+" : ""}{delta} pts vs last week</span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {recoveryMode ? (
-                    <Pill tone="warning"><span className="h-1.5 w-1.5 rounded-full bg-warning" /> Recovery mode</Pill>
-                  ) : (
-                    <Pill tone={stateTone}>{stateLabel}</Pill>
-                  )}
-                  <Pill tone="accent">{consistency}% consistent · 14d</Pill>
-                  <Pill tone="neutral">Resilience {resilience}</Pill>
+                  <div className="flex flex-wrap gap-1.5">
+                    {recoveryMode ? (
+                      <Pill tone="warning"><span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" /> Recovery mode</Pill>
+                    ) : (
+                      <Pill tone={stateTone}>{stateLabel}</Pill>
+                    )}
+                    <Pill tone="accent">{consistency}% consistent · 14d</Pill>
+                    <Pill tone="neutral">Resilience {resilience}</Pill>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </TapCard>
+        </StaggerItem>
 
-        <section className="lg:col-span-5">
+        <StaggerItem className="lg:col-span-5">
           <Card className="h-full">
             <div className="mb-3 flex items-center justify-between">
               <StatLabel>Today's flow</StatLabel>
               <span className="text-[10px] text-muted-foreground capitalize">{phase}</span>
             </div>
-            <ul className="space-y-3">
-              <FlowRow icon={<Sunrise className="h-4 w-4" />} label="Morning" desc="Calibrate workload · 3 priorities" active={phase === "morning"} />
-              <FlowRow icon={<Sun className="h-4 w-4" />} label="Midday" desc="Distraction check · focus pulse" active={phase === "midday"} />
+            <ul className="space-y-1.5">
+              <FlowRow icon={<Sunrise className="h-4 w-4" />} label="Morning" desc="Calibrate workload · 3 priorities" active={phase === "morning"} done={phase !== "morning"} />
+              <FlowRow icon={<Sun className="h-4 w-4" />} label="Midday" desc="Distraction check · focus pulse" active={phase === "midday"} done={phase === "evening"} />
               <FlowRow icon={<Moon className="h-4 w-4" />} label="Evening" desc="Reflection · execution review" active={phase === "evening"} to="/check-in" />
             </ul>
           </Card>
-        </section>
+        </StaggerItem>
 
-        <section className="lg:col-span-7">
+        <StaggerItem className="lg:col-span-7">
           <Card>
             <div className="mb-4 flex items-end justify-between">
               <div>
                 <StatLabel>Execution trend · 14 days</StatLabel>
-                <p className="font-display mt-1 text-2xl text-foreground">{consistency}<span className="text-muted-foreground text-lg">%</span></p>
+                <p className="font-display mt-1 text-2xl text-foreground">
+                  <AnimatedNumber value={consistency} />
+                  <span className="text-muted-foreground text-lg">%</span>
+                </p>
               </div>
               <Pill tone={trend === "up" ? "success" : trend === "down" ? "danger" : "neutral"}>
                 {trend === "up" ? "Trending up" : trend === "down" ? "Slipping" : "Holding"}
@@ -128,18 +139,24 @@ function Home() {
               <span>2 weeks ago</span><span>1 week ago</span><span>Today</span>
             </div>
           </Card>
-        </section>
+        </StaggerItem>
 
-        <section className="lg:col-span-5">
+        <StaggerItem className="lg:col-span-5">
           <Card className="h-full">
             <StatLabel>Resilience</StatLabel>
-            <p className="font-display mt-1 text-2xl text-foreground">{resilience}<span className="text-muted-foreground text-base"> / 100</span></p>
+            <p className="font-display mt-1 text-2xl text-foreground">
+              <AnimatedNumber value={resilience} />
+              <span className="text-muted-foreground text-base"> / 100</span>
+            </p>
             <p className="mt-1 text-[12px] text-muted-foreground">Average bounce-back · {avgRecoveryDays} days</p>
             <div className="mt-3 grid grid-cols-7 gap-1">
               {history.slice(-7).map((d, i) => (
-                <div
+                <motion.div
                   key={i}
-                  className="aspect-[1/2] rounded-full"
+                  initial={{ scaleY: 0.4, opacity: 0 }}
+                  animate={{ scaleY: 1, opacity: 1 }}
+                  transition={{ duration: 0.45, delay: 0.2 + i * 0.04, ease: [0.22, 1, 0.36, 1] }}
+                  className="aspect-[1/2] rounded-full origin-bottom"
                   style={{
                     background:
                       d.executionScore >= 70
@@ -155,66 +172,77 @@ function Home() {
               All-or-nothing thinking destroys momentum. The system rewards how fast you return.
             </p>
           </Card>
-        </section>
-      </div>
+        </StaggerItem>
+      </Stagger>
+
+      {latestInsight && (
+        <div className="px-5 lg:px-0">
+          <BehavioralNote title={latestInsight.title} body={latestInsight.body} />
+        </div>
+      )}
 
       <TasksSection tasks={tasks} toggleTask={toggleTask} completed={completed} />
 
-      {recoveryMode && (
-        <section className="px-5 lg:px-0">
-          <Link to="/recovery" className="group block">
-            <Card className="bg-gradient-surface">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <StatLabel>Recovery protocol active</StatLabel>
-                  <p className="font-display mt-1 text-lg text-foreground">Open today's minimum viable plan</p>
-                  <p className="mt-1.5 max-w-[44ch] text-xs text-muted-foreground">
-                    We've reduced load to rebuild momentum. Three things, then rest.
-                  </p>
+      <AnimatePresence>
+        {recoveryMode && (
+          <motion.section
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="px-5 lg:px-0"
+          >
+            <Link to="/recovery" className="group block">
+              <Card className="bg-gradient-surface">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <StatLabel>Recovery protocol active</StatLabel>
+                    <p className="font-display mt-1 text-lg text-foreground">Open today's minimum viable plan</p>
+                    <p className="mt-1.5 max-w-[44ch] text-xs text-muted-foreground">
+                      We've reduced load to rebuild momentum. Three things, then rest.
+                    </p>
+                  </div>
+                  <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                 </div>
-                <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-              </div>
-            </Card>
-          </Link>
-        </section>
-      )}
+              </Card>
+            </Link>
+          </motion.section>
+        )}
+      </AnimatePresence>
 
-      <section className="px-5 lg:px-0 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-        <Link to="/dashboard">
-          <Card>
-            <Sparkles className="h-4 w-4 text-accent" />
-            <p className="mt-2 text-sm font-medium text-foreground">Command center</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Deep analytics</p>
-          </Card>
-        </Link>
-        <Link to="/weekly">
-          <Card>
-            <Sparkles className="h-4 w-4 text-accent" />
-            <p className="mt-2 text-sm font-medium text-foreground">Weekly report</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Patterns this week</p>
-          </Card>
-        </Link>
-        <Link to="/circles">
-          <Card>
-            <Sparkles className="h-4 w-4 text-accent" />
-            <p className="mt-2 text-sm font-medium text-foreground">Trusted circles</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Proof-based</p>
-          </Card>
-        </Link>
-        <Link to="/premium">
-          <Card>
-            <Crown className="h-4 w-4 text-accent" />
-            <p className="mt-2 text-sm font-medium text-foreground">Cadence Pro</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Adaptive coaching</p>
-          </Card>
-        </Link>
-      </section>
+      <Stagger className="px-5 lg:px-0 grid grid-cols-2 gap-2.5 lg:grid-cols-4" gap={0.05}>
+        {[
+          { to: "/dashboard", label: "Command center", desc: "Deep analytics", icon: Sparkles },
+          { to: "/weekly", label: "Weekly report", desc: "Patterns this week", icon: Sparkles },
+          { to: "/circles", label: "Trusted circles", desc: "Proof-based", icon: Sparkles },
+          { to: "/premium", label: "Cadence Pro", desc: "Adaptive coaching", icon: Crown },
+        ].map((q) => {
+          const Icon = q.icon;
+          return (
+            <StaggerItem key={q.to}>
+              <Link to={q.to}>
+                <TapCard>
+                  <Card>
+                    <Icon className="h-4 w-4 text-accent" />
+                    <p className="mt-2 text-sm font-medium text-foreground">{q.label}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{q.desc}</p>
+                  </Card>
+                </TapCard>
+              </Link>
+            </StaggerItem>
+          );
+        })}
+      </Stagger>
 
       <section className="px-5 lg:px-0">
         <Link to="/check-in">
-          <button className="w-full rounded-2xl bg-foreground py-4 text-sm font-semibold text-background transition-transform active:scale-[0.99] lg:max-w-md">
-            Start evening check-in
-          </button>
+          <motion.button
+            whileHover={{ scale: 1.005 }}
+            whileTap={{ scale: 0.985 }}
+            className="relative w-full overflow-hidden rounded-2xl bg-foreground py-4 text-sm font-semibold text-background lg:max-w-md"
+          >
+            <span className="relative z-10">Start evening check-in</span>
+            <span className="absolute inset-0 animate-shimmer" />
+          </motion.button>
         </Link>
       </section>
     </div>
