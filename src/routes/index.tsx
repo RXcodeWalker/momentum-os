@@ -260,16 +260,17 @@ function FlowRow({
   label: string;
   desc: string;
   active?: boolean;
+  done?: boolean;
   to?: string;
 }) {
   const inner = (
     <div
-      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
-        active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"
+      className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
+        active ? "bg-secondary text-foreground" : done ? "text-muted-foreground/60" : "text-muted-foreground hover:text-foreground"
       }`}
     >
-      <span className={`flex h-8 w-8 flex-none items-center justify-center rounded-lg ${active ? "bg-accent/15 text-accent" : "bg-secondary text-muted-foreground"}`}>
-        {icon}
+      <span className={`flex h-8 w-8 flex-none items-center justify-center rounded-lg ${active ? "bg-accent/15 text-accent" : done ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}>
+        {done && !active ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : icon}
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{label}</p>
