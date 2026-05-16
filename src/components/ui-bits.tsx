@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 import { AnimatedNumber } from "@/lib/motion";
 import { motion } from "framer-motion";
 
+export function ScreenHeader({ eyebrow, title, subtitle, right }: { eyebrow?: string; title: string; subtitle?: string; right?: ReactNode }) {
   return (
     <header className="px-5 pt-8 pb-5 animate-fade-up">
       <div className="flex items-start justify-between gap-3">
