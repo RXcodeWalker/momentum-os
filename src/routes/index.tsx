@@ -299,21 +299,32 @@ function TasksSection({ tasks, toggleTask, completed }: { tasks: ReturnType<type
         {tasks.map((t) => {
           const done = t.done;
           return (
-            <button
+            <motion.button
               key={t.id}
-              onClick={() => toggleTask(t.id)}
-              className={`hairline flex w-full items-center gap-3 rounded-2xl bg-card px-4 py-3 text-left transition-all active:scale-[0.99]`}
+              layout
+              whileTap={{ scale: 0.985 }}
+              onClick={() => {
+                toggleTask(t.id);
+                if (!done) toast.success("Logged · execution +", { description: t.label, duration: 1800 });
+              }}
+              className="hairline flex w-full items-center gap-3 rounded-2xl bg-card px-4 py-3 text-left transition-colors hover:bg-card/80"
             >
-              <span className={`flex h-6 w-6 flex-none items-center justify-center rounded-lg border transition ${done ? "border-success bg-success/15 text-success" : "border-border bg-secondary text-transparent"}`}>
-                <Check className="h-3.5 w-3.5" strokeWidth={3} />
+              <span className={`flex h-6 w-6 flex-none items-center justify-center rounded-lg border transition-all ${done ? "border-success bg-success/15 text-success scale-100" : "border-border bg-secondary text-transparent"}`}>
+                <motion.span
+                  initial={false}
+                  animate={done ? { scale: 1, opacity: 1 } : { scale: 0.6, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                >
+                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                </motion.span>
               </span>
               <div className="min-w-0 flex-1">
-                <p className={`truncate text-sm ${done ? "text-muted-foreground line-through" : "text-foreground"}`}>{t.label}</p>
+                <p className={`truncate text-sm transition-colors ${done ? "text-muted-foreground line-through" : "text-foreground"}`}>{t.label}</p>
                 <p className="text-[11px] text-muted-foreground">
                   {t.estMin > 0 ? `${t.estMin} min` : "—"} · {t.type}
                 </p>
               </div>
-            </button>
+            </motion.button>
           );
         })}
         {adding ? (
