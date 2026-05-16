@@ -1,8 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, Pill, Ring, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
 import { ArrowUpRight, Check, Crown, Plus, RotateCcw, Sparkles, Sunrise, Sun, Moon } from "lucide-react";
-import { useApp, useConsistency, useExecutionScore, useMomentum, useResilience, useUserState } from "@/lib/store";
+import { useApp, useConsistency, useExecutionScore, useMomentum, useResilience, useUserState, useLatestInsight } from "@/lib/store";
 import { useMemo, useState } from "react";
+import { Stagger, StaggerItem, TapCard, AnimatedNumber, FadeUp } from "@/lib/motion";
+import { StateRibbon } from "@/components/cards/StateRibbon";
+import { BehavioralNote } from "@/components/cards/BehavioralNote";
+import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 
 export const Route = createFileRoute("/")({
   head: () => ({
