@@ -1,4 +1,7 @@
+"use client";
 import { ReactNode } from "react";
+import { AnimatedNumber } from "@/lib/motion";
+import { motion } from "framer-motion";
 
 export function ScreenHeader({ eyebrow, title, subtitle, right }: { eyebrow?: string; title: string; subtitle?: string; right?: ReactNode }) {
   return (
@@ -42,21 +45,22 @@ export function Pill({ children, tone = "neutral" }: { children: ReactNode; tone
   );
 }
 
-export function Ring({ value, size = 132, stroke = 10, label, sub }: { value: number; size?: number; stroke?: number; label?: string; sub?: string }) {
+export function Ring({ value, size = 132, stroke = 10, label, sub, pulse = true }: { value: number; size?: number; stroke?: number; label?: string; sub?: string; pulse?: boolean }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const offset = c - (Math.min(Math.max(value, 0), 100) / 100) * c;
+  const clamped = Math.min(Math.max(value, 0), 100);
+  const offset = c - (clamped / 100) * c;
   return (
     <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
+      <svg width={size} height={size} className={`-rotate-90 ${pulse ? "ring-pulse" : ""}`}>
         <defs>
           <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="oklch(0.85 0.16 80)" />
-            <stop offset="100%" stopColor="oklch(0.7 0.16 30)" />
+            <stop offset="0%" stopColor="var(--accent-glow)" />
+            <stop offset="100%" stopColor="var(--accent)" />
           </linearGradient>
         </defs>
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="oklch(1 0 0 / 0.08)" strokeWidth={stroke} fill="none" />
-        <circle
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="oklch(1 0 0 / 0.07)" strokeWidth={stroke} fill="none" />
+        <motion.circle
           cx={size / 2}
           cy={size / 2}
           r={r}
@@ -65,12 +69,13 @@ export function Ring({ value, size = 132, stroke = 10, label, sub }: { value: nu
           strokeLinecap="round"
           fill="none"
           strokeDasharray={c}
-          strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.2, 0.8, 0.2, 1)" }}
+          initial={{ strokeDashoffset: c }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-4xl num-tabular text-foreground">{Math.round(value)}</span>
+        <AnimatedNumber value={clamped} className="font-display text-4xl num-tabular text-foreground" />
         {label && <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mt-1">{label}</span>}
         {sub && <span className="text-[10px] text-muted-foreground/80 mt-0.5">{sub}</span>}
       </div>
