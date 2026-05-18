@@ -1,20 +1,50 @@
 "use client";
-import { Quote, Sparkles, X } from "lucide-react";
+import { Quote, Sparkles, X, ChevronRight } from "lucide-react";
 import { Pill, StatLabel } from "@/components/ui-bits";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useApp } from "@/lib/store";
+import { toast } from "sonner";
 
 export function BehavioralNote({
   title,
   body,
   confidence = 87,
+  onDismiss,
+  actionType,
+  actionLabel,
 }: {
   title: string;
   body: string;
   confidence?: number;
+  onDismiss?: () => void;
+  actionType?: "prune" | "recovery" | "none";
+  actionLabel?: string;
 }) {
   const [dismissed, setDismissed] = useState(false);
+  const pruneTasks = useApp((s) => s.pruneTasks);
+  const enterRecovery = useApp((s) => s.enterRecovery);
+
   if (dismissed) return null;
+
+  const handleAction = () => {
+    if (actionType === "prune") {
+      pruneTasks();
+      toast.success("Priorities pruned", {
+        description: "Surface area reduced to sustainable levels.",
+      });
+      setDismissed(true);
+      onDismiss?.();
+    } else if (actionType === "recovery") {
+      enterRecovery("AI detected burnout risk");
+      toast.success("Recovery protocol activated", {
+        description: "Switching to tactical stabilization mode.",
+      });
+      setDismissed(true);
+      onDismiss?.();
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -31,7 +61,10 @@ export function BehavioralNote({
           <div className="mb-2 flex items-center justify-between gap-2">
             <StatLabel>Behavioral pattern</StatLabel>
             <button
-              onClick={() => setDismissed(true)}
+              onClick={() => {
+                setDismissed(true);
+                onDismiss?.();
+              }}
               className="opacity-50 transition hover:opacity-100"
               aria-label="Dismiss"
             >
@@ -45,9 +78,20 @@ export function BehavioralNote({
             </p>
           </div>
           <p className="mt-2 pl-5 text-[13px] leading-relaxed text-muted-foreground">{body}</p>
-          <div className="mt-3 flex items-center gap-2 pl-5">
-            <Pill tone="accent">{confidence}% confidence</Pill>
-            <span className="text-[11px] text-muted-foreground">· detected across 28 days</span>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pl-5">
+            <div className="flex items-center gap-2">
+              <Pill tone="accent">{confidence}% confidence</Pill>
+              <span className="text-[11px] text-muted-foreground">· detected across 28 days</span>
+            </div>
+            {actionType && actionType !== "none" && (
+              <button
+                onClick={handleAction}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-foreground px-4 py-2 text-xs font-semibold text-background transition hover:opacity-90 active:scale-95"
+              >
+                {actionLabel || "Take Action"}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>

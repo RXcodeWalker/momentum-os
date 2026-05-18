@@ -1,14 +1,40 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Card, Pill, Ring, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
+import { BarRow, Card, Pill, Ring, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
 import { ExecutionHeatmap } from "@/components/heatmap";
-import { useApp, useFakeProductivityFlags } from "@/lib/store";
-import { ArrowLeft, Brain, Crown, Quote, Sparkles, Target, TrendingUp } from "lucide-react";
+import {
+  useActiveInsights,
+  useApp,
+  useConsistency,
+  useFakeProductivityFlags,
+  useMaturityLevel,
+  useMomentum,
+  useResilience,
+  useStreakContext,
+  useDayOfWeekProfile,
+  useDistractionProfile,
+} from "@/lib/store";
+import {
+  ArrowLeft,
+  Brain,
+  Crown,
+  Quote,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Shield,
+  Zap,
+  CheckCircle2,
+} from "lucide-react";
+import { Stagger, StaggerItem, TapCard, FadeUp } from "@/lib/motion";
 
 export const Route = createFileRoute("/weekly")({
   head: () => ({
     meta: [
       { title: "Weekly report — Cadence" },
-      { name: "description", content: "A behavioral report card. Patterns, wins, and next-week leverage." },
+      {
+        name: "description",
+        content: "A behavioral report card. Patterns, wins, and next-week leverage.",
+      },
     ],
   }),
   component: Weekly,
@@ -16,58 +42,253 @@ export const Route = createFileRoute("/weekly")({
 
 function Weekly() {
   const history = useApp((s) => s.history);
+  const principles = useApp((s) => s.principles);
   const flags = useFakeProductivityFlags();
+  const momentum = useMomentum();
+  const consistency = useConsistency(14);
+  const resilience = useResilience();
+  const maturity = useMaturityLevel();
+  const activeInsights = useActiveInsights();
+
+  const streakCtx = useStreakContext();
+  const dowProfile = useDayOfWeekProfile();
+  const distractionProfile = useDistractionProfile();
+
   const week = history.slice(-7);
-  const prev = history.slice(-14, -7);
 
-  const avg = (arr: { executionScore: number }[]) =>
-    arr.length ? Math.round(arr.reduce((a, d) => a + d.executionScore, 0) / arr.length) : 0;
+  const wkAvg = Math.round(
+    week.length ? week.reduce((a, d) => a + d.executionScore, 0) / week.length : 0,
+  );
+  const delta = momentum.delta;
 
-  const wkAvg = avg(week);
-  const prevAvg = avg(prev);
-  const delta = wkAvg - prevAvg;
-
-  const totalDeep = week.reduce((a, d) => a + d.completed, 0);
-  const bestDay = week.reduce((b, d) => (d.executionScore > b.executionScore ? d : b), week[0]);
   const worstDay = week.reduce((b, d) => (d.executionScore < b.executionScore ? d : b), week[0]);
+  const bestDay = week.reduce((b, d) => (d.executionScore > b.executionScore ? d : b), week[0]);
+
+  // Task breakdown (derived from focus and recovery historical data)
+  const totalCompleted = week.reduce((a, d) => a + d.completed, 0);
+  const avgFocus = week.reduce((a, d) => a + d.focus, 0) / Math.max(1, week.length);
+  const recoveryDays = week.filter((d) => d.recovery).length;
+
+  const deepCount = Math.round((avgFocus / 10) * totalCompleted);
+  const movementCount = Math.round((recoveryDays / Math.max(1, week.length)) * totalCompleted);
+  const remaining = Math.max(0, totalCompleted - deepCount - movementCount);
+  const shallowCount = Math.round(remaining * 0.7);
+  const windDownCount = remaining - shallowCount;
+
+  const taskMix = {
+    deep: deepCount,
+    shallow: shallowCount,
+    movement: movementCount,
+    windDown: windDownCount,
+  };
+
+  const quote = principles[week.length % principles.length] || "Reliability compounds.";
 
   return (
-    <div className="flex flex-col gap-5 pb-6">
+    <Stagger className="flex flex-col gap-5 pb-6">
       <ScreenHeader
         eyebrow="Sunday · weekly debrief"
         title="Week in review."
         subtitle="A behavioral snapshot — not a scoreboard."
         right={
-          <Link to="/insights" className="hairline flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:text-foreground">
+          <Link
+            to="/insights"
+            className="hairline flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" />
           </Link>
         }
       />
 
-      <section className="px-5">
+      <StaggerItem className="px-5">
         <Card className="bg-gradient-surface">
           <div className="flex items-center gap-5">
             <Ring value={wkAvg} label="Avg score" />
             <div>
               <StatLabel>vs last week</StatLabel>
-              <p className={`font-display mt-1 text-3xl num-tabular ${delta >= 0 ? "text-success" : "text-danger"}`}>
-                {delta >= 0 ? "+" : ""}{delta}
+              <p
+                className={`font-display mt-1 text-3xl num-tabular ${delta >= 0 ? "text-success" : "text-danger"}`}
+              >
+                {delta >= 0 ? "+" : ""}
+                {delta}
               </p>
               <p className="mt-1 text-xs text-muted-foreground max-w-[22ch]">
-                {delta >= 0 ? "Reliable upward drift." : "Pulled down by mid-week dip."}
+                {momentum.trend === "up"
+                  ? "Reliable upward drift."
+                  : momentum.trend === "down"
+                    ? "Execution velocity is cooling."
+                    : "Maintaining baseline momentum."}
               </p>
             </div>
           </div>
         </Card>
-      </section>
+      </StaggerItem>
 
-      <section className="px-5 grid grid-cols-3 gap-2.5">
-        <Stat label="Deep tasks" value={totalDeep} unit="" />
-        <Stat label="Best day" value={bestDay.executionScore} unit="" sub={new Date(bestDay.date).toLocaleDateString("en-US", { weekday: "short" })} />
-        <Stat label="Worst day" value={worstDay.executionScore} unit="" sub={new Date(worstDay.date).toLocaleDateString("en-US", { weekday: "short" })} />
-      </section>
+      <StaggerItem className="px-5">
+        <Card>
+          <StatLabel className="mb-4 block">Execution Mix</StatLabel>
+          <div className="space-y-4">
+            <BarRow label="Deep Work" value={taskMix.deep} max={totalCompleted} tone="accent" />
+            <BarRow label="Shallow / Admin" value={taskMix.shallow} max={totalCompleted} />
+            <BarRow label="Movement" value={taskMix.movement} max={totalCompleted} tone="accent" />
+            <BarRow label="Wind-down" value={taskMix.windDown} max={totalCompleted} />
+          </div>
+          <p className="mt-4 text-[10px] text-muted-foreground leading-relaxed">
+            Your execution is{" "}
+            {taskMix.deep > taskMix.shallow
+              ? "weighted towards high-leverage deep work."
+              : "heavily split by admin tasks."}
+          </p>
+        </Card>
+      </StaggerItem>
 
-      <section className="px-5">
+      <StaggerItem className="px-5 grid grid-cols-3 gap-2.5">
+        <Stat label="Tasks done" value={totalCompleted} unit="" />
+        <Stat
+          label="Best day"
+          value={bestDay.executionScore}
+          unit=""
+          sub={new Date(bestDay.date).toLocaleDateString("en-US", { weekday: "short" })}
+        />
+        <Stat
+          label="Worst day"
+          value={worstDay.executionScore}
+          unit=""
+          sub={new Date(worstDay.date).toLocaleDateString("en-US", { weekday: "short" })}
+        />
+      </StaggerItem>
+
+      <StaggerItem className="px-5 grid grid-cols-3 gap-2.5">
+        <Card>
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="h-3 w-3 text-accent" />
+            <StatLabel>Resilience</StatLabel>
+          </div>
+          <p className="font-display text-2xl num-tabular text-foreground">
+            {resilience.score}
+            <span className="text-xs text-muted-foreground ml-1">pts</span>
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {resilience.avgRecoveryDays}d avg recovery
+          </p>
+        </Card>
+        <Card>
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle2 className="h-3 w-3 text-success" />
+            <StatLabel>Consistency</StatLabel>
+          </div>
+          <p className="font-display text-2xl num-tabular text-foreground">
+            {consistency}
+            <span className="text-xs text-muted-foreground ml-1">%</span>
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-1">Last 14 days</p>
+        </Card>
+        <Card>
+          <div className="flex items-center gap-2 mb-2">
+            <Zap className="h-3 w-3 text-warning" />
+            <StatLabel>Streak</StatLabel>
+          </div>
+          <p className="font-display text-2xl num-tabular text-foreground">
+            {streakCtx.currentStreak}
+            <span className="text-xs text-muted-foreground ml-1">d</span>
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {streakCtx.streakType === "resilience" ? "resilience" : "exec"} · best{" "}
+            {streakCtx.longest}d
+          </p>
+        </Card>
+      </StaggerItem>
+
+      {/* Day-of-week performance */}
+      {dowProfile.bestDay && (
+        <StaggerItem className="px-5">
+          <Card>
+            <StatLabel className="mb-3 block">Day-of-Week Performance</StatLabel>
+            <div className="flex items-end gap-1.5 h-16">
+              {[0, 1, 2, 3, 4, 5, 6].map((dow) => {
+                const stats = dowProfile.byDay[dow];
+                const score = stats?.avgScore ?? 0;
+                const isBest = dowProfile.bestDay?.dow === dow;
+                const isWorst = dowProfile.worstDay?.dow === dow;
+                return (
+                  <div key={dow} className="flex flex-1 flex-col items-center gap-1">
+                    <div
+                      className={`w-full rounded-t-sm ${isBest ? "bg-success" : isWorst ? "bg-danger/60" : "bg-accent/40"}`}
+                      style={{ height: `${Math.max(8, score)}%` }}
+                    />
+                    <span
+                      className={`text-[9px] font-medium ${isBest ? "text-success" : isWorst ? "text-danger/80" : "text-muted-foreground"}`}
+                    >
+                      {dowProfile.dayNames[dow].slice(0, 1)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[10px]">
+              <span className="text-success font-semibold">
+                {dowProfile.bestDay.dayName}: ~{dowProfile.bestDay.avgScore}
+              </span>
+              {dowProfile.worstDay && (
+                <span className="text-danger/80 font-semibold">
+                  {dowProfile.worstDay.dayName}: ~{dowProfile.worstDay.avgScore}
+                </span>
+              )}
+            </div>
+          </Card>
+        </StaggerItem>
+      )}
+
+      {/* Distraction mix */}
+      {distractionProfile.topDistractors.length > 0 && (
+        <StaggerItem className="px-5">
+          <Card>
+            <StatLabel className="mb-3 block">Distraction Mix · This Week</StatLabel>
+            <div className="space-y-2.5">
+              {distractionProfile.topDistractors.slice(0, 4).map((d) => (
+                <div key={d.id} className="flex items-center gap-2">
+                  <span className="text-sm text-foreground capitalize flex-1">
+                    {d.id.replace("-", " ")}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">{d.frequency}d</span>
+                  <span
+                    className={`text-xs font-semibold ${d.avgScoreImpact < -3 ? "text-danger" : d.avgScoreImpact < 0 ? "text-warning" : "text-muted-foreground"}`}
+                  >
+                    {d.avgScoreImpact > 0 ? "+" : ""}
+                    {d.avgScoreImpact} pts
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </StaggerItem>
+      )}
+
+      <StaggerItem className="px-5">
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Zap className="h-3 w-3 text-warning" />
+              <StatLabel>Maturity Level</StatLabel>
+            </div>
+            <Pill tone="accent">{maturity.label}</Pill>
+          </div>
+          <div className="space-y-3">
+            <BarRow
+              label="Progress to next level"
+              value={100 - (maturity.daysToNext / 30) * 100}
+              tone="accent"
+            />
+            <p className="text-[10px] text-muted-foreground text-center">
+              {maturity.daysToNext > 0
+                ? `${maturity.daysToNext} days remaining until level up`
+                : "Max level reached"}
+            </p>
+          </div>
+        </Card>
+      </StaggerItem>
+
+      <StaggerItem className="px-5">
         <Card>
           <StatLabel>Daily execution · this week</StatLabel>
           <div className="mt-4 flex h-32 items-end gap-2">
@@ -86,32 +307,41 @@ function Weekly() {
             ))}
           </div>
         </Card>
-      </section>
+      </StaggerItem>
 
-      <section className="px-5">
+      <StaggerItem className="px-5">
         <Card>
           <StatLabel>Heatmap · 4 weeks</StatLabel>
           <div className="mt-4">
             <ExecutionHeatmap weeks={4} />
           </div>
         </Card>
-      </section>
+      </StaggerItem>
 
-      <section className="px-5 space-y-3">
-        <h2 className="px-1 text-sm font-semibold tracking-tight text-foreground">This week's behavioral signals</h2>
-        {[
-          { icon: TrendingUp, title: "Sleep is your top lever", body: `Days you slept >7h averaged ${Math.round(wkAvg + 8)} execution. Below 6h: ${Math.max(20, wkAvg - 18)}.`, tone: "success" as const },
-          { icon: Brain, title: "You overplanned twice this week", body: "Tuesday and Thursday: 6+ priorities each. Both days dropped completion to <50%.", tone: "warning" as const },
-          { icon: Sparkles, title: "Mornings are sacred", body: "9–11 AM is your highest-focus window. 73% of your deep work landed here.", tone: "accent" as const },
-        ].map((x, i) => {
-          const Icon = x.icon;
-          return (
-            <Card key={i}>
+      <StaggerItem className="px-5 space-y-3">
+        <h2 className="px-1 text-sm font-semibold tracking-tight text-foreground">
+          Behavioral insights
+        </h2>
+        {activeInsights.length > 0 ? (
+          activeInsights.slice(-3).map((x, i) => (
+            <Card key={x.id}>
               <div className="flex items-start gap-3">
-                <div className={`flex h-9 w-9 flex-none items-center justify-center rounded-xl ${
-                  x.tone === "warning" ? "bg-warning/15 text-warning" : x.tone === "success" ? "bg-success/15 text-success" : "bg-accent/15 text-accent"
-                }`}>
-                  <Icon className="h-4 w-4" />
+                <div
+                  className={`flex h-9 w-9 flex-none items-center justify-center rounded-xl ${
+                    x.type === "warning"
+                      ? "bg-warning/15 text-warning"
+                      : x.type === "breakthrough"
+                        ? "bg-success/15 text-success"
+                        : "bg-accent/15 text-accent"
+                  }`}
+                >
+                  {x.type === "warning" ? (
+                    <Brain className="h-4 w-4" />
+                  ) : x.type === "breakthrough" ? (
+                    <TrendingUp className="h-4 w-4" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">{x.title}</p>
@@ -119,67 +349,98 @@ function Weekly() {
                 </div>
               </div>
             </Card>
-          );
-        })}
-      </section>
+          ))
+        ) : (
+          <p className="px-1 text-xs text-muted-foreground">
+            No behavioral patterns identified yet. Keep logging to unlock.
+          </p>
+        )}
+      </StaggerItem>
 
-      <section className="px-5">
+      <StaggerItem className="px-5">
         <Card className="bg-gradient-surface">
           <div className="flex items-start gap-3">
             <Quote className="h-5 w-5 text-accent flex-none mt-0.5" />
-            <p className="font-display text-lg leading-snug text-foreground">
-              You're getting more <span className="text-gradient">predictable</span> — and that's the entire game. Reliability compounds.
-            </p>
+            <p className="font-display text-lg leading-snug text-foreground">{quote}</p>
           </div>
         </Card>
-      </section>
+      </StaggerItem>
 
-      <section className="px-5 space-y-2">
-        <h2 className="px-1 text-sm font-semibold tracking-tight text-foreground">Next week · leverage</h2>
+      <StaggerItem className="px-5 space-y-2">
+        <h2 className="px-1 text-sm font-semibold tracking-tight text-foreground">
+          Next week · leverage
+        </h2>
         <Card>
           <div className="space-y-3">
-            {[
-              { t: "Cap daily priorities at 3", note: "Projected execution lift: +18%" },
-              { t: "Protect 9–11 AM as deep-work block", note: "Aligns with your peak focus window" },
-              { t: "One non-negotiable: 7h sleep minimum", note: "Single biggest predictor of next-day score" },
-            ].map((x, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-md bg-accent/20 text-accent text-[10px] font-bold num-tabular">{i + 1}</div>
+            {flags.flags.length > 0 ? (
+              flags.flags.map((t, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-md bg-accent/20 text-accent text-[10px] font-bold num-tabular">
+                    {i + 1}
+                  </div>
+                  <div>
+                    <p className="text-sm text-foreground">{t}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-md bg-success/20 text-success text-[10px] font-bold num-tabular">
+                  !
+                </div>
                 <div>
-                  <p className="text-sm text-foreground">{x.t}</p>
-                  <p className="text-[11px] text-muted-foreground">{x.note}</p>
+                  <p className="text-sm text-foreground">Perfect execution rhythm detected.</p>
+                  <p className="text-[11px] text-muted-foreground">Maintain current protocols.</p>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         </Card>
-      </section>
+      </StaggerItem>
 
-      <section className="px-5">
+      <StaggerItem className="px-5">
         <Link to="/premium">
-          <Card className="bg-gradient-surface">
+          <TapCard className="bg-gradient-surface p-5 hairline rounded-3xl">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <Pill tone="accent"><Crown className="h-3 w-3" /> Pro</Pill>
-                <p className="font-display mt-2 text-lg text-foreground">Unlock adaptive coaching</p>
+                <Pill tone="accent">
+                  <Crown className="h-3 w-3" /> Pro
+                </Pill>
+                <p className="font-display mt-2 text-lg text-foreground">
+                  Unlock adaptive coaching
+                </p>
                 <p className="mt-1 max-w-[28ch] text-xs text-muted-foreground">
-                  Personalized weekly protocols, focus pattern analysis, and predictive recovery alerts.
+                  Personalized weekly protocols, focus pattern analysis, and predictive recovery
+                  alerts.
                 </p>
               </div>
               <Target className="h-5 w-5 text-accent" />
             </div>
-          </Card>
+          </TapCard>
         </Link>
-      </section>
-    </div>
+      </StaggerItem>
+    </Stagger>
   );
 }
 
-function Stat({ label, value, unit, sub }: { label: string; value: number | string; unit: string; sub?: string }) {
+function Stat({
+  label,
+  value,
+  unit,
+  sub,
+}: {
+  label: string;
+  value: number | string;
+  unit: string;
+  sub?: string;
+}) {
   return (
     <Card>
       <StatLabel>{label}</StatLabel>
-      <p className="font-display mt-1 text-2xl num-tabular text-foreground">{value}<span className="text-sm text-muted-foreground">{unit}</span></p>
+      <p className="font-display mt-1 text-2xl num-tabular text-foreground">
+        {value}
+        <span className="text-sm text-muted-foreground">{unit}</span>
+      </p>
       {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
     </Card>
   );

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useUserState } from "@/lib/store";
 import { useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { AuroraBackground } from "@/components/atmosphere/AuroraBackground";
 import { CommandPalette, CommandHint } from "@/components/command/CommandPalette";
 import { PageTransition } from "@/lib/motion";
@@ -35,7 +36,10 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <h1 className="font-display text-7xl text-foreground">404</h1>
         <p className="mt-4 text-sm text-muted-foreground">This screen doesn't exist.</p>
-        <Link to="/" className="mt-6 inline-block rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background">
+        <Link
+          to="/"
+          className="mt-6 inline-block rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background"
+        >
           Return home
         </Link>
       </div>
@@ -52,7 +56,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <h1 className="text-xl font-semibold text-foreground">Something broke</h1>
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
         <button
-          onClick={() => { router.invalidate(); reset(); }}
+          onClick={() => {
+            router.invalidate();
+            reset();
+          }}
           className="mt-6 rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background"
         >
           Try again
@@ -68,17 +75,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "Cadence — Behavioral OS for ambitious people" },
-      { name: "description", content: "Recover from inconsistency, prevent motivation crashes, and build reliable execution. A psychologically aware productivity system." },
+      {
+        name: "description",
+        content:
+          "Recover from inconsistency, prevent motivation crashes, and build reliable execution. A psychologically aware productivity system.",
+      },
       { name: "theme-color", content: "#0a0a0c" },
       { property: "og:title", content: "Cadence — Behavioral OS" },
-      { property: "og:description", content: "A behavioral operating system for ambitious people." },
+      {
+        property: "og:description",
+        content: "A behavioral operating system for ambitious people.",
+      },
       { property: "og:type", content: "website" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -90,8 +107,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        {children}
+        <Scripts />
+      </body>
     </html>
   );
 }
@@ -123,7 +145,7 @@ function isActive(pathname: string, to: string, exact?: boolean) {
 
 function BottomNav() {
   const loc = useLocation();
-  const hide = loc.pathname === "/onboarding";
+  const hide = loc.pathname === "/onboarding" || loc.pathname === "/sign-in";
   if (hide) return null;
   return (
     <nav className="sticky bottom-0 z-30 mt-auto lg:hidden">
@@ -149,7 +171,10 @@ function BottomNav() {
                         transition={{ type: "spring", stiffness: 380, damping: 32 }}
                       />
                     )}
-                    <Icon className={`h-[18px] w-[18px] ${active ? "text-accent" : ""}`} strokeWidth={1.75} />
+                    <Icon
+                      className={`h-[18px] w-[18px] ${active ? "text-accent" : ""}`}
+                      strokeWidth={1.75}
+                    />
                     <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
                   </Link>
                 </li>
@@ -178,7 +203,9 @@ function Sidebar() {
         <div className="relative h-8 w-8 rounded-xl bg-gradient-accent shadow-glow" />
         <div>
           <p className="font-display text-xl leading-none text-foreground">Cadence</p>
-          <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Behavioral OS</p>
+          <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Behavioral OS
+          </p>
         </div>
       </Link>
 
@@ -249,7 +276,30 @@ function AdaptiveStateBinding() {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const loc = useLocation();
+  const router = useRouter();
   const isOnboarding = loc.pathname === "/onboarding";
+  const isSignIn = loc.pathname === "/sign-in";
+  const hideNav = isOnboarding || isSignIn;
+
+  useEffect(() => {
+    // On mount, check if there's an active session. If not, redirect to sign-in.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session && !isSignIn && !isOnboarding) {
+        router.navigate({ to: "/sign-in" });
+      }
+    });
+
+    // Listen for auth state changes (e.g. signOut from another tab)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT" && !isSignIn) {
+        router.navigate({ to: "/sign-in" });
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [isSignIn, isOnboarding, router]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -268,7 +318,7 @@ function RootComponent() {
           },
         }}
       />
-      {isOnboarding ? (
+      {hideNav ? (
         <div className="min-h-screen bg-transparent">
           <Outlet />
         </div>

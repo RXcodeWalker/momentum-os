@@ -2,10 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { BarRow, Card, Pill, Ring, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
 import { ExecutionHeatmap } from "@/components/heatmap";
 import {
+  useActiveInsights,
   useApp,
   useConsistency,
+  useDeepWorkStats,
+  useDistractionStats,
   useExecutionScore,
   useFakeProductivityFlags,
+  useMaturityLevel,
   useMomentum,
   useResilience,
   useUserState,
@@ -33,7 +37,10 @@ export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
       { title: "Command Center — Cadence" },
-      { name: "description", content: "Behavioral analytics, execution trends, focus heatmaps, and resilience curves." },
+      {
+        name: "description",
+        content: "Behavioral analytics, execution trends, focus heatmaps, and resilience curves.",
+      },
     ],
   }),
   component: DashboardPage,
@@ -45,6 +52,13 @@ function DashboardPage() {
   const consistency = useConsistency(28);
   const consistency7 = useConsistency(7);
   const history = useApp((s) => s.history);
+  const tasks = useApp((s) => s.tasks);
+  const checkIns = useApp((s) => s.checkIns);
+  const activeInsights = useActiveInsights();
+  const { avgHours, sleepImpact } = useDeepWorkStats();
+  const { avg: avgDist, peakWindow, reduction } = useDistractionStats();
+  const { label: maturityLabel, daysToNext } = useMaturityLevel();
+  const recoveryPlan = useApp((s) => s.recoveryPlan);
   const { state, label, tone } = useUserState();
   const { score: resilience, avgRecoveryDays } = useResilience();
   const flags = useFakeProductivityFlags();
@@ -68,12 +82,30 @@ function DashboardPage() {
     [last28],
   );
 
-  // Hourly focus heatmap (synthesized from focus avg, biased)
+  const avgHonesty = useMemo(() => {
+    if (checkIns.length === 0) return 85; // Default if no check-ins
+    return Math.round(checkIns.reduce((a, c) => a + c.honesty, 0) / Math.max(1, checkIns.length));
+  }, [checkIns]);
+
+  // Hourly focus heatmap (synthesized from focus avg, dynamic peak based on sleep)
   const hourlyFocus = useMemo(() => {
-    const base = [10, 18, 35, 60, 82, 88, 78, 55, 48, 62, 70, 60, 42, 30, 40, 55, 48, 35, 22, 15];
-    const factor = avgFocus / 7;
-    return base.map((v, i) => ({ hour: i + 5, value: Math.round(v * factor) }));
-  }, [avgFocus]);
+    const startHour = avgSleep > 7.5 ? 8 : 10;
+    // Indices 0-19 represent 5am to 12am (1 hour increments)
+    const base = Array.from({ length: 20 }, (_, i) => {
+      const hour = i + 5;
+      // Bell curve centered at startHour + 1.5 with some evening secondary peak
+      const morningPeak = 100 * Math.exp(-Math.pow(hour - (startHour + 1.5), 2) / 8);
+      const eveningBump = 40 * Math.exp(-Math.pow(hour - 17, 2) / 4);
+      return Math.max(15, morningPeak + eveningBump);
+    });
+    return base.map((v, i) => ({ hour: i + 5, value: Math.round(v * (avgFocus / 7)) }));
+  }, [avgFocus, avgSleep]);
+
+  const primeWindowStr = useMemo(() => {
+    const startHour = avgSleep > 7.5 ? 8 : 10;
+    const endHour = startHour + 2;
+    return `${startHour}–${endHour} ${startHour < 12 ? "AM" : "PM"}`;
+  }, [avgSleep]);
 
   const burnoutRisk = useMemo(() => {
     const lowSleep = last28.slice(-7).filter((d) => d.sleepHours < 6).length;
@@ -91,7 +123,10 @@ function DashboardPage() {
         right={
           <div className="hidden lg:flex items-center gap-2">
             <Pill tone={tone}>{label}</Pill>
-            <Link to="/premium" className="hairline rounded-full px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5">
+            <Link
+              to="/premium"
+              className="hairline rounded-full px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
+            >
               <Crown className="h-3.5 w-3.5 text-accent" /> Pro
             </Link>
           </div>
@@ -105,26 +140,47 @@ function DashboardPage() {
             <div className="flex-1">
               <StatLabel>Execution score</StatLabel>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-display text-6xl lg:text-7xl text-foreground">{Math.round(score)}</span>
+                <span className="font-display text-6xl lg:text-7xl text-foreground">
+                  {Math.round(score)}
+                </span>
                 <div className="flex flex-col gap-1">
                   <Pill tone={trend === "up" ? "success" : trend === "down" ? "danger" : "neutral"}>
-                    {trend === "up" ? <TrendingUp className="h-3 w-3" /> : trend === "down" ? <TrendingDown className="h-3 w-3" /> : null}
-                    {trend === "up" ? "Building momentum" : trend === "down" ? "Recovering" : "Stable"}
+                    {trend === "up" ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : trend === "down" ? (
+                      <TrendingDown className="h-3 w-3" />
+                    ) : null}
+                    {trend === "up"
+                      ? "Building momentum"
+                      : trend === "down"
+                        ? "Recovering"
+                        : "Stable"}
                   </Pill>
-                  <p className="text-[11px] text-muted-foreground">{trend === "up" ? "+" : ""}{delta} from last week</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {trend === "up" ? "+" : ""}
+                    {delta} from last week
+                  </p>
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-3 gap-4 lg:gap-6">
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Momentum</p>
-                  <p className="font-display text-2xl text-foreground">{Math.round(score * 0.85)}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                    Momentum
+                  </p>
+                  <p className="font-display text-2xl text-foreground">
+                    {Math.round(score * 0.85)}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Consistency</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                    Consistency
+                  </p>
                   <p className="font-display text-2xl text-foreground">{consistency}%</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Resilience</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                    Resilience
+                  </p>
                   <p className="font-display text-2xl text-foreground">{resilience}</p>
                 </div>
               </div>
@@ -143,7 +199,7 @@ function DashboardPage() {
             icon={<Target className="h-4 w-4" />}
             label="Daily focus"
             value={`${Math.round(avgFocus * 10)}`}
-            sub={`${Math.round(avgFocus * 10 * 0.9)} hours deep work`}
+            sub={`${avgHours} hours deep work`}
             tone="accent"
           />
           <KPI
@@ -183,21 +239,31 @@ function DashboardPage() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-sm text-foreground">Current momentum</span>
-                  <span className="text-sm font-medium text-accent">{trend === "up" ? "Ascending" : trend === "down" ? "Recovering" : "Stable"}</span>
+                  <span className="text-sm font-medium text-accent">
+                    {trend === "up" ? "Ascending" : trend === "down" ? "Recovering" : "Stable"}
+                  </span>
                 </div>
                 <div className="h-2 rounded-full bg-secondary overflow-hidden">
-                  <div className="h-full bg-gradient-accent" style={{ width: `${Math.min(100, score)}%` }} />
+                  <div
+                    className="h-full bg-gradient-accent"
+                    style={{ width: `${Math.min(100, score)}%` }}
+                  />
                 </div>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-3">Recovery progression</p>
                 <div className="flex gap-2">
                   {[...Array(7)].map((_, i) => (
-                    <div key={i} className={`h-8 flex-1 rounded-lg ${i < Math.ceil(consistency7 / 20) ? "bg-gradient-accent" : "bg-secondary"}`} />
+                    <div
+                      key={i}
+                      className={`h-8 flex-1 rounded-lg ${i < Math.ceil(consistency7 / 15) ? "bg-gradient-accent" : "bg-secondary"}`}
+                    />
                   ))}
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground pt-2">You're in your {Math.ceil(consistency7 / 30)}rd week of progression. Maintain consistency to unlock adaptive insights.</p>
+              <p className="text-xs text-muted-foreground pt-2">
+                Status: {maturityLabel}. {daysToNext} days until next level of adaptive insights.
+              </p>
             </div>
           </Card>
 
@@ -209,19 +275,37 @@ function DashboardPage() {
             </div>
             <div className="space-y-4">
               <div>
-                <div className="mb-2 text-sm text-foreground">Top priorities</div>
+                <div className="mb-2 text-sm text-foreground">Active priorities</div>
                 <div className="space-y-2">
-                  {["Complete deep work session", "Review execution metrics", "Rest & recovery"].map((p, i) => (
-                    <div key={i} className="flex items-start gap-2 rounded-lg bg-secondary/50 p-2.5">
-                      <div className="h-4 w-4 rounded-full bg-accent/40 flex-shrink-0 mt-0.5" />
-                      <span className="text-[13px] text-foreground">{p}</span>
-                    </div>
-                  ))}
+                  {tasks
+                    .filter((t) => !t.done)
+                    .slice(0, 3)
+                    .map((t, i) => (
+                      <div
+                        key={t.id}
+                        className="flex items-start gap-2 rounded-lg bg-secondary/50 p-2.5"
+                      >
+                        <div className="h-4 w-4 rounded-full bg-accent/40 flex-shrink-0 mt-0.5" />
+                        <span className="text-[13px] text-foreground">{t.label}</span>
+                      </div>
+                    ))}
+                  {tasks.filter((t) => !t.done).length === 0 && (
+                    <p className="text-xs text-muted-foreground italic p-2.5">
+                      No active tasks. Time for recovery or planning.
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="pt-2 border-t border-border">
                 <p className="text-[11px] text-muted-foreground mb-2">Recommended workload</p>
-                <Pill tone="accent">Calibrated for {state === "peak" ? "high intensity" : state === "recovery" ? "rebuilding" : "steady execution"}</Pill>
+                <Pill tone="accent">
+                  Calibrated for{" "}
+                  {state === "peak"
+                    ? "high intensity"
+                    : state === "recovery"
+                      ? "rebuilding"
+                      : "steady execution"}
+                </Pill>
               </div>
             </div>
           </Card>
@@ -256,21 +340,19 @@ function DashboardPage() {
               <StatLabel>Behavioral insights</StatLabel>
             </div>
             <div className="space-y-3">
-              <InsightCard 
-                insight="Your focus drops after 8 PM"
-                impact="correlated with low execution next day"
-                suggestion="Try wind-down protocol at 8:30 PM"
-              />
-              <InsightCard 
-                insight="Mondays show 23% workload overestimation"
-                impact="leads to midweek crashes"
-                suggestion="Plan 20% lighter on Mondays"
-              />
-              <InsightCard 
-                insight="Exercise improves consistency by 18%"
-                impact="strongest behavior-execution link"
-                suggestion="Anchor morning movement routine"
-              />
+              {activeInsights.slice(0, 3).map((insight) => (
+                <InsightCard
+                  key={insight.id}
+                  insight={insight.title}
+                  impact={insight.body.split(".")[0] + "."}
+                  suggestion={insight.body.split(".").slice(1).join(".").trim()}
+                />
+              ))}
+              {activeInsights.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">
+                  Calibrating... more insights will appear as you log data.
+                </p>
+              )}
             </div>
           </Card>
 
@@ -282,7 +364,10 @@ function DashboardPage() {
             </div>
             <ExecutionHeatmap weeks={4} />
             <div className="mt-4 flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>Mon</span><span>Wed</span><span>Fri</span><span>Sun</span>
+              <span>Mon</span>
+              <span>Wed</span>
+              <span>Fri</span>
+              <span>Sun</span>
             </div>
           </Card>
 
@@ -290,11 +375,14 @@ function DashboardPage() {
           <Card className="lg:col-span-7">
             <div className="mb-4 flex items-center justify-between">
               <StatLabel>Focus quality by hour</StatLabel>
-              <Pill tone="accent">Peak window · 9–11 AM</Pill>
+              <Pill tone="accent">Peak window · {primeWindowStr}</Pill>
             </div>
             <div className="flex h-[160px] items-end gap-1">
               {hourlyFocus.map((h) => (
-                <div key={h.hour} className="group relative flex flex-1 flex-col items-center justify-end">
+                <div
+                  key={h.hour}
+                  className="group relative flex flex-1 flex-col items-center justify-end"
+                >
                   <div
                     className="w-full rounded-t-md bg-gradient-accent transition-opacity"
                     style={{ height: `${h.value}%`, opacity: 0.4 + (h.value / 100) * 0.6 }}
@@ -304,7 +392,12 @@ function DashboardPage() {
               ))}
             </div>
             <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
-              <span>5a</span><span>9a</span><span>1p</span><span>5p</span><span>9p</span><span>12a</span>
+              <span>5a</span>
+              <span>9a</span>
+              <span>1p</span>
+              <span>5p</span>
+              <span>9p</span>
+              <span>12a</span>
             </div>
           </Card>
 
@@ -317,7 +410,9 @@ function DashboardPage() {
             <BarRow label="Plan → execute ratio" value={flags.planExecuteRatio} tone="accent" />
             <div className="mt-4 space-y-2">
               {flags.flags.length === 0 && (
-                <p className="text-xs text-muted-foreground">No signals detected. Execution is genuine.</p>
+                <p className="text-xs text-muted-foreground">
+                  No signals detected. Execution is genuine.
+                </p>
               )}
               {flags.flags.map((f, i) => (
                 <p key={i} className="flex items-start gap-2 text-[12px] text-muted-foreground">
@@ -332,13 +427,14 @@ function DashboardPage() {
           <Card className="lg:col-span-4">
             <StatLabel>Sleep · 28d</StatLabel>
             <p className="font-display mt-1 text-2xl text-foreground">
-              {avgSleep.toFixed(1)}<span className="text-muted-foreground text-base">h avg</span>
+              {avgSleep.toFixed(1)}
+              <span className="text-muted-foreground text-base">h avg</span>
             </p>
             <div className="mt-3 h-[80px]">
               <Sparkline data={sleepData} height={80} />
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Days under 6h are followed by a {Math.round(35 + Math.random() * 10)}% drop in execution.
+              Days under 6.5h are followed by a {sleepImpact}% drop in execution capacity.
             </p>
           </Card>
 
@@ -346,13 +442,14 @@ function DashboardPage() {
           <Card className="lg:col-span-4">
             <StatLabel>Distractions · 28d</StatLabel>
             <p className="font-display mt-1 text-2xl text-foreground">
-              {avgDistraction.toFixed(1)}<span className="text-muted-foreground text-base"> /day</span>
+              {avgDist.toFixed(1)}
+              <span className="text-muted-foreground text-base"> /day</span>
             </p>
             <div className="mt-3 h-[80px]">
               <Sparkline data={distractionData} height={80} />
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Peak distraction window: 8–10 PM. Wind-down protocol cuts this ~40%.
+              Peak distraction window: {peakWindow}. Wind-down protocol cuts this ~{reduction}%.
             </p>
           </Card>
 
@@ -360,11 +457,11 @@ function DashboardPage() {
           <Card className="lg:col-span-4">
             <StatLabel>Behavioral growth</StatLabel>
             <div className="mt-3 space-y-3">
-              <Evolution label="Reliability" value={Math.min(100, consistency + 8)} />
+              <Evolution label="Reliability" value={consistency} />
               <Evolution label="Focus quality" value={Math.round(avgFocus * 10)} />
               <Evolution label="Recovery speed" value={resilience} />
               <Evolution label="Sleep discipline" value={Math.round((avgSleep / 8) * 100)} />
-              <Evolution label="Honesty" value={78} />
+              <Evolution label="Honesty" value={avgHonesty} />
             </div>
           </Card>
 
@@ -374,7 +471,8 @@ function DashboardPage() {
               <div>
                 <StatLabel>Resilience curve</StatLabel>
                 <p className="font-display mt-1 text-2xl text-foreground">
-                  {resilience}<span className="text-muted-foreground text-base"> / 100</span>
+                  {resilience}
+                  <span className="text-muted-foreground text-base"> / 100</span>
                 </p>
               </div>
               <Pill tone="success">
@@ -385,7 +483,8 @@ function DashboardPage() {
               <Sparkline data={focusData} height={120} accent />
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              Recovered from {Math.max(2, Math.round(28 / 6))} behavioral dips. System reinforces fast bounce-back over rigid streaks.
+              Calculated from {history.length} days of data. Fast recovery is prioritized over
+              perfect streaks.
             </p>
           </Card>
 
@@ -398,13 +497,22 @@ function DashboardPage() {
                 </div>
                 <div className="flex-1">
                   <StatLabel>Recovery mode active</StatLabel>
-                  <p className="mt-2 text-sm text-foreground font-medium">Minimum viable day approach</p>
+                  <p className="mt-2 text-sm text-foreground font-medium">
+                    {recoveryPlan?.protocol || "Minimum viable day approach"}
+                  </p>
                   <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-                    <p>• Reduce surface area by 50%</p>
-                    <p>• Focus on 1 keystone habit</p>
-                    <p>• Sleep anchor: 10:30 PM</p>
+                    {recoveryPlan?.tasks.slice(0, 3).map((t, i) => <p key={i}>• {t.t}</p>) || (
+                      <>
+                        <p>• Reduce surface area by 50%</p>
+                        <p>• Focus on 1 keystone habit</p>
+                        <p>• Sleep anchor: 10:30 PM</p>
+                      </>
+                    )}
                   </div>
-                  <Link to="/recovery" className="mt-3 inline-block text-xs font-medium text-success hover:text-success/80">
+                  <Link
+                    to="/recovery"
+                    className="mt-3 inline-block text-xs font-medium text-success hover:text-success/80"
+                  >
                     View protocols →
                   </Link>
                 </div>
@@ -414,18 +522,25 @@ function DashboardPage() {
 
           {/* Burnout alert */}
           {burnoutRisk > 35 && (
-            <Card className={`lg:col-span-${state === "recovery" || state === "burnout" ? "7" : "12"} ${burnoutRisk > 60 ? "bg-danger/5 border-danger/20" : "bg-warning/5 border-warning/20"}`}>
+            <Card
+              className={`lg:col-span-${state === "recovery" || state === "burnout" ? "7" : "12"} ${burnoutRisk > 60 ? "bg-danger/5 border-danger/20" : "bg-warning/5 border-warning/20"}`}
+            >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-start gap-3">
-                  <div className={`flex h-10 w-10 flex-none items-center justify-center rounded-xl ${burnoutRisk > 60 ? "bg-danger/15 text-danger" : "bg-warning/15 text-warning"}`}>
+                  <div
+                    className={`flex h-10 w-10 flex-none items-center justify-center rounded-xl ${burnoutRisk > 60 ? "bg-danger/15 text-danger" : "bg-warning/15 text-warning"}`}
+                  >
                     <Moon className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className={`font-display text-lg ${burnoutRisk > 60 ? "text-danger" : "text-warning"}`}>
+                    <p
+                      className={`font-display text-lg ${burnoutRisk > 60 ? "text-danger" : "text-warning"}`}
+                    >
                       {burnoutRisk > 60 ? "High burnout risk" : "Early burnout signals detected"}
                     </p>
                     <p className="mt-1 max-w-[60ch] text-sm text-muted-foreground">
-                      Weighted from sleep debt, distraction load, low-execution days, and reschedule patterns.
+                      Weighted from sleep debt, distraction load, low-execution days, and reschedule
+                      patterns.
                     </p>
                   </div>
                 </div>
@@ -476,7 +591,11 @@ function KPI({
       </div>
       <p className="font-display mt-2 text-3xl text-foreground num-tabular">{value}</p>
       <p className={`mt-1 inline-flex items-center gap-1 text-[11px] ${ring[tone]}`}>
-        {tone === "danger" ? <ArrowDownRight className="h-3 w-3" /> : tone === "success" ? <ArrowUpRight className="h-3 w-3" /> : null}
+        {tone === "danger" ? (
+          <ArrowDownRight className="h-3 w-3" />
+        ) : tone === "success" ? (
+          <ArrowUpRight className="h-3 w-3" />
+        ) : null}
         <span>{sub}</span>
       </p>
     </div>
@@ -491,13 +610,24 @@ function Evolution({ label, value }: { label: string; value: number }) {
         <span className="text-[11px] font-medium text-foreground num-tabular">{value}</span>
       </div>
       <div className="relative h-1.5 overflow-hidden rounded-full bg-secondary">
-        <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-accent" style={{ width: `${Math.min(100, value)}%` }} />
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-gradient-accent"
+          style={{ width: `${Math.min(100, value)}%` }}
+        />
       </div>
     </div>
   );
 }
 
-function InsightCard({ insight, impact, suggestion }: { insight: string; impact: string; suggestion: string }) {
+function InsightCard({
+  insight,
+  impact,
+  suggestion,
+}: {
+  insight: string;
+  impact: string;
+  suggestion: string;
+}) {
   return (
     <div className="rounded-2xl bg-secondary/40 border border-border/50 p-3">
       <p className="text-sm font-medium text-foreground">{insight}</p>

@@ -27,8 +27,8 @@ export function StateRibbon() {
               v >= 70
                 ? "var(--accent)"
                 : v >= 50
-                ? "color-mix(in oklab, var(--accent) 55%, transparent)"
-                : "color-mix(in oklab, var(--danger) 65%, transparent)";
+                  ? "color-mix(in oklab, var(--accent) 55%, transparent)"
+                  : "color-mix(in oklab, var(--danger) 65%, transparent)";
             return (
               <motion.div
                 key={d.date}

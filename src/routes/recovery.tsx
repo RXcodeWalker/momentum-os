@@ -1,17 +1,15 @@
+import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Card, Pill, Ring, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
 import {
   ArrowLeft,
   ArrowRight,
   Battery,
-  BedDouble,
   Brain,
   Calendar,
   Check,
   ChevronRight,
   Clock,
-  Flame,
-  Heart,
   Leaf,
   Lightbulb,
   Moon,
@@ -23,155 +21,37 @@ import {
   Target,
   TrendingDown,
   TrendingUp,
-  Zap,
+  Users,
 } from "lucide-react";
-import { useApp, useExecutionScore, useMomentum, useResilience, useUserState } from "@/lib/store";
-import { useMemo, useState } from "react";
+import {
+  useApp,
+  useExecutionScore,
+  useMomentum,
+  useResilience,
+  useUserState,
+  useRootCauseAnalysis,
+  useDeepWorkStats,
+  usePersonalizedRecoveryMatch,
+} from "@/lib/store";
+import {
+  mvdProtocols,
+  protocolRoadmaps,
+  reinforcements,
+  type ProtocolKey,
+} from "@/lib/recovery-data";
 
 export const Route = createFileRoute("/recovery")({
   head: () => ({
     meta: [
       { title: "Recovery — Cadence" },
-      { name: "description", content: "Tactical recovery system for rebuilding momentum. No streaks. No shame." },
+      {
+        name: "description",
+        content: "Tactical recovery system for rebuilding momentum. No streaks. No shame.",
+      },
     ],
   }),
   component: Recovery,
 });
-
-// Root causes with intelligent observations
-const rootCauses = [
-  {
-    id: "workload",
-    icon: Target,
-    label: "Unrealistic workload",
-    observation: "Your task list required ~7h of deep work. You have ~3.5h available.",
-    impact: "Leads to chronic incompletion and guilt cycles",
-  },
-  {
-    id: "sleep",
-    icon: Moon,
-    label: "Sleep inconsistency",
-    observation: "Avg 5h47 last 4 nights. Decision quality drops sharply below 6h.",
-    impact: "35% execution drop on low-sleep days",
-  },
-  {
-    id: "distraction",
-    icon: Smartphone,
-    label: "Distraction overload",
-    observation: "Phone pickups spike 3x after 8 PM. Context switching fragments focus.",
-    impact: "Deep work capacity reduced by 60%",
-  },
-  {
-    id: "emotional",
-    icon: Heart,
-    label: "Emotional fatigue",
-    observation: "No recovery activities logged in 5 days. Stress accumulates silently.",
-    impact: "Motivation and execution become decoupled",
-  },
-  {
-    id: "overplanning",
-    icon: Calendar,
-    label: "Overplanning",
-    observation: "You plan 5.2 priorities/day. Your sustainable cap is 3.",
-    impact: "Planning becomes avoidance behavior",
-  },
-  {
-    id: "recovery",
-    icon: Battery,
-    label: "Lack of recovery",
-    observation: "No exercise or downtime in 5 days. Best execution follows movement.",
-    impact: "Energy debt compounds daily",
-  },
-];
-
-// Minimum viable day protocols
-const mvdProtocols = {
-  burnout: {
-    label: "Burnout recovery",
-    tasks: [
-      { t: "20 min low-stakes review", est: "20m", type: "deep" as const },
-      { t: "Walk · 30 min, no headphones", est: "30m", type: "movement" as const },
-      { t: "In bed by 22:00, screens away", est: "—", type: "wind-down" as const },
-    ],
-  },
-  procrastination: {
-    label: "Procrastination protocol",
-    tasks: [
-      { t: "Open the file. Five minutes only.", est: "5m", type: "deep" as const },
-      { t: "Do one tiny version of the hard task", est: "15m", type: "deep" as const },
-      { t: "Log it. Don't escalate.", est: "—", type: "wind-down" as const },
-    ],
-  },
-  perfectionism: {
-    label: "Perfectionism reset",
-    tasks: [
-      { t: "Define 'good enough' in one sentence", est: "5m", type: "deep" as const },
-      { t: "Ship the ugly version", est: "30m", type: "deep" as const },
-      { t: "Note one thing you'd improve", est: "5m", type: "wind-down" as const },
-    ],
-  },
-  "low-energy": {
-    label: "Low-energy day",
-    tasks: [
-      { t: "10 min walk in daylight", est: "10m", type: "movement" as const },
-      { t: "One easy admin task", est: "15m", type: "shallow" as const },
-      { t: "Sleep before 22:30", est: "—", type: "wind-down" as const },
-    ],
-  },
-  distraction: {
-    label: "Distraction detox",
-    tasks: [
-      { t: "Phone in another room · 60 min", est: "60m", type: "deep" as const },
-      { t: "Single task, single tab", est: "45m", type: "deep" as const },
-      { t: "No notifications until evening", est: "—", type: "wind-down" as const },
-    ],
-  },
-  "sleep-debt": {
-    label: "Sleep debt recovery",
-    tasks: [
-      { t: "20 min review · easiest subject", est: "20m", type: "deep" as const },
-      { t: "Walk · 30 min, natural light", est: "30m", type: "movement" as const },
-      { t: "In bed by 21:30, screens away", est: "—", type: "wind-down" as const },
-    ],
-  },
-};
-
-type ProtocolKey = keyof typeof mvdProtocols;
-
-// Recovery plan structure
-const recoveryPlan = {
-  next24h: [
-    { time: "Tonight", action: "Wind-down protocol at 21:00", priority: "critical" },
-    { time: "Tomorrow AM", action: "One deep work block only", priority: "high" },
-    { time: "Tomorrow PM", action: "30 min movement, no exceptions", priority: "medium" },
-  ],
-  next3d: [
-    { day: "Day 1", focus: "Reset sleep anchor", metric: "In bed by 22:00" },
-    { day: "Day 2", focus: "Minimal task load", metric: "Max 2 priorities" },
-    { day: "Day 3", focus: "Gentle escalation", metric: "Add 1 task if Day 2 hit" },
-  ],
-  rebuilding: [
-    { phase: "Stabilize", duration: "Days 1-3", goal: "Anchor sleep, reduce load" },
-    { phase: "Build", duration: "Days 4-7", goal: "Gradual intensity increase" },
-    { phase: "Sustain", duration: "Week 2+", goal: "Return to calibrated workload" },
-  ],
-};
-
-// Identity reinforcement messages
-const reinforcements = [
-  {
-    message: "Fast recovery builds reliable execution.",
-    sub: "You're training the system to bounce back quickly, not to never fall.",
-  },
-  {
-    message: "Consistency is measured by return speed, not perfection.",
-    sub: "Every dip you recover from makes the next recovery faster.",
-  },
-  {
-    message: "Momentum restored through adaptive recovery.",
-    sub: "You've chosen the tactical path over the guilt cycle.",
-  },
-];
 
 function Recovery() {
   const nav = useNavigate();
@@ -179,18 +59,72 @@ function Recovery() {
   const recoveryReason = useApp((s) => s.recoveryReason) as ProtocolKey | undefined;
   const enterRecovery = useApp((s) => s.enterRecovery);
   const exitRecovery = useApp((s) => s.exitRecovery);
+  const setRecoveryPlan = useApp((s) => s.setRecoveryPlan);
   const acceptMVD = useApp((s) => s.acceptMinimumViableDay);
+  const addProof = useApp((s) => s.addProof);
   const history = useApp((s) => s.history);
 
   const score = useExecutionScore();
-  const { delta, trend } = useMomentum();
+  const { trend } = useMomentum();
   const { state } = useUserState();
   const { score: resilience, avgRecoveryDays } = useResilience();
+  const analysis = useRootCauseAnalysis();
+  const deepWorkStats = useDeepWorkStats();
+  const protocolMatch = usePersonalizedRecoveryMatch();
+
+  const rootCauses = useMemo(
+    () => [
+      {
+        id: "workload",
+        icon: Target,
+        label: "Unrealistic workload",
+        observation: analysis.workload.observation,
+        impact: "Leads to chronic incompletion and guilt cycles",
+        detected: analysis.workload.detected,
+      },
+      {
+        id: "sleep",
+        icon: Moon,
+        label: "Sleep inconsistency",
+        observation: analysis.sleep.observation,
+        impact: `${deepWorkStats.sleepImpact}% execution drop on low-sleep days`,
+        detected: analysis.sleep.detected,
+      },
+      {
+        id: "distraction",
+        icon: Smartphone,
+        label: "Distraction overload",
+        observation: analysis.distraction.observation,
+        impact: "Context switching fragments focus capacity",
+        detected: analysis.distraction.detected,
+      },
+      {
+        id: "overplanning",
+        icon: Calendar,
+        label: "Overplanning",
+        observation: analysis.overplanning.observation,
+        impact: "Planning becomes avoidance behavior",
+        detected: analysis.overplanning.detected,
+      },
+      {
+        id: "recovery",
+        icon: Battery,
+        label: "Lack of recovery",
+        observation: analysis.recovery.observation,
+        impact: "Energy debt compounds daily",
+        detected: analysis.recovery.detected,
+      },
+    ],
+    [analysis, deepWorkStats],
+  );
 
   // Step management
   const [step, setStep] = useState(recoveryMode ? 2 : 0);
   const [selectedCauses, setSelectedCauses] = useState<string[]>([]);
-  const [selectedProtocol, setSelectedProtocol] = useState<ProtocolKey>(recoveryReason ?? "burnout");
+  const [selectedProtocol, setSelectedProtocol] = useState<ProtocolKey>(
+    (recoveryReason as ProtocolKey | undefined) ?? protocolMatch.recommendedProtocol,
+  );
+  const [sharedToCircle, setSharedToCircle] = useState(false);
 
   // Computed data
   const last7 = history.slice(-7);
@@ -198,20 +132,43 @@ function Recovery() {
   const weekDrop = useMemo(() => {
     const recent = last7.reduce((a, d) => a + d.executionScore, 0) / Math.max(1, last7.length);
     const prev = last14.slice(0, 7).reduce((a, d) => a + d.executionScore, 0) / 7;
-    return Math.round(prev - recent);
+    const drop = Math.round(prev - recent);
+    return Math.max(0, drop);
   }, [last7, last14]);
 
   const trendData = history.slice(-14).map((d) => d.executionScore);
-  const estimatedRecovery = Math.max(2, Math.min(7, Math.ceil(weekDrop / 15) + 1));
+  const estimatedRecovery = Math.max(2, Math.min(7, Math.ceil(weekDrop / 12) + 1));
 
   // Step navigation
   const nextStep = () => setStep((s) => Math.min(4, s + 1));
   const prevStep = () => setStep((s) => Math.max(0, s - 1));
 
+  const roadmap = protocolRoadmaps[selectedProtocol];
+
   const handleAcceptPlan = () => {
     if (!recoveryMode) enterRecovery(selectedProtocol);
-    acceptMVD();
+
+    // Set protocol-specific tasks
+    acceptMVD(mvdProtocols[selectedProtocol].tasks);
+
+    // Set recovery plan in store
+    setRecoveryPlan({
+      protocol: selectedProtocol,
+      tasks: mvdProtocols[selectedProtocol].tasks,
+      timeline: roadmap.next3d,
+      startedAt: new Date().toISOString(),
+    });
+
     nextStep();
+  };
+
+  const handleShareToCircle = () => {
+    addProof({
+      memberId: "u1",
+      text: `Initiated ${mvdProtocols[selectedProtocol].label.toLowerCase()} protocol. Focus: ${roadmap.next3d[0].focus.toLowerCase()}.`,
+      type: "recovery",
+    });
+    setSharedToCircle(true);
   };
 
   const handleComplete = () => {
@@ -226,8 +183,22 @@ function Recovery() {
       {/* Header */}
       <ScreenHeader
         eyebrow={recoveryMode ? "Recovery protocol · active" : "Recovery system"}
-        title={step === 0 ? "Momentum drop detected" : step === 1 ? "Understanding the pattern" : step === 2 ? "Minimum viable day" : step === 3 ? "Recovery roadmap" : "You're rebuilding"}
-        subtitle={step === 0 ? "Let's understand what happened and create a tactical recovery plan." : undefined}
+        title={
+          step === 0
+            ? "Momentum drop detected"
+            : step === 1
+              ? "Understanding the pattern"
+              : step === 2
+                ? "Minimum viable day"
+                : step === 3
+                  ? "Recovery roadmap"
+                  : "You're rebuilding"
+        }
+        subtitle={
+          step === 0
+            ? "Let's understand what happened and create a tactical recovery plan."
+            : undefined
+        }
         right={recoveryMode ? <Pill tone="warning">Active</Pill> : undefined}
       />
 
@@ -241,7 +212,9 @@ function Recovery() {
                   i < step ? "bg-success" : i === step ? "bg-gradient-accent" : "bg-secondary"
                 }`}
               />
-              <span className={`hidden lg:block text-[10px] ${i <= step ? "text-foreground" : "text-muted-foreground"}`}>
+              <span
+                className={`hidden lg:block text-[10px] ${i <= step ? "text-foreground" : "text-muted-foreground"}`}
+              >
                 {s}
               </span>
             </div>
@@ -268,10 +241,10 @@ function Recovery() {
                   {state === "burnout"
                     ? "Multiple signals point to burnout. This isn't failure — it's data. Let's reduce surface area."
                     : state === "recovery"
-                    ? "You're already in recovery mode. Let's refine the approach."
-                    : weekDrop > 25
-                    ? "Significant momentum loss detected. This calls for a tactical reset, not harder pushing."
-                    : "Early warning signs present. Catching this now prevents a deeper dip."}
+                      ? "You're already in recovery mode. Let's refine the approach."
+                      : weekDrop > 25
+                        ? "Significant momentum loss detected. This calls for a tactical reset, not harder pushing."
+                        : "Early warning signs present. Catching this now prevents a deeper dip."}
                 </p>
               </div>
               <div className="mt-6 lg:mt-0">
@@ -317,9 +290,25 @@ function Recovery() {
             <SignalCard
               icon={Target}
               label="Completion rate"
-              value={`${Math.round((last7.reduce((a, d) => a + d.completed, 0) / Math.max(1, last7.reduce((a, d) => a + d.planned, 0))) * 100)}%`}
+              value={`${Math.round(
+                (last7.reduce((a, d) => a + d.completed, 0) /
+                  Math.max(
+                    1,
+                    last7.reduce((a, d) => a + d.planned, 0),
+                  )) *
+                  100,
+              )}%`}
               sub="planned vs done"
-              tone={last7.reduce((a, d) => a + d.completed, 0) / Math.max(1, last7.reduce((a, d) => a + d.planned, 0)) < 0.6 ? "warning" : "neutral"}
+              tone={
+                last7.reduce((a, d) => a + d.completed, 0) /
+                  Math.max(
+                    1,
+                    last7.reduce((a, d) => a + d.planned, 0),
+                  ) <
+                0.6
+                  ? "warning"
+                  : "neutral"
+              }
             />
           </div>
 
@@ -357,7 +346,7 @@ function Recovery() {
                   key={cause.id}
                   onClick={() =>
                     setSelectedCauses((prev) =>
-                      selected ? prev.filter((c) => c !== cause.id) : [...prev, cause.id]
+                      selected ? prev.filter((c) => c !== cause.id) : [...prev, cause.id],
                     )
                   }
                   className={`text-left rounded-2xl p-4 transition-all duration-300 ${
@@ -376,7 +365,14 @@ function Recovery() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="font-medium text-foreground">{cause.label}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-foreground">{cause.label}</p>
+                          {cause.detected && (
+                            <Pill tone="warning" className="text-[8px] h-3 px-1 py-0 uppercase">
+                              Detected
+                            </Pill>
+                          )}
+                        </div>
                         {selected && <Check className="h-4 w-4 text-accent" />}
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">{cause.observation}</p>
@@ -399,8 +395,8 @@ function Recovery() {
                     {selectedCauses.length === 1
                       ? "Single-cause dips recover fastest. Focus all energy here."
                       : selectedCauses.length === 2
-                      ? "Two interconnected causes. Addressing the sleep/recovery axis often resolves both."
-                      : "Multiple causes compound quickly. Prioritize sleep and reduce surface area first."}
+                        ? "Two interconnected causes. Addressing the sleep/recovery axis often resolves both."
+                        : "Multiple causes compound quickly. Prioritize sleep and reduce surface area first."}
                   </p>
                 </div>
               </div>
@@ -430,20 +426,38 @@ function Recovery() {
       {step === 2 && (
         <section className="px-5 space-y-4 animate-fade-up">
           {/* Protocol selector */}
+          {protocolMatch.confidence !== "low" && (
+            <div className="flex items-start gap-2 rounded-xl bg-accent/5 border border-accent/15 px-3 py-2.5">
+              <Sparkles className="h-4 w-4 text-accent flex-none mt-0.5" />
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                  Personalized recommendation
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">{protocolMatch.reasoning}</p>
+              </div>
+            </div>
+          )}
           <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-            {(Object.keys(mvdProtocols) as ProtocolKey[]).map((k) => (
-              <button
-                key={k}
-                onClick={() => setSelectedProtocol(k)}
-                className={`flex-none rounded-full px-3.5 py-2 text-[11px] font-medium transition ${
-                  selectedProtocol === k
-                    ? "bg-foreground text-background"
-                    : "hairline bg-card text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {mvdProtocols[k].label}
-              </button>
-            ))}
+            {(Object.keys(mvdProtocols) as ProtocolKey[]).map((k) => {
+              const isRecommended =
+                k === protocolMatch.recommendedProtocol && protocolMatch.confidence !== "low";
+              return (
+                <button
+                  key={k}
+                  onClick={() => setSelectedProtocol(k)}
+                  className={`flex-none rounded-full px-3.5 py-2 text-[11px] font-medium transition relative ${
+                    selectedProtocol === k
+                      ? "bg-foreground text-background"
+                      : "hairline bg-card text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {mvdProtocols[k].label}
+                  {isRecommended && selectedProtocol !== k && (
+                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-accent border-2 border-background" />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* MVD Card */}
@@ -457,7 +471,8 @@ function Recovery() {
                 Three things. Nothing else.
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                This isn't about doing less forever. It's about preserving momentum while you rebuild.
+                This isn't about doing less forever. It's about preserving momentum while you
+                rebuild.
               </p>
 
               <div className="mt-6 space-y-3">
@@ -472,7 +487,9 @@ function Recovery() {
                       </div>
                       <span className="text-sm text-foreground">{task.t}</span>
                     </div>
-                    <span className="text-[11px] text-muted-foreground num-tabular">{task.est}</span>
+                    <span className="text-[11px] text-muted-foreground num-tabular">
+                      {task.est}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -483,7 +500,8 @@ function Recovery() {
                   <div>
                     <p className="text-sm font-medium text-foreground">Protected load</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Ambitious goals and weekly targets are muted for 48h while you rebuild. You can override anytime.
+                      Ambitious goals and weekly targets are muted for 48h while you rebuild. You
+                      can override anytime.
                     </p>
                   </div>
                 </div>
@@ -522,17 +540,22 @@ function Recovery() {
                   <span className="text-muted-foreground text-xl"> days</span>
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground max-w-[40ch]">
-                  Based on your historical recovery speed and current signals. This adapts as you progress.
+                  Based on your historical recovery speed and current signals. This adapts as you
+                  progress.
                 </p>
               </div>
               <div className="mt-4 lg:mt-0 flex items-center gap-4">
                 <div className="text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Resilience</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                    Resilience
+                  </p>
                   <p className="font-display text-2xl text-foreground">{resilience}</p>
                 </div>
                 <div className="h-10 w-px bg-border" />
                 <div className="text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Avg recovery</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                    Avg recovery
+                  </p>
                   <p className="font-display text-2xl text-foreground">{avgRecoveryDays}d</p>
                 </div>
               </div>
@@ -546,13 +569,24 @@ function Recovery() {
               <StatLabel>Next 24 hours</StatLabel>
             </div>
             <div className="space-y-2">
-              {recoveryPlan.next24h.map((item, i) => (
-                <div key={i} className="flex items-center justify-between rounded-xl bg-secondary/40 px-4 py-3">
+              {roadmap.next24h.map((item, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between rounded-xl bg-secondary/40 px-4 py-3"
+                >
                   <div className="flex items-center gap-3">
                     <span className="text-[11px] text-muted-foreground w-20">{item.time}</span>
                     <span className="text-sm text-foreground">{item.action}</span>
                   </div>
-                  <Pill tone={item.priority === "critical" ? "danger" : item.priority === "high" ? "warning" : "neutral"}>
+                  <Pill
+                    tone={
+                      item.priority === "critical"
+                        ? "danger"
+                        : item.priority === "high"
+                          ? "warning"
+                          : "neutral"
+                    }
+                  >
                     {item.priority}
                   </Pill>
                 </div>
@@ -567,9 +601,11 @@ function Recovery() {
               <StatLabel>3-day stabilization</StatLabel>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-              {recoveryPlan.next3d.map((day, i) => (
+              {roadmap.next3d.map((day, i) => (
                 <div key={i} className="rounded-xl bg-secondary/30 p-4">
-                  <p className="text-[11px] font-medium text-accent uppercase tracking-wider">{day.day}</p>
+                  <p className="text-[11px] font-medium text-accent uppercase tracking-wider">
+                    {day.day}
+                  </p>
                   <p className="mt-2 text-sm font-medium text-foreground">{day.focus}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{day.metric}</p>
                 </div>
@@ -584,9 +620,11 @@ function Recovery() {
               <StatLabel>Momentum rebuilding</StatLabel>
             </div>
             <div className="space-y-3">
-              {recoveryPlan.rebuilding.map((phase, i) => (
+              {roadmap.rebuilding.map((phase, i) => (
                 <div key={i} className="flex items-center gap-4">
-                  <div className={`h-3 w-3 rounded-full ${i === 0 ? "bg-warning" : i === 1 ? "bg-accent" : "bg-success"}`} />
+                  <div
+                    className={`h-3 w-3 rounded-full ${i === 0 ? "bg-warning" : i === 1 ? "bg-accent" : "bg-success"}`}
+                  />
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium text-foreground">{phase.phase}</p>
@@ -599,10 +637,10 @@ function Recovery() {
             </div>
 
             {/* Progress visualization */}
-            <div className="mt-6 h-2 rounded-full bg-secondary overflow-hidden">
-              <div className="h-full w-1/6 bg-gradient-to-r from-warning via-accent to-success rounded-full" />
+            <div className="mt-6">
+              <RecoveryTimeline phases={roadmap.rebuilding} />
             </div>
-            <p className="mt-2 text-[11px] text-muted-foreground text-center">
+            <p className="mt-4 text-[11px] text-muted-foreground text-center">
               Progress updates as you check in daily
             </p>
           </Card>
@@ -656,11 +694,39 @@ function Recovery() {
             <Card>
               <StatLabel>Projected return</StatLabel>
               <p className="font-display mt-2 text-2xl text-foreground">
-                {new Date(Date.now() + estimatedRecovery * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                {new Date(Date.now() + estimatedRecovery * 24 * 60 * 60 * 1000).toLocaleDateString(
+                  "en-US",
+                  { month: "short", day: "numeric" },
+                )}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">Based on your resilience</p>
             </Card>
           </div>
+
+          {/* Circle Commitment */}
+          <Card className="bg-gradient-surface border-accent/20">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <Users className="h-5 w-5 text-accent mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Commit to your circle</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Sharing your recovery protocol reduces accountability pressure and signals your
+                    team to support you.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleShareToCircle}
+                disabled={sharedToCircle}
+                className={`flex-shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${
+                  sharedToCircle ? "bg-success text-background" : "bg-accent text-accent-foreground"
+                }`}
+              >
+                {sharedToCircle ? <Check className="h-3.5 w-3.5" /> : "Share"}
+              </button>
+            </div>
+          </Card>
 
           {/* Additional reinforcements */}
           <div className="space-y-3">
@@ -684,7 +750,9 @@ function Recovery() {
               <div>
                 <p className="text-sm font-medium text-foreground">Recovery is a skill</p>
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                  Every protocol you complete teaches Cadence how you bounce back. The system learns your recovery patterns and shortens future dips. This isn't about avoiding failure — it's about building antifragility.
+                  Every protocol you complete teaches Cadence how you bounce back. The system learns
+                  your recovery patterns and shortens future dips. This isn't about avoiding failure
+                  — it's about building antifragility.
                 </p>
               </div>
             </div>
@@ -735,8 +803,8 @@ function SignalCard({
         tone === "danger"
           ? "bg-danger/5 border-danger/20"
           : tone === "warning"
-          ? "bg-warning/5 border-warning/20"
-          : ""
+            ? "bg-warning/5 border-warning/20"
+            : ""
       }
     >
       <div className="flex items-start gap-3">
@@ -745,8 +813,8 @@ function SignalCard({
             tone === "danger"
               ? "bg-danger/15 text-danger"
               : tone === "warning"
-              ? "bg-warning/15 text-warning"
-              : "bg-secondary text-muted-foreground"
+                ? "bg-warning/15 text-warning"
+                : "bg-secondary text-muted-foreground"
           }`}
         >
           <Icon className="h-4 w-4" />
@@ -758,5 +826,49 @@ function SignalCard({
         </div>
       </div>
     </Card>
+  );
+}
+
+// Visual timeline component
+function RecoveryTimeline({
+  phases,
+}: {
+  phases: { phase: string; duration: string; goal: string }[];
+}) {
+  return (
+    <div className="relative h-12 w-full flex items-center">
+      {/* Background line */}
+      <div className="absolute top-1/2 left-0 w-full h-1 bg-secondary -translate-y-1/2 rounded-full" />
+
+      {/* Active progress line */}
+      <div className="absolute top-1/2 left-0 w-1/6 h-1 bg-gradient-to-r from-warning to-accent -translate-y-1/2 rounded-full z-10" />
+
+      {/* Nodes */}
+      <div className="relative w-full flex justify-between px-1 z-20">
+        {phases.map((p, i) => (
+          <div key={i} className="flex flex-col items-center">
+            <div
+              className={`h-4 w-4 rounded-full border-4 border-background ${
+                i === 0
+                  ? "bg-warning scale-110 shadow-lg shadow-warning/20"
+                  : i === 1
+                    ? "bg-accent"
+                    : "bg-success"
+              }`}
+            />
+            <span className="absolute -bottom-6 text-[9px] font-medium text-muted-foreground whitespace-nowrap uppercase tracking-tighter">
+              {p.phase}
+            </span>
+          </div>
+        ))}
+        {/* End node */}
+        <div className="flex flex-col items-center">
+          <div className="h-4 w-4 rounded-full border-4 border-background bg-secondary" />
+          <span className="absolute -bottom-6 text-[9px] font-medium text-muted-foreground whitespace-nowrap uppercase tracking-tighter">
+            Steady
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }

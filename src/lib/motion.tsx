@@ -10,7 +10,12 @@ export function FadeUp({
   delay = 0,
   className,
   y = 12,
-}: { children: ReactNode; delay?: number; className?: string; y?: number }) {
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+  y?: number;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y }}
@@ -28,7 +33,12 @@ export function Stagger({
   className,
   gap = 0.06,
   initialDelay = 0.05,
-}: { children: ReactNode; className?: string; gap?: number; initialDelay?: number }) {
+}: {
+  children: ReactNode;
+  className?: string;
+  gap?: number;
+  initialDelay?: number;
+}) {
   return (
     <motion.div
       className={className}
@@ -44,7 +54,15 @@ export function Stagger({
   );
 }
 
-export function StaggerItem({ children, className, y = 10 }: { children: ReactNode; className?: string; y?: number }) {
+export function StaggerItem({
+  children,
+  className,
+  y = 10,
+}: {
+  children: ReactNode;
+  className?: string;
+  y?: number;
+}) {
   return (
     <motion.div
       className={className}
@@ -62,7 +80,11 @@ export function TapCard({
   children,
   className,
   onClick,
-}: { children: ReactNode; className?: string; onClick?: () => void }) {
+}: {
+  children: ReactNode;
+  className?: string;
+  onClick?: () => void;
+}) {
   return (
     <motion.div
       onClick={onClick}
@@ -81,7 +103,12 @@ export function AnimatedNumber({
   duration = 1.1,
   className,
   format = (v: number) => Math.round(v).toString(),
-}: { value: number; duration?: number; className?: string; format?: (v: number) => string }) {
+}: {
+  value: number;
+  duration?: number;
+  className?: string;
+  format?: (v: number) => string;
+}) {
   const mv = useMotionValue(0);
   const rounded = useTransform(mv, (v) => format(v));
   const [display, setDisplay] = useState(format(0));

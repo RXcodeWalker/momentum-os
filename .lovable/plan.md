@@ -1,4 +1,3 @@
-
 # Cadence — UI/UX Upgrade Plan
 
 Goal: make the product feel alive, premium, and emotionally responsive — without touching business logic. All work is presentation-only: typography rhythm, motion, depth, micro-interactions, and a few new visual surfaces that make the existing data feel meaningful.
@@ -37,7 +36,7 @@ These are pure UI components — you wire data later.
 
 - **State Ribbon (top of Today)**: a thin horizontal strip visualising the user's last 14 days as colored dots with today highlighted; click a dot to preview that day in a side drawer.
 - **Focus Window card**: a clock-style radial showing today's protected deep-work windows vs distraction risk hours.
-- **Behavioral Pattern card**: an editorial "AI note" with serif quote, e.g. *"You over-plan on Sundays. Consider committing to 3 priorities, not 6."* — with confidence chip and a "Dismiss / Save" row.
+- **Behavioral Pattern card**: an editorial "AI note" with serif quote, e.g. _"You over-plan on Sundays. Consider committing to 3 priorities, not 6."_ — with confidence chip and a "Dismiss / Save" row.
 - **Identity Progress arc**: replace the flat identity bar with a layered arc + tier badge that fills smoothly.
 - **Command Palette** (`⌘K`): visual-only overlay for quick nav between routes, with recent actions and keyboard hints. Adds a power-user feel.
 - **Empty-state illustrations**: hand-drawn SVG line art for empty Insights, Circles, Weekly — instead of plain text.

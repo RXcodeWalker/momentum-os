@@ -42,15 +42,20 @@ export const Route = createFileRoute("/onboarding")({
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const GOALS = [
-  { id: "studying",   label: "Studying",           desc: "Learn deeply, retain more",        icon: BookOpen },
-  { id: "fitness",    label: "Fitness",             desc: "Train consistently, recover fast",  icon: Dumbbell },
-  { id: "coding",     label: "Coding",              desc: "Ship real projects",                icon: Code2 },
-  { id: "creativity", label: "Creativity",          desc: "Make things more often",            icon: Palette },
-  { id: "discipline", label: "Discipline",          desc: "Do hard things daily",              icon: Shield },
-  { id: "social",     label: "Social confidence",   desc: "Show up and speak up",             icon: Users },
-  { id: "sleep",      label: "Sleep",               desc: "Recover properly every night",      icon: Moon },
-  { id: "focus",      label: "Focus",               desc: "Sustain deep attention",            icon: Crosshair },
-  { id: "emotional",  label: "Emotional stability", desc: "Regulate under pressure",           icon: HeartPulse },
+  { id: "studying", label: "Studying", desc: "Learn deeply, retain more", icon: BookOpen },
+  { id: "fitness", label: "Fitness", desc: "Train consistently, recover fast", icon: Dumbbell },
+  { id: "coding", label: "Coding", desc: "Ship real projects", icon: Code2 },
+  { id: "creativity", label: "Creativity", desc: "Make things more often", icon: Palette },
+  { id: "discipline", label: "Discipline", desc: "Do hard things daily", icon: Shield },
+  { id: "social", label: "Social confidence", desc: "Show up and speak up", icon: Users },
+  { id: "sleep", label: "Sleep", desc: "Recover properly every night", icon: Moon },
+  { id: "focus", label: "Focus", desc: "Sustain deep attention", icon: Crosshair },
+  {
+    id: "emotional",
+    label: "Emotional stability",
+    desc: "Regulate under pressure",
+    icon: HeartPulse,
+  },
 ];
 
 const STRUGGLES = [
@@ -105,38 +110,38 @@ const STRUGGLES = [
 ];
 
 const ENERGY_PEAKS = [
-  { id: "early",    label: "Early morning", desc: "5–9 AM",   icon: Sun },
-  { id: "morning",  label: "Morning",       desc: "9 AM–12",  icon: Sun },
-  { id: "midday",   label: "Midday",        desc: "12–3 PM",  icon: Sunset },
-  { id: "evening",  label: "Evening",       desc: "5–9 PM",   icon: Sunset },
-  { id: "night",    label: "Late night",    desc: "9 PM+",    icon: Moon },
+  { id: "early", label: "Early morning", desc: "5–9 AM", icon: Sun },
+  { id: "morning", label: "Morning", desc: "9 AM–12", icon: Sun },
+  { id: "midday", label: "Midday", desc: "12–3 PM", icon: Sunset },
+  { id: "evening", label: "Evening", desc: "5–9 PM", icon: Sunset },
+  { id: "night", label: "Late night", desc: "9 PM+", icon: Moon },
 ];
 
 const SLEEP_PATTERNS = [
-  { id: "solid",      label: "Solid (7–9h)", desc: "Consistent and protective" },
-  { id: "variable",   label: "Variable",     desc: "Good nights and bad nights" },
-  { id: "short",      label: "Short (5–7h)", desc: "Functioning but running lean" },
-  { id: "collapsed",  label: "Collapsed",    desc: "Often under 5h or irregular" },
+  { id: "solid", label: "Solid (7–9h)", desc: "Consistent and protective" },
+  { id: "variable", label: "Variable", desc: "Good nights and bad nights" },
+  { id: "short", label: "Short (5–7h)", desc: "Functioning but running lean" },
+  { id: "collapsed", label: "Collapsed", desc: "Often under 5h or irregular" },
 ];
 
 const FOCUS_DURATIONS = [
-  { id: "15",  label: "15–30 min",  desc: "Hard to go longer" },
-  { id: "45",  label: "45–60 min",  desc: "Standard block" },
-  { id: "90",  label: "90+ min",    desc: "Deep flow is accessible" },
-  { id: "varies", label: "Varies",  desc: "Depends on the day" },
+  { id: "15", label: "15–30 min", desc: "Hard to go longer" },
+  { id: "45", label: "45–60 min", desc: "Standard block" },
+  { id: "90", label: "90+ min", desc: "Deep flow is accessible" },
+  { id: "varies", label: "Varies", desc: "Depends on the day" },
 ];
 
 const WORKLOADS = [
-  { id: "light",    label: "Light",    desc: "1–2 real tasks/day" },
+  { id: "light", label: "Light", desc: "1–2 real tasks/day" },
   { id: "moderate", label: "Moderate", desc: "3–4 tasks/day" },
-  { id: "heavy",    label: "Heavy",    desc: "5+ tasks/day" },
-  { id: "unclear",  label: "Unclear",  desc: "I often over- or under-plan" },
+  { id: "heavy", label: "Heavy", desc: "5+ tasks/day" },
+  { id: "unclear", label: "Unclear", desc: "I often over- or under-plan" },
 ];
 
 const RECOVERY_SPEEDS = [
-  { id: "fast",   label: "Fast",     desc: "Back on track in 1–2 days" },
-  { id: "medium", label: "Medium",   desc: "Takes 3–5 days to recover" },
-  { id: "slow",   label: "Slow",     desc: "Needs a week or more" },
+  { id: "fast", label: "Fast", desc: "Back on track in 1–2 days" },
+  { id: "medium", label: "Medium", desc: "Takes 3–5 days to recover" },
+  { id: "slow", label: "Slow", desc: "Needs a week or more" },
   { id: "spiral", label: "I spiral", desc: "One bad day resets everything" },
 ];
 
@@ -187,9 +192,12 @@ function deriveWorkloadWarning(goalCount: number, workload: string, struggles: s
 
 // Derives a momentum baseline score from all profile inputs
 function deriveBaselineScore(profile: Profile): number {
-  const sleepBonus = { solid: 18, variable: 10, short: 4, collapsed: 0 }[profile.sleep[0] ?? "variable"] ?? 8;
-  const workloadPenalty = { light: 0, moderate: 5, heavy: 12, unclear: 8 }[profile.workload[0] ?? "moderate"] ?? 5;
-  const recoveryBonus = { fast: 20, medium: 12, slow: 5, spiral: 0 }[profile.recovery[0] ?? "medium"] ?? 10;
+  const sleepBonus =
+    { solid: 18, variable: 10, short: 4, collapsed: 0 }[profile.sleep[0] ?? "variable"] ?? 8;
+  const workloadPenalty =
+    { light: 0, moderate: 5, heavy: 12, unclear: 8 }[profile.workload[0] ?? "moderate"] ?? 5;
+  const recoveryBonus =
+    { fast: 20, medium: 12, slow: 5, spiral: 0 }[profile.recovery[0] ?? "medium"] ?? 10;
   const focusBonus = { "15": 5, "45": 12, "90": 20, varies: 8 }[profile.focus[0] ?? "45"] ?? 10;
   const strugglePenalty = clamp(profile.struggles.length * 4, 0, 25);
   const base = 42 + sleepBonus + recoveryBonus + focusBonus - workloadPenalty - strugglePenalty;
@@ -215,20 +223,23 @@ function deriveSystemSetup(profile: Profile) {
   const hasInconsistency = profile.struggles.includes("inconsistency");
   const hasSpiral = profile.recovery[0] === "spiral";
 
-  const focusDuration = { "15": 20, "45": 50, "90": 90, varies: 45 }[profile.focus[0] ?? "45"] ?? 50;
+  const focusDuration =
+    { "15": 20, "45": 50, "90": 90, varies: 45 }[profile.focus[0] ?? "45"] ?? 50;
   const maxTasks = profile.workload[0] === "heavy" ? 4 : profile.workload[0] === "light" ? 2 : 3;
 
   return {
     focusSystem: hasPerfectionism
       ? `Timed execution blocks (${focusDuration}min) — shipping over perfecting`
       : `Adaptive focus blocks (${focusDuration}min) calibrated to your energy window`,
-    recovery: hasBurnout || hasSpiral
-      ? "Mandatory recovery days built in — no streak pressure"
-      : "Dynamic recovery triggers after low-execution signals",
+    recovery:
+      hasBurnout || hasSpiral
+        ? "Mandatory recovery days built in — no streak pressure"
+        : "Dynamic recovery triggers after low-execution signals",
     workload: `Max ${maxTasks} real tasks/day — protected against overloading`,
-    mvd: hasInconsistency || hasSpiral
-      ? "Minimum Viable Day protocol — 1 anchor task on hard days"
-      : "Minimum Viable Day protocol ready when signals drop",
+    mvd:
+      hasInconsistency || hasSpiral
+        ? "Minimum Viable Day protocol — 1 anchor task on hard days"
+        : "Minimum Viable Day protocol ready when signals drop",
     distraction: hasDistraction
       ? "Distraction log + wind-down protocol at 8:30 PM"
       : "Distraction monitoring with weekly pattern reports",
@@ -298,22 +309,24 @@ function Onboarding() {
     nav({ to: "/" });
   }
 
-  const warning = step === 3
-    ? deriveWorkloadWarning(profile.goals.length, profile.workload[0] ?? "", profile.struggles)
-    : null;
+  const warning =
+    step === 3
+      ? deriveWorkloadWarning(profile.goals.length, profile.workload[0] ?? "", profile.struggles)
+      : null;
 
   const baselineScore = step >= 4 ? deriveBaselineScore(profile) : 0;
   const risks = step >= 4 ? deriveRiskFactors(profile) : [];
   const setup = step >= 5 ? deriveSystemSetup(profile) : null;
 
-  const canNext = [
-    profile.goals.length >= 1,
-    profile.struggles.length >= 1,
-    profile.energyPeak.length >= 1 && profile.sleep.length >= 1 && profile.focus.length >= 1,
-    profile.workload.length >= 1 && profile.recovery.length >= 1,
-    true,
-    true,
-  ][step] ?? false;
+  const canNext =
+    [
+      profile.goals.length >= 1,
+      profile.struggles.length >= 1,
+      profile.energyPeak.length >= 1 && profile.sleep.length >= 1 && profile.focus.length >= 1,
+      profile.workload.length >= 1 && profile.recovery.length >= 1,
+      true,
+      true,
+    ][step] ?? false;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -340,8 +353,8 @@ function Onboarding() {
                 i === step
                   ? "h-[6px] w-6 bg-accent"
                   : i < step
-                  ? "h-[6px] w-[6px] bg-accent/40"
-                  : "h-[6px] w-[6px] bg-secondary"
+                    ? "h-[6px] w-[6px] bg-accent/40"
+                    : "h-[6px] w-[6px] bg-secondary"
               }`}
             />
           ))}
@@ -385,18 +398,10 @@ function Onboarding() {
           />
         )}
         {step === 4 && (
-          <Step5Baseline
-            profile={profile}
-            baselineScore={baselineScore}
-            risks={risks}
-          />
+          <Step5Baseline profile={profile} baselineScore={baselineScore} risks={risks} />
         )}
         {step === 5 && (
-          <Step6Activation
-            profile={profile}
-            setup={setup!}
-            baselineScore={baselineScore}
-          />
+          <Step6Activation profile={profile} setup={setup!} baselineScore={baselineScore} />
         )}
       </div>
 
@@ -510,9 +515,10 @@ function Step2Struggles({
             Pattern cluster detected:{" "}
             {profile.struggles.includes("burnout") && profile.struggles.includes("perfectionism")
               ? "high-drive burnout profile."
-              : profile.struggles.includes("inconsistency") && profile.struggles.includes("motivation")
-              ? "motivation-crash loop."
-              : "multi-vector instability."}{" "}
+              : profile.struggles.includes("inconsistency") &&
+                  profile.struggles.includes("motivation")
+                ? "motivation-crash loop."
+                : "multi-vector instability."}{" "}
             System will prioritize recovery architecture.
           </span>
         </ObservationBanner>
@@ -598,10 +604,10 @@ function Step3ExecutionProfile({
             {profile.energyPeak[0] === "night" && profile.sleep[0] === "short"
               ? "Night-owl with short sleep — high burnout risk. Recovery buffer added."
               : profile.focus[0] === "90" && profile.sleep[0] === "solid"
-              ? "Deep focus + solid sleep. Strong execution profile. Stretching recommended."
-              : profile.focus[0] === "15"
-              ? "Short focus windows detected. System will use micro-blocks and high-frequency check-ins."
-              : "Profile calibrated. Adaptive schedule generating."}
+                ? "Deep focus + solid sleep. Strong execution profile. Stretching recommended."
+                : profile.focus[0] === "15"
+                  ? "Short focus windows detected. System will use micro-blocks and high-frequency check-ins."
+                  : "Profile calibrated. Adaptive schedule generating."}
           </span>
         </ObservationBanner>
       )}
@@ -668,14 +674,18 @@ function Step4Calibration({
             warning.level === "high"
               ? "border-danger/30 bg-danger/8"
               : warning.level === "elevated"
-              ? "border-warning/30 bg-warning/8"
-              : "border-accent/30 bg-accent/8"
+                ? "border-warning/30 bg-warning/8"
+                : "border-accent/30 bg-accent/8"
           }`}
         >
           <div className="flex items-start gap-3">
             <AlertTriangle
               className={`h-4 w-4 flex-none mt-0.5 ${
-                warning.level === "high" ? "text-danger" : warning.level === "elevated" ? "text-warning" : "text-accent"
+                warning.level === "high"
+                  ? "text-danger"
+                  : warning.level === "elevated"
+                    ? "text-warning"
+                    : "text-accent"
               }`}
             />
             <div>
@@ -718,9 +728,18 @@ function Step5Baseline({
   const scoreColor =
     baselineScore >= 65 ? "text-success" : baselineScore >= 45 ? "text-accent" : "text-warning";
 
-  const focusLabel = { "15": "Short blocks", "45": "Standard blocks", "90": "Deep flow", varies: "Variable" }[profile.focus[0] ?? "45"] ?? "Standard";
-  const sleepLabel = { solid: "Optimal", variable: "Variable", short: "Running lean", collapsed: "Needs work" }[profile.sleep[0] ?? "variable"] ?? "Variable";
-  const recoveryLabel = { fast: "High", medium: "Moderate", slow: "Low", spiral: "Critical" }[profile.recovery[0] ?? "medium"] ?? "Moderate";
+  const focusLabel =
+    { "15": "Short blocks", "45": "Standard blocks", "90": "Deep flow", varies: "Variable" }[
+      profile.focus[0] ?? "45"
+    ] ?? "Standard";
+  const sleepLabel =
+    { solid: "Optimal", variable: "Variable", short: "Running lean", collapsed: "Needs work" }[
+      profile.sleep[0] ?? "variable"
+    ] ?? "Variable";
+  const recoveryLabel =
+    { fast: "High", medium: "Moderate", slow: "Low", spiral: "Critical" }[
+      profile.recovery[0] ?? "medium"
+    ] ?? "Moderate";
 
   return (
     <div>
@@ -734,15 +753,17 @@ function Step5Baseline({
           <ScoreRing value={baselineScore} />
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className={`font-display text-5xl leading-none ${scoreColor}`}>{displayed}</span>
-            <span className="mt-1 text-[11px] text-muted-foreground uppercase tracking-widest">Starting score</span>
+            <span className="mt-1 text-[11px] text-muted-foreground uppercase tracking-widest">
+              Starting score
+            </span>
           </div>
         </div>
         <p className="mt-3 text-sm text-muted-foreground text-center max-w-[30ch]">
           {baselineScore >= 65
             ? "Strong baseline. You have execution capacity — focus is the lever."
             : baselineScore >= 45
-            ? "Moderate baseline. Consistency will compound fast from here."
-            : "Low baseline. Rebuilding from first principles. Recovery is the first priority."}
+              ? "Moderate baseline. Consistency will compound fast from here."
+              : "Low baseline. Rebuilding from first principles. Recovery is the first priority."}
         </p>
       </div>
 
@@ -756,7 +777,9 @@ function Step5Baseline({
       {/* Risk factors */}
       {risks.length > 0 && (
         <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="mb-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Behavioral risk factors</p>
+          <p className="mb-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            Behavioral risk factors
+          </p>
           <div className="space-y-2">
             {risks.map((r, i) => (
               <div key={i} className="flex items-center gap-2.5">
@@ -811,7 +834,8 @@ function Step6Activation({
               {profile.goals.length} area{profile.goals.length !== 1 ? "s" : ""} tracked
             </p>
             <p className="text-xs text-muted-foreground">
-              {profile.struggles.length} pattern{profile.struggles.length !== 1 ? "s" : ""} monitored
+              {profile.struggles.length} pattern{profile.struggles.length !== 1 ? "s" : ""}{" "}
+              monitored
             </p>
           </div>
           <div className="ml-auto text-right">
@@ -841,7 +865,9 @@ function Step6Activation({
                 <Icon className="h-4 w-4 text-accent" strokeWidth={1.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{item.label}</p>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                  {item.label}
+                </p>
                 <p className="mt-0.5 text-sm text-foreground leading-snug">{item.value}</p>
               </div>
               <Check className="h-4 w-4 flex-none text-success mt-0.5" strokeWidth={2.5} />
@@ -881,13 +907,7 @@ function Sub({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ProfileSection({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function ProfileSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <p className="mb-3 text-sm font-medium text-foreground">{label}</p>
@@ -923,7 +943,9 @@ function SelectCard({
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5">
           {icon && (
-            <span className={`${on ? "text-accent" : "text-muted-foreground group-hover:text-foreground"} transition-colors`}>
+            <span
+              className={`${on ? "text-accent" : "text-muted-foreground group-hover:text-foreground"} transition-colors`}
+            >
               {icon}
             </span>
           )}
@@ -991,11 +1013,22 @@ function ScoreRing({ value }: { value: number }) {
   }, [filled]);
 
   const scoreColor =
-    value >= 65 ? "oklch(0.78 0.14 155)" : value >= 45 ? "oklch(0.78 0.14 75)" : "oklch(0.82 0.14 60)";
+    value >= 65
+      ? "oklch(0.78 0.14 155)"
+      : value >= 45
+        ? "oklch(0.78 0.14 75)"
+        : "oklch(0.82 0.14 60)";
 
   return (
     <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="oklch(0.24 0.008 270)" strokeWidth={stroke} />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="oklch(0.24 0.008 270)"
+        strokeWidth={stroke}
+      />
       <circle
         cx={size / 2}
         cy={size / 2}

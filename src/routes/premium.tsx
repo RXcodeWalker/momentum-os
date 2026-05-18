@@ -8,18 +8,41 @@ export const Route = createFileRoute("/premium")({
   head: () => ({
     meta: [
       { title: "Cadence Pro — Behavioral OS" },
-      { name: "description", content: "Adaptive coaching, deep behavioral analytics, and predictive recovery." },
+      {
+        name: "description",
+        content: "Adaptive coaching, deep behavioral analytics, and predictive recovery.",
+      },
     ],
   }),
   component: Premium,
 });
 
 const features = [
-  { icon: Brain, title: "Adaptive coaching", body: "Daily protocols tuned to your patterns — not generic templates." },
-  { icon: LineChart, title: "Deep behavioral analytics", body: "12-week trend analysis across focus, recovery, sleep, and discipline." },
-  { icon: Sparkles, title: "Predictive recovery alerts", body: "We catch the crash 36 hours before it lands." },
-  { icon: Target, title: "Personalized execution plans", body: "Weekly plans calibrated to your real capacity, not your ambition." },
-  { icon: Zap, title: "Focus pattern analysis", body: "Hour-by-hour focus mapping. Find your peak window and protect it." },
+  {
+    icon: Brain,
+    title: "Adaptive coaching",
+    body: "Daily protocols tuned to your patterns — not generic templates.",
+  },
+  {
+    icon: LineChart,
+    title: "Deep behavioral analytics",
+    body: "12-week trend analysis across focus, recovery, sleep, and discipline.",
+  },
+  {
+    icon: Sparkles,
+    title: "Predictive recovery alerts",
+    body: "We catch the crash 36 hours before it lands.",
+  },
+  {
+    icon: Target,
+    title: "Personalized execution plans",
+    body: "Weekly plans calibrated to your real capacity, not your ambition.",
+  },
+  {
+    icon: Zap,
+    title: "Focus pattern analysis",
+    body: "Hour-by-hour focus mapping. Find your peak window and protect it.",
+  },
 ];
 
 const plans = [
@@ -37,11 +60,16 @@ function Premium() {
       <ScreenHeader
         eyebrow={premium ? "Pro · active" : "Cadence Pro"}
         title={premium ? "You're on Pro." : "Built for people who actually execute."}
-        subtitle={premium
-          ? "All advanced analytics, coaching, and predictive recovery are unlocked."
-          : "Adaptive coaching, deep behavioral analytics, and predictive recovery."}
+        subtitle={
+          premium
+            ? "All advanced analytics, coaching, and predictive recovery are unlocked."
+            : "Adaptive coaching, deep behavioral analytics, and predictive recovery."
+        }
         right={
-          <Link to="/" className="hairline flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:text-foreground">
+          <Link
+            to="/"
+            className="hairline flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" />
           </Link>
         }
@@ -91,7 +119,9 @@ function Premium() {
                   key={p.id}
                   onClick={() => setPlan(p.id)}
                   className={`relative rounded-2xl border p-4 text-left transition ${
-                    plan === p.id ? "border-accent bg-accent/10 shadow-glow" : "border-border bg-card hover:border-foreground/20"
+                    plan === p.id
+                      ? "border-accent bg-accent/10 shadow-glow"
+                      : "border-border bg-card hover:border-foreground/20"
                   }`}
                 >
                   {p.best && (
@@ -99,7 +129,10 @@ function Premium() {
                       Best value
                     </span>
                   )}
-                  <p className="font-display text-2xl num-tabular text-foreground">{p.price}<span className="text-sm text-muted-foreground">{p.per}</span></p>
+                  <p className="font-display text-2xl num-tabular text-foreground">
+                    {p.price}
+                    <span className="text-sm text-muted-foreground">{p.per}</span>
+                  </p>
                   <p className="mt-1 text-[11px] text-muted-foreground">{p.note}</p>
                 </button>
               ))}
@@ -107,10 +140,15 @@ function Premium() {
           </section>
 
           <section className="px-5">
-            <button onClick={() => setPremium(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-foreground py-4 text-sm font-semibold text-background">
+            <button
+              onClick={() => setPremium(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-foreground py-4 text-sm font-semibold text-background"
+            >
               <Crown className="h-4 w-4" /> Start 7-day free trial
             </button>
-            <p className="mt-2 text-center text-[11px] text-muted-foreground">No card required for trial. Cancel anytime.</p>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              No card required for trial. Cancel anytime.
+            </p>
           </section>
         </>
       )}
@@ -122,9 +160,14 @@ function Premium() {
               <Check className="h-5 w-5 text-success" />
               <div>
                 <p className="text-sm font-medium text-foreground">Pro active</p>
-                <p className="text-[11px] text-muted-foreground">Renews · {plan === "annual" ? "$72/yr" : "$9/mo"}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Renews · {plan === "annual" ? "$72/yr" : "$9/mo"}
+                </p>
               </div>
-              <button onClick={() => setPremium(false)} className="ml-auto text-[11px] text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setPremium(false)}
+                className="ml-auto text-[11px] text-muted-foreground hover:text-foreground"
+              >
                 Manage
               </button>
             </div>

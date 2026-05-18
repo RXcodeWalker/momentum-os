@@ -1,10 +1,41 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Card, Pill, Ring, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
-import { ArrowUpRight, Check, Crown, Plus, RotateCcw, Sparkles, Sunrise, Sun, Moon } from "lucide-react";
-import { useApp, useConsistency, useExecutionScore, useMomentum, useResilience, useUserState, useLatestInsight } from "@/lib/store";
-import { useMemo, useState } from "react";
-import { Stagger, StaggerItem, TapCard, AnimatedNumber, FadeUp } from "@/lib/motion";
-import { StateRibbon } from "@/components/cards/StateRibbon";
+import { Card, Pill, Ring, ScreenHeader, StatLabel } from "@/components/ui-bits";
+import {
+  Check,
+  Crown,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  Sunrise,
+  Sun,
+  Moon,
+  Calendar,
+  Zap,
+  Dumbbell,
+  Wind,
+  AlertTriangle,
+  TrendingDown,
+  BookOpen,
+  Shield,
+} from "lucide-react";
+import {
+  useApp,
+  useConsistency,
+  useExecutionScore,
+  useMomentum,
+  useUserState,
+  useLatestInsight,
+  useMaturityLevel,
+  usePredictiveRecoveryAlert,
+  useStreakContext,
+  useTomorrowBriefing,
+  useTaskIntelligence,
+  useBlockerPattern,
+  useInsightEffectiveness,
+  useScoreVelocity,
+} from "@/lib/store";
+import { useState } from "react";
+import { Stagger, StaggerItem, TapCard, FadeUp } from "@/lib/motion";
 import { BehavioralNote } from "@/components/cards/BehavioralNote";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,175 +44,473 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Today — Cadence" },
-      { name: "description", content: "Your execution score, momentum, and focus goals for today." },
+      {
+        name: "description",
+        content: "Your execution score, momentum, and focus goals for today.",
+      },
     ],
   }),
   component: Home,
 });
 
+const TREND_DAYS = 14;
+const MAX_TASKS = 5;
+
 function Home() {
+  const user = useApp((s) => s.user);
   const score = useExecutionScore();
-  const { delta, trend } = useMomentum();
-  const consistency = useConsistency(14);
+  const { delta } = useMomentum();
+  const consistency = useConsistency(TREND_DAYS);
   const { state, label: stateLabel, tone: stateTone } = useUserState();
-  const { score: resilience, avgRecoveryDays } = useResilience();
+  const maturity = useMaturityLevel();
   const tasks = useApp((s) => s.tasks);
   const toggleTask = useApp((s) => s.toggleTask);
+  const dismissInsight = useApp((s) => s.dismissInsight);
   const recoveryMode = useApp((s) => s.recoveryMode);
+  const recoveryReason = useApp((s) => s.recoveryReason);
+  const recoveryPlan = useApp((s) => s.recoveryPlan);
   const history = useApp((s) => s.history);
-  const trend14 = useMemo(() => history.slice(-14).map((d) => d.executionScore), [history]);
+  const { trend } = useMomentum();
+  const aiAlert = usePredictiveRecoveryAlert();
 
   const completed = tasks.filter((t) => t.done).length;
 
   const hour = new Date().getHours();
   const greeting = hour < 11 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const phase: "morning" | "midday" | "evening" = hour < 11 ? "morning" : hour < 17 ? "midday" : "evening";
+  const phase: "morning" | "midday" | "evening" =
+    hour < 11 ? "morning" : hour < 17 ? "midday" : "evening";
 
   const subtitle = (() => {
-    if (state === "burnout") return "Burnout signals detected. Cut the surface area in half — sleep is the lever today.";
-    if (state === "recovery") return "You're in recovery. Smaller surface, faster reps. Three things, then rest.";
-    if (state === "peak") return "You're in a peak window. Stretch into deeper work — protect sleep at all costs.";
-    if (state === "inconsistent") return "Variance is high. Anchor one keystone behavior before adding anything else.";
+    if (state === "burnout")
+      return "Burnout signals detected. Cut the surface area in half — sleep is the lever today.";
+    if (state === "recovery")
+      return "You're in recovery. Smaller surface, faster reps. Three things, then rest.";
+    if (state === "peak")
+      return "You're in a peak window. Stretch into deeper work — protect sleep at all costs.";
+    if (state === "inconsistent")
+      return "Variance is high. Anchor one keystone behavior before adding anything else.";
     return "Steady hand today. Don't over-plan — execute three things well.";
   })();
 
   const momentumLabel = recoveryMode
     ? "In recovery"
     : trend === "up"
-    ? "Building back"
-    : trend === "down"
-    ? "Slipping"
-    : "Steady";
+      ? "Building back"
+      : trend === "down"
+        ? "Slipping"
+        : "Steady";
 
   const latestInsight = useLatestInsight();
+  const streakCtx = useStreakContext();
+  const tomorrowBriefing = useTomorrowBriefing();
+  const acceptTomorrowPlan = useApp((s) => s.acceptTomorrowPlan);
+  const checkIns = useApp((s) => s.checkIns);
+  const insights = useApp((s) => s.insights);
+  const blockerPattern = useBlockerPattern();
+  const insightEffectiveness = useInsightEffectiveness();
+  const velocity = useScoreVelocity();
+
+  // Yesterday's context for morning continuity
+  const yesterdayCheckIn = checkIns.length >= 2 ? checkIns[checkIns.length - 2] : null;
+
+  // Active committed insight with a verdict (working or too-early, not "not-working")
+  const committedInsightCard = insightEffectiveness.find(
+    (e) => e.verdict === "working" || e.verdict === "too-early",
+  );
+  const committedInsightData = committedInsightCard
+    ? insights.find((i) => i.id === committedInsightCard.insightId)
+    : null;
+
+  const recoveryDay = recoveryPlan?.startedAt
+    ? Math.floor((Date.now() - new Date(recoveryPlan.startedAt).getTime()) / 86400000) + 1
+    : 1;
 
   return (
-    <div className="flex flex-col gap-4 pb-6 lg:gap-6 lg:pb-8">
+    <div className="flex flex-col gap-5 pb-8 lg:gap-8 lg:pb-12">
       <ScreenHeader
-        eyebrow={new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-        title={`${greeting}, Alex.`}
+        eyebrow={new Date().toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+        })}
+        title={`${greeting}, ${user.split(" ")[0]}.`}
         subtitle={subtitle}
         right={
-          <div className="hidden lg:flex items-center gap-2">
-            <Pill tone={stateTone}>{stateLabel}</Pill>
-            <Link to="/identity" className="hairline rounded-full px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground">
+          <div className="flex items-center gap-2">
+            <div className="hidden lg:flex items-center gap-2">
+              <Pill tone="accent">{maturity.label}</Pill>
+              <Pill tone={stateTone}>{stateLabel}</Pill>
+            </div>
+            {streakCtx.currentStreak >= 2 && (
+              <Pill tone={streakCtx.atRisk ? "warning" : "success"} className="text-[10px]">
+                {streakCtx.currentStreak}d{" "}
+                {streakCtx.streakType === "resilience" ? "resilience" : "streak"}
+              </Pill>
+            )}
+            <Link
+              to="/identity"
+              className="hairline rounded-full px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            >
               Profile
             </Link>
           </div>
         }
       />
 
-      <FadeUp delay={0.05}>
-        <StateRibbon />
-      </FadeUp>
+      {aiAlert.detected && (
+        <div className="px-5 lg:px-0">
+          <BehavioralNote
+            title={aiAlert.title || ""}
+            body={aiAlert.body || ""}
+            confidence={aiAlert.confidence}
+          />
+        </div>
+      )}
 
-      <Stagger className="grid grid-cols-1 gap-4 px-5 lg:px-0 lg:grid-cols-12 lg:gap-5" gap={0.07}>
-        <StaggerItem className="lg:col-span-7">
-          <TapCard>
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-surface p-6 hairline shadow-elegant lg:p-7">
-              <div className="bg-glow absolute inset-0 animate-pulse-glow" />
-              <div className="relative flex items-center gap-6 lg:gap-8">
-                <Ring value={score} size={140} stroke={11} label="Execution" sub="Today" />
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <StatLabel>Momentum</StatLabel>
-                    <p className="mt-1 text-lg font-medium text-foreground">{momentumLabel}</p>
-                    <div className={`mt-1 flex items-center gap-1.5 text-xs ${delta >= 0 ? "text-success" : "text-danger"}`}>
-                      <ArrowUpRight className={`h-3.5 w-3.5 ${delta < 0 ? "rotate-90" : ""}`} />
-                      <span className="num-tabular">{delta >= 0 ? "+" : ""}{delta} pts vs last week</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {recoveryMode ? (
-                      <Pill tone="warning"><span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" /> Recovery mode</Pill>
-                    ) : (
-                      <Pill tone={stateTone}>{stateLabel}</Pill>
-                    )}
-                    <Pill tone="accent">{consistency}% consistent · 14d</Pill>
-                    <Pill tone="neutral">Resilience {resilience}</Pill>
-                  </div>
+      <Stagger className="grid grid-cols-1 gap-4 px-5 lg:px-0 lg:grid-cols-12 lg:gap-6" gap={0.07}>
+        <StaggerItem className="lg:col-span-12">
+          {/* Enhanced Focus Engine */}
+          <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-surface p-8 hairline shadow-elegant lg:p-12">
+            <div className="bg-glow absolute inset-0 animate-pulse-glow" />
+            <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-10">
+              <div className="flex-1 space-y-6">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`h-2.5 w-2.5 rounded-full bg-accent animate-pulse shadow-[0_0_8px_var(--accent)]`}
+                  />
+                  <StatLabel className="text-accent font-bold tracking-[0.2em] uppercase text-[11px]">
+                    Active Phase: {phase}
+                  </StatLabel>
+                </div>
+
+                <div>
+                  <h1 className="text-4xl lg:text-5xl font-display font-semibold text-foreground tracking-tight leading-tight">
+                    {phase === "morning"
+                      ? "Calibrate Your Day."
+                      : phase === "midday"
+                        ? "Deep Execution."
+                        : "Reflect and Reset."}
+                  </h1>
+                  <p className="mt-4 text-muted-foreground text-base lg:text-lg max-w-[45ch] leading-relaxed">
+                    {subtitle}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2.5 pt-2">
+                  <Pill tone={stateTone} className="px-4 py-1.5 text-xs font-bold">
+                    {stateLabel}
+                  </Pill>
+                  <Pill tone="accent" className="px-4 py-1.5 text-xs font-bold">
+                    {consistency}% Consistency
+                  </Pill>
+                  {recoveryMode && (
+                    <Pill tone="warning" className="px-4 py-1.5 text-xs font-bold">
+                      Recovery Active
+                    </Pill>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center lg:items-end">
+                <div className="relative">
+                  <Ring value={score} size={200} stroke={16} label="Score" sub="Today" />
+                  {delta !== 0 && (
+                    <motion.div
+                      initial={{ scale: 0, rotate: -20 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      className={`absolute -right-3 -top-3 flex h-14 w-14 items-center justify-center rounded-full hairline bg-card text-xs font-black shadow-2xl ${delta > 0 ? "text-success" : "text-danger"}`}
+                    >
+                      {delta > 0 ? "+" : ""}
+                      {delta}
+                    </motion.div>
+                  )}
                 </div>
               </div>
             </div>
-          </TapCard>
-        </StaggerItem>
 
-        <StaggerItem className="lg:col-span-5">
-          <Card className="h-full">
-            <div className="mb-3 flex items-center justify-between">
-              <StatLabel>Today's flow</StatLabel>
-              <span className="text-[10px] text-muted-foreground capitalize">{phase}</span>
-            </div>
-            <ul className="space-y-1.5">
-              <FlowRow icon={<Sunrise className="h-4 w-4" />} label="Morning" desc="Calibrate workload · 3 priorities" active={phase === "morning"} done={phase !== "morning"} />
-              <FlowRow icon={<Sun className="h-4 w-4" />} label="Midday" desc="Distraction check · focus pulse" active={phase === "midday"} done={phase === "evening"} />
-              <FlowRow icon={<Moon className="h-4 w-4" />} label="Evening" desc="Reflection · execution review" active={phase === "evening"} to="/check-in" />
-            </ul>
-          </Card>
-        </StaggerItem>
-
-        <StaggerItem className="lg:col-span-7">
-          <Card>
-            <div className="mb-4 flex items-end justify-between">
-              <div>
-                <StatLabel>Execution trend · 14 days</StatLabel>
-                <p className="font-display mt-1 text-2xl text-foreground">
-                  <AnimatedNumber value={consistency} />
-                  <span className="text-muted-foreground text-lg">%</span>
-                </p>
+            {/* Integrated Consistency Strip */}
+            <div className="mt-12 pt-8 border-t border-white/5 relative">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-bold">
+                  Execution Trend · {TREND_DAYS}d
+                </span>
+                <span className="text-[10px] font-bold text-accent uppercase tracking-[0.2em]">
+                  {Math.round((completed / Math.max(1, tasks.length)) * 100)}% Today
+                </span>
               </div>
-              <Pill tone={trend === "up" ? "success" : trend === "down" ? "danger" : "neutral"}>
-                {trend === "up" ? "Trending up" : trend === "down" ? "Slipping" : "Holding"}
-              </Pill>
+
+              <div className="flex items-end justify-between gap-1.5 h-12">
+                {history.slice(-TREND_DAYS).map((d, i) => {
+                  const v = d.executionScore;
+                  const isToday = i === TREND_DAYS - 1;
+                  const tone =
+                    v >= 70
+                      ? "var(--accent)"
+                      : v >= 50
+                        ? "color-mix(in oklab, var(--accent) 45%, transparent)"
+                        : "color-mix(in oklab, var(--danger) 55%, transparent)";
+                  return (
+                    <motion.div
+                      key={d.date}
+                      initial={{ height: 4, opacity: 0 }}
+                      animate={{ height: `${4 + (v / 100) * 36}px`, opacity: 1 }}
+                      transition={{
+                        duration: 0.6,
+                        delay: 0.2 + i * 0.03,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                      className={`flex-1 rounded-full ${isToday ? "shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)]" : ""}`}
+                      style={{
+                        background: tone,
+                        border: isToday ? "1.5px solid var(--accent)" : "none",
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="mt-8 h-2.5 w-full rounded-full bg-white/5 overflow-hidden hairline">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(completed / Math.max(1, tasks.length)) * 100}%` }}
+                  transition={{ type: "spring", stiffness: 80, damping: 20 }}
+                  className="h-full bg-gradient-accent shadow-[0_0_20px_rgba(var(--accent-rgb),0.6)]"
+                />
+              </div>
             </div>
-            <Sparkline data={trend14} accent />
-            <div className="mt-3 flex justify-between text-[10px] text-muted-foreground">
-              <span>2 weeks ago</span><span>1 week ago</span><span>Today</span>
-            </div>
-          </Card>
+          </div>
         </StaggerItem>
 
-        <StaggerItem className="lg:col-span-5">
-          <Card className="h-full">
-            <StatLabel>Resilience</StatLabel>
-            <p className="font-display mt-1 text-2xl text-foreground">
-              <AnimatedNumber value={resilience} />
-              <span className="text-muted-foreground text-base"> / 100</span>
-            </p>
-            <p className="mt-1 text-[12px] text-muted-foreground">Average bounce-back · {avgRecoveryDays} days</p>
-            <div className="mt-3 grid grid-cols-7 gap-1">
-              {history.slice(-7).map((d, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ scaleY: 0.4, opacity: 0 }}
-                  animate={{ scaleY: 1, opacity: 1 }}
-                  transition={{ duration: 0.45, delay: 0.2 + i * 0.04, ease: [0.22, 1, 0.36, 1] }}
-                  className="aspect-[1/2] rounded-full origin-bottom"
-                  style={{
-                    background:
-                      d.executionScore >= 70
-                        ? "var(--accent)"
-                        : d.executionScore >= 50
-                        ? "color-mix(in oklab, var(--accent) 50%, transparent)"
-                        : "color-mix(in oklab, var(--danger) 60%, transparent)",
-                  }}
-                />
-              ))}
+        <StaggerItem className="lg:col-span-12">
+          <Card className="hairline bg-card/50 backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <StatLabel className="tracking-widest uppercase text-[10px] font-bold">
+                Today's Journey
+              </StatLabel>
+              <span className="text-[10px] text-accent font-bold uppercase tracking-widest">
+                {phase} Session Active
+              </span>
             </div>
-            <p className="mt-3 text-[11px] text-muted-foreground">
-              All-or-nothing thinking destroys momentum. The system rewards how fast you return.
-            </p>
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <FlowRow
+                icon={<Sunrise className="h-4 w-4" />}
+                label="Morning Calibration"
+                desc="Set 3 priorities · energy check"
+                active={phase === "morning"}
+                done={phase !== "morning"}
+                onClick={() => {
+                  if (tasks.length === 0) {
+                    toast("Ready to calibrate?", { description: "Add your first priority below." });
+                  } else {
+                    toast("Calibration complete", {
+                      description: "You have clear focus for the day.",
+                    });
+                  }
+                }}
+              />
+              <FlowRow
+                icon={<Sun className="h-4 w-4" />}
+                label="Deep Execution"
+                desc="High focus · zero distractions"
+                active={phase === "midday"}
+                done={phase === "evening"}
+                onClick={() => {
+                  toast.success("Execution Window Active", {
+                    description: "Protect this time from interruptions.",
+                  });
+                }}
+              />
+              <FlowRow
+                icon={<Moon className="h-4 w-4" />}
+                label="Evening Reflection"
+                desc="Wins · recovery preparation"
+                active={phase === "evening"}
+                to="/check-in"
+              />
+            </div>
           </Card>
         </StaggerItem>
       </Stagger>
 
-      {latestInsight && (
-        <div className="px-5 lg:px-0">
-          <BehavioralNote title={latestInsight.title} body={latestInsight.body} />
-        </div>
+      {/* Score velocity warning — pre-burnout alert shown before score hits 45 */}
+      {velocity.declining && !recoveryMode && (
+        <section className="px-5 lg:px-0">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+            <Card className="border-warning/30 bg-warning/5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-warning/20 text-warning">
+                  <TrendingDown className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-warning font-bold mb-1">
+                    Momentum at risk
+                  </p>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    Your score has dropped {velocity.dropPts} pts over {velocity.dayCount} days. This is the pattern that precedes burnout.{" "}
+                    <span className="font-semibold">Recovery window is now.</span>
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        </section>
       )}
 
-      <TasksSection tasks={tasks} toggleTask={toggleTask} completed={completed} />
+      {phase === "morning" && tomorrowBriefing.hasPlan && (
+        <section className="px-5 lg:px-0">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <Card className="border-success/20 bg-success/5">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-success/20 text-success">
+                    <Sunrise className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-success font-bold">
+                      Morning Briefing
+                    </p>
+                    {tomorrowBriefing.northStar && (
+                      <p className="font-display text-base text-foreground leading-snug mt-0.5">
+                        "{tomorrowBriefing.northStar}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                {tomorrowBriefing.insight}
+              </p>
+              {tomorrowBriefing.suggestedTasks.length > 0 && (
+                <div className="space-y-1.5 mb-4">
+                  {tomorrowBriefing.suggestedTasks.map((t, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-foreground/80">
+                      <div className="h-1.5 w-1.5 rounded-full bg-success flex-none" />
+                      {t.label}
+                      <span className="text-muted-foreground/60 ml-auto text-[10px]">
+                        {t.estMin}m
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={acceptTomorrowPlan}
+                className="w-full text-center text-xs font-semibold text-success py-2 rounded-xl bg-success/10 hover:bg-success/20 transition-colors"
+              >
+                Accept plan for today
+              </button>
+            </Card>
+          </motion.div>
+        </section>
+      )}
+
+      {/* Morning continuity — echo yesterday's reflection and north star */}
+      {phase === "morning" && yesterdayCheckIn && (yesterdayCheckIn.reflection || yesterdayCheckIn.tomorrowFocus) && (
+        <section className="px-5 lg:px-0">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}>
+            <Card className="border-foreground/8 bg-card/50">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-secondary text-muted-foreground">
+                  <BookOpen className="h-4 w-4" />
+                </div>
+                <div className="space-y-2 flex-1">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
+                    Yesterday's signal
+                  </p>
+                  {yesterdayCheckIn.tomorrowFocus && (
+                    <p className="text-sm text-foreground leading-snug">
+                      You planned to focus on: <span className="font-semibold">"{yesterdayCheckIn.tomorrowFocus}"</span>
+                    </p>
+                  )}
+                  {yesterdayCheckIn.reflection && (
+                    <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-border pl-3 italic">
+                      "{yesterdayCheckIn.reflection}"
+                    </p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground/60">Does this still apply today?</p>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        </section>
+      )}
+
+      {/* Committed insight tracking card */}
+      {committedInsightData && committedInsightCard && (
+        <section className="px-5 lg:px-0">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}>
+            <Card className="border-accent/20 bg-accent/5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-accent/20 text-accent">
+                  <Shield className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] uppercase tracking-widest text-accent font-bold">Active rule</p>
+                    <span className="text-[10px] text-muted-foreground">
+                      Day {committedInsightCard.daysSinceCommit + 1}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-foreground leading-snug mb-1">
+                    {committedInsightData.title}
+                  </p>
+                  {committedInsightCard.verdict === "working" ? (
+                    <p className="text-[11px] text-success">
+                      +{committedInsightCard.delta} pts avg since commit — this is working.
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">
+                      Building baseline — check back in {7 - committedInsightCard.daysSinceCommit} days.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        </section>
+      )}
+
+      {/* Blocker pattern nudge */}
+      {blockerPattern.streak && blockerPattern.streak.days >= 3 && (
+        <section className="px-5 lg:px-0">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}>
+            <Card className="border-warning/20 bg-warning/5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-warning/20 text-warning">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-warning font-bold mb-1">
+                    Pattern detected
+                  </p>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    <span className="font-semibold capitalize">{blockerPattern.streak.type}</span> has blocked tasks {blockerPattern.streak.days} days in a row.{" "}
+                    {blockerPattern.recommendation}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        </section>
+      )}
+
+      <section className="px-5 lg:px-0">
+        <TasksSection tasks={tasks} toggleTask={toggleTask} completed={completed} recoveryMode={recoveryMode} />
+      </section>
+
+      {latestInsight && (
+        <div className="px-5 lg:px-0">
+          <BehavioralNote
+            title={latestInsight.title}
+            body={latestInsight.body}
+            onDismiss={() => dismissInsight(latestInsight.id)}
+          />
+        </div>
+      )}
 
       <AnimatePresence>
         {recoveryMode && (
@@ -192,16 +521,39 @@ function Home() {
             className="px-5 lg:px-0"
           >
             <Link to="/recovery" className="group block">
-              <Card className="bg-gradient-surface">
+              <Card className="bg-gradient-surface border-warning/20">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <StatLabel>Recovery protocol active</StatLabel>
-                    <p className="font-display mt-1 text-lg text-foreground">Open today's minimum viable plan</p>
-                    <p className="mt-1.5 max-w-[44ch] text-xs text-muted-foreground">
-                      We've reduced load to rebuild momentum. Three things, then rest.
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <StatLabel>Recovery protocol active</StatLabel>
+                      <Pill tone="warning" className="text-[9px] h-4 py-0">
+                        {recoveryReason || "System reset"}
+                      </Pill>
+                    </div>
+                    <p className="font-display mt-1 text-lg text-foreground">
+                      {recoveryPlan?.protocol
+                        ? `${recoveryPlan.protocol.charAt(0).toUpperCase()}${recoveryPlan.protocol.slice(1)}`
+                        : "Tactical"}{" "}
+                      stabilization in progress
                     </p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="flex -space-x-1.5">
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            className={`h-1.5 w-6 rounded-full ${i < recoveryDay ? "bg-warning" : "bg-secondary"}`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                        Day {Math.min(3, recoveryDay)}:{" "}
+                        {recoveryPlan?.timeline[Math.min(2, recoveryDay - 1)]?.focus || "Stabilize"}
+                      </span>
+                    </div>
                   </div>
-                  <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10 text-warning group-hover:bg-warning/20 transition-colors">
+                    <RotateCcw className="h-5 w-5" />
+                  </div>
                 </div>
               </Card>
             </Link>
@@ -256,6 +608,7 @@ function FlowRow({
   active,
   done,
   to,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -263,14 +616,24 @@ function FlowRow({
   active?: boolean;
   done?: boolean;
   to?: string;
+  onClick?: () => void;
 }) {
   const inner = (
     <div
+      onClick={onClick}
       className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
-        active ? "bg-secondary text-foreground" : done ? "text-muted-foreground/60" : "text-muted-foreground hover:text-foreground"
+        onClick ? "cursor-pointer" : ""
+      } ${
+        active
+          ? "bg-secondary text-foreground"
+          : done
+            ? "text-muted-foreground/60"
+            : "text-muted-foreground hover:text-foreground"
       }`}
     >
-      <span className={`flex h-8 w-8 flex-none items-center justify-center rounded-lg ${active ? "bg-accent/15 text-accent" : done ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}>
+      <span
+        className={`flex h-8 w-8 flex-none items-center justify-center rounded-lg ${active ? "bg-accent/15 text-accent" : done ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}
+      >
         {done && !active ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : icon}
       </span>
       <div className="min-w-0 flex-1">
@@ -283,93 +646,263 @@ function FlowRow({
   return <li>{to ? <Link to={to}>{inner}</Link> : inner}</li>;
 }
 
-function TasksSection({ tasks, toggleTask, completed }: { tasks: ReturnType<typeof useApp.getState>["tasks"]; toggleTask: (id: string) => void; completed: number }) {
+function TasksSection({
+  tasks,
+  toggleTask,
+  completed,
+  recoveryMode,
+}: {
+  tasks: ReturnType<typeof useApp.getState>["tasks"];
+  toggleTask: (id: string) => void;
+  completed: number;
+  recoveryMode?: boolean;
+}) {
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
+  const [type, setType] = useState<"deep" | "shallow" | "movement" | "wind-down">("deep");
   const addTask = useApp((s) => s.addTask);
+  const rescheduleTask = useApp((s) => s.rescheduleTask);
   const resetDemo = useApp((s) => s.resetDemo);
+  const taskIntel = useTaskIntelligence();
+
+  // In recovery mode, cap visible incomplete tasks to 3
+  const RECOVERY_CAP = 3;
+  const incompleteTasks = tasks.filter((t) => !t.done);
+  const visibleIncompleteTasks =
+    recoveryMode && incompleteTasks.length > RECOVERY_CAP
+      ? incompleteTasks.slice(0, RECOVERY_CAP)
+      : incompleteTasks;
+  const hiddenCount =
+    recoveryMode && incompleteTasks.length > RECOVERY_CAP
+      ? incompleteTasks.length - RECOVERY_CAP
+      : 0;
+  const visibleTaskIds = new Set([
+    ...visibleIncompleteTasks.map((t) => t.id),
+    ...tasks.filter((t) => t.done).map((t) => t.id),
+  ]);
+
+  const nextTask = visibleIncompleteTasks[0] ?? null;
 
   return (
-    <section className="px-5 lg:px-0">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold tracking-tight text-foreground">Today's priorities</h2>
-        <span className="text-[11px] text-muted-foreground num-tabular">{completed} of {tasks.length}</span>
-      </div>
-      <div className="space-y-2">
-        {tasks.map((t) => {
-          const done = t.done;
-          return (
-            <motion.button
-              key={t.id}
-              layout
-              whileTap={{ scale: 0.985 }}
-              onClick={() => {
-                toggleTask(t.id);
-                if (!done) toast.success("Logged · execution +", { description: t.label, duration: 1800 });
-              }}
-              className="hairline flex w-full items-center gap-3 rounded-2xl bg-card px-4 py-3 text-left transition-colors hover:bg-card/80"
-            >
-              <span className={`flex h-6 w-6 flex-none items-center justify-center rounded-lg border transition-all ${done ? "border-success bg-success/15 text-success scale-100" : "border-border bg-secondary text-transparent"}`}>
-                <motion.span
-                  initial={false}
-                  animate={done ? { scale: 1, opacity: 1 } : { scale: 0.6, opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 22 }}
-                >
-                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                </motion.span>
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className={`truncate text-sm transition-colors ${done ? "text-muted-foreground line-through" : "text-foreground"}`}>{t.label}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {t.estMin > 0 ? `${t.estMin} min` : "—"} · {t.type}
-                </p>
-              </div>
-            </motion.button>
-          );
-        })}
-        {adding ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (label.trim()) {
-                addTask({ label: label.trim(), estMin: 30, type: "deep" });
-                setLabel("");
-                setAdding(false);
-              }
-            }}
-            className="hairline flex items-center gap-2 rounded-2xl bg-card px-3 py-2"
+    <div className="space-y-6">
+      <AnimatePresence mode="wait">
+        {nextTask && (
+          <motion.div
+            key="focus-mode"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="group relative"
           >
-            <input
-              autoFocus
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="One thing that actually matters…"
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
-            />
-            <button type="submit" className="rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background">Add</button>
-          </form>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setAdding(true)}
-              disabled={tasks.length >= 5}
-              className="hairline flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-[12px] text-muted-foreground hover:text-foreground disabled:opacity-40"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add priority {tasks.length >= 5 && "(cap reached)"}
-            </button>
-            <button
-              onClick={resetDemo}
-              className="hairline flex items-center justify-center gap-1.5 rounded-2xl px-3 py-2.5 text-[12px] text-muted-foreground hover:text-foreground"
-              title="Reset demo data"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </button>
+            <div className="absolute -inset-1 bg-gradient-to-r from-accent/20 to-accent/5 rounded-[2rem] blur-xl opacity-50 group-hover:opacity-100 transition duration-500" />
+            <Card className="relative bg-card/80 backdrop-blur-md border-accent/20 overflow-hidden">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-accent animate-pulse" />
+                  <span className="text-[10px] font-bold text-accent uppercase tracking-widest">
+                    Focusing on
+                  </span>
+                </div>
+                <Pill tone="accent" className="text-[9px] px-2 py-0.5 uppercase tracking-tighter">
+                  Current Priority
+                </Pill>
+              </div>
+              <h3 className="text-xl font-display font-semibold text-foreground mb-4">
+                {nextTask.label}
+              </h3>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => {
+                    toggleTask(nextTask.id);
+                    toast.success("Execution +", { description: nextTask.label });
+                  }}
+                  className="flex-1 bg-foreground text-background font-bold py-3.5 rounded-2xl text-sm transition-transform active:scale-95 shadow-xl shadow-foreground/10"
+                >
+                  Mark Complete
+                </button>
+                <button
+                  onClick={() => {
+                    rescheduleTask(nextTask.id);
+                    toast("Task Rescheduled", { description: "Momentum penalty applied." });
+                  }}
+                  className="px-4 py-3.5 rounded-2xl hairline text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Calendar className="h-5 w-5" />
+                </button>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold tracking-tight text-foreground uppercase opacity-60">
+            Remaining Priorities
+          </h2>
+          <span className="text-[10px] font-bold text-muted-foreground num-tabular uppercase tracking-widest">
+            {completed} / {tasks.length} Done
+          </span>
+        </div>
+
+        {recoveryMode && (
+          <div className="mb-3 flex items-start gap-2 rounded-xl bg-warning/8 border border-warning/20 px-3 py-2.5">
+            <Shield className="h-3.5 w-3.5 text-warning mt-0.5 flex-none" />
+            <span className="text-warning text-[11px] font-semibold leading-relaxed">
+              Recovery mode — system is protecting your capacity. Max 3 tasks visible today.{hiddenCount > 0 ? ` (${hiddenCount} more hidden)` : ""}
+            </span>
           </div>
         )}
-        {tasks.length >= 5 && (
-          <p className="px-1 text-[11px] text-warning">More than 5 priorities is overplanning. Cut something.</p>
+
+        {!recoveryMode && taskIntel.todayLoadRisk === "overloaded" && taskIntel.typeBalanceWarning && (
+          <div className="mb-3 flex items-start gap-2 rounded-xl bg-warning/8 border border-warning/20 px-3 py-2.5">
+            <span className="text-warning text-[11px] font-semibold leading-relaxed">
+              {taskIntel.typeBalanceWarning}
+            </span>
+          </div>
         )}
+
+        <div className="space-y-2.5">
+          {tasks.map((t) => {
+            const done = t.done;
+            const isActive = nextTask?.id === t.id;
+            if (isActive && !done) return null; // Already shown in focus mode
+            if (!visibleTaskIds.has(t.id)) return null; // Hidden by recovery cap
+
+            return (
+              <div key={t.id} className="group relative">
+                <motion.button
+                  layout
+                  whileTap={{ scale: 0.985 }}
+                  onClick={() => {
+                    toggleTask(t.id);
+                    if (!done)
+                      toast.success("Logged · execution +", {
+                        description: t.label,
+                        duration: 1800,
+                      });
+                  }}
+                  className={`hairline flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-left transition-all ${done ? "bg-card/40 opacity-60" : "bg-card hover:bg-card/80"}`}
+                >
+                  <span
+                    className={`flex h-6 w-6 flex-none items-center justify-center rounded-lg border transition-all ${done ? "border-success bg-success/15 text-success scale-100" : "border-border bg-secondary text-transparent"}`}
+                  >
+                    <motion.span
+                      initial={false}
+                      animate={done ? { scale: 1, opacity: 1 } : { scale: 0.6, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                    >
+                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    </motion.span>
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={`truncate text-[15px] font-medium transition-colors ${done ? "text-muted-foreground line-through" : "text-foreground"}`}
+                    >
+                      {t.label}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/70 mt-0.5 flex items-center gap-1.5">
+                      {t.estMin > 0 ? `${t.estMin} min` : "—"} · {t.type}{" "}
+                      {(t.rescheduled ?? 0) >= 2 && (
+                        <span className="text-warning font-semibold">
+                          · {t.rescheduled}x rescheduled — break it down?
+                        </span>
+                      )}
+                      {(t.rescheduled ?? 0) === 1 && (
+                        <span className="text-muted-foreground/50">· rescheduled once</span>
+                      )}
+                    </p>
+                  </div>
+                </motion.button>
+              </div>
+            );
+          })}
+
+          {adding ? (
+            <div className="hairline space-y-4 rounded-3xl bg-card p-4 shadow-xl border-accent/20">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (label.trim()) {
+                    addTask({ label: label.trim(), estMin: type === "deep" ? 90 : 30, type });
+                    setLabel("");
+                    setAdding(false);
+                  }
+                }}
+              >
+                <input
+                  autoFocus
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="One thing that actually matters…"
+                  className="w-full bg-transparent text-lg font-medium text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+                />
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex gap-1.5">
+                    {[
+                      { id: "deep", icon: Zap, label: "Deep" },
+                      { id: "shallow", icon: Wind, label: "Shallow" },
+                      { id: "movement", icon: Dumbbell, label: "Move" },
+                    ].map((item) => {
+                      const Icon = item.icon;
+                      const active = type === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setType(item.id as typeof type)}
+                          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                            active
+                              ? "bg-accent text-background"
+                              : "bg-secondary text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <Icon className="h-3 w-3" />
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-foreground px-5 py-2 text-xs font-bold text-background shadow-lg shadow-foreground/10"
+                  >
+                    Add Priority
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setAdding(true)}
+                disabled={tasks.length >= MAX_TASKS}
+                className="group hairline flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-card/50 transition-all disabled:opacity-40"
+              >
+                <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+                Add Priority {tasks.length >= MAX_TASKS && "(cap reached)"}
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => addTask({ label: "30m Deep Work", estMin: 30, type: "deep" })}
+                  className="hairline py-3 px-4 rounded-xl text-[11px] font-bold text-muted-foreground hover:text-accent hover:bg-accent/5 transition-all text-left flex items-center gap-2"
+                >
+                  <Zap className="h-3 w-3" /> +30m Deep Work
+                </button>
+                <button
+                  onClick={() =>
+                    addTask({ label: "Movement Session", estMin: 20, type: "movement" })
+                  }
+                  className="hairline py-3 px-4 rounded-xl text-[11px] font-bold text-muted-foreground hover:text-success hover:bg-success/5 transition-all text-left flex items-center gap-2"
+                >
+                  <Dumbbell className="h-3 w-3" /> +Movement
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </section>
+    </div>
   );
 }
