@@ -1,25 +1,44 @@
 import handler from "../dist/server/server.js";
+import { Readable } from "node:stream";
 
 export default async function (req, res) {
-  const url = new URL(req.url, `https://${req.headers.host}`);
-  const request = new Request(url, {
-    method: req.method,
-    headers: req.headers,
-    body: ["GET", "HEAD"].includes(req.method) ? undefined : req,
-    duplex: "half",
-  });
+  try {
+    const proto = req.headers["x-forwarded-proto"] ?? "https";
+    const host = req.headers["x-forwarded-host"] ?? req.headers.host;
+    const url = new URL(req.url, `${proto}://${host}`);
 
-  const response = await handler.fetch(request);
+    const headers = new Headers();
+    for (const [key, val] of Object.entries(req.headers)) {
+      if (val == null) continue;
+      if (Array.isArray(val)) {
+        for (const v of val) headers.append(key, v);
+      } else {
+        headers.set(key, val);
+      }
+    }
 
-  res.statusCode = response.status;
-  for (const [key, value] of response.headers.entries()) {
-    res.setHeader(key, value);
-  }
+    const init = { method: req.method, headers };
+    if (!["GET", "HEAD"].includes(req.method)) {
+      init.body = Readable.toWeb(req);
+      init.duplex = "half";
+    }
 
-  if (response.body) {
-    const { Readable } = await import("node:stream");
-    Readable.fromWeb(response.body).pipe(res);
-  } else {
-    res.end();
+    const request = new Request(url, init);
+    const response = await handler.fetch(request);
+
+    res.statusCode = response.status;
+    for (const [key, value] of response.headers.entries()) {
+      res.setHeader(key, value);
+    }
+
+    if (response.body) {
+      Readable.fromWeb(response.body).pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (err) {
+    console.error("[api/server] fatal:", err);
+    res.statusCode = 500;
+    res.end("Internal Server Error");
   }
 }
