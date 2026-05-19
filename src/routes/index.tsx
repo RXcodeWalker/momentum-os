@@ -335,7 +335,11 @@ function Home() {
       {/* Score velocity warning — pre-burnout alert shown before score hits 45 */}
       {velocity.declining && !recoveryMode && (
         <section className="px-5 lg:px-0">
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+          >
             <Card className="border-warning/30 bg-warning/5">
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-warning/20 text-warning">
@@ -346,7 +350,8 @@ function Home() {
                     Momentum at risk
                   </p>
                   <p className="text-sm text-foreground leading-relaxed">
-                    Your score has dropped {velocity.dropPts} pts over {velocity.dayCount} days. This is the pattern that precedes burnout.{" "}
+                    Your score has dropped {velocity.dropPts} pts over {velocity.dayCount} days.
+                    This is the pattern that precedes burnout.{" "}
                     <span className="font-semibold">Recovery window is now.</span>
                   </p>
                 </div>
@@ -409,40 +414,53 @@ function Home() {
       )}
 
       {/* Morning continuity — echo yesterday's reflection and north star */}
-      {phase === "morning" && yesterdayCheckIn && (yesterdayCheckIn.reflection || yesterdayCheckIn.tomorrowFocus) && (
-        <section className="px-5 lg:px-0">
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}>
-            <Card className="border-foreground/8 bg-card/50">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-secondary text-muted-foreground">
-                  <BookOpen className="h-4 w-4" />
-                </div>
-                <div className="space-y-2 flex-1">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
-                    Yesterday's signal
-                  </p>
-                  {yesterdayCheckIn.tomorrowFocus && (
-                    <p className="text-sm text-foreground leading-snug">
-                      You planned to focus on: <span className="font-semibold">"{yesterdayCheckIn.tomorrowFocus}"</span>
+      {phase === "morning" &&
+        yesterdayCheckIn &&
+        (yesterdayCheckIn.reflection || yesterdayCheckIn.tomorrowFocus) && (
+          <section className="px-5 lg:px-0">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+            >
+              <Card className="border-foreground/8 bg-card/50">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-secondary text-muted-foreground">
+                    <BookOpen className="h-4 w-4" />
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
+                      Yesterday's signal
                     </p>
-                  )}
-                  {yesterdayCheckIn.reflection && (
-                    <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-border pl-3 italic">
-                      "{yesterdayCheckIn.reflection}"
+                    {yesterdayCheckIn.tomorrowFocus && (
+                      <p className="text-sm text-foreground leading-snug">
+                        You planned to focus on:{" "}
+                        <span className="font-semibold">"{yesterdayCheckIn.tomorrowFocus}"</span>
+                      </p>
+                    )}
+                    {yesterdayCheckIn.reflection && (
+                      <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-border pl-3 italic">
+                        "{yesterdayCheckIn.reflection}"
+                      </p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground/60">
+                      Does this still apply today?
                     </p>
-                  )}
-                  <p className="text-[10px] text-muted-foreground/60">Does this still apply today?</p>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          </motion.div>
-        </section>
-      )}
+              </Card>
+            </motion.div>
+          </section>
+        )}
 
       {/* Committed insight tracking card */}
       {committedInsightData && committedInsightCard && (
         <section className="px-5 lg:px-0">
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.15 }}
+          >
             <Card className="border-accent/20 bg-accent/5">
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-accent/20 text-accent">
@@ -450,7 +468,9 @@ function Home() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-[10px] uppercase tracking-widest text-accent font-bold">Active rule</p>
+                    <p className="text-[10px] uppercase tracking-widest text-accent font-bold">
+                      Active rule
+                    </p>
                     <span className="text-[10px] text-muted-foreground">
                       Day {committedInsightCard.daysSinceCommit + 1}
                     </span>
@@ -464,7 +484,8 @@ function Home() {
                     </p>
                   ) : (
                     <p className="text-[11px] text-muted-foreground">
-                      Building baseline — check back in {7 - committedInsightCard.daysSinceCommit} days.
+                      Building baseline — check back in {7 - committedInsightCard.daysSinceCommit}{" "}
+                      days.
                     </p>
                   )}
                 </div>
@@ -477,7 +498,11 @@ function Home() {
       {/* Blocker pattern nudge */}
       {blockerPattern.streak && blockerPattern.streak.days >= 3 && (
         <section className="px-5 lg:px-0">
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+          >
             <Card className="border-warning/20 bg-warning/5">
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-warning/20 text-warning">
@@ -488,7 +513,8 @@ function Home() {
                     Pattern detected
                   </p>
                   <p className="text-sm text-foreground leading-relaxed">
-                    <span className="font-semibold capitalize">{blockerPattern.streak.type}</span> has blocked tasks {blockerPattern.streak.days} days in a row.{" "}
+                    <span className="font-semibold capitalize">{blockerPattern.streak.type}</span>{" "}
+                    has blocked tasks {blockerPattern.streak.days} days in a row.{" "}
                     {blockerPattern.recommendation}
                   </p>
                 </div>
@@ -499,7 +525,12 @@ function Home() {
       )}
 
       <section className="px-5 lg:px-0">
-        <TasksSection tasks={tasks} toggleTask={toggleTask} completed={completed} recoveryMode={recoveryMode} />
+        <TasksSection
+          tasks={tasks}
+          toggleTask={toggleTask}
+          completed={completed}
+          recoveryMode={recoveryMode}
+        />
       </section>
 
       {latestInsight && (
@@ -749,18 +780,21 @@ function TasksSection({
           <div className="mb-3 flex items-start gap-2 rounded-xl bg-warning/8 border border-warning/20 px-3 py-2.5">
             <Shield className="h-3.5 w-3.5 text-warning mt-0.5 flex-none" />
             <span className="text-warning text-[11px] font-semibold leading-relaxed">
-              Recovery mode — system is protecting your capacity. Max 3 tasks visible today.{hiddenCount > 0 ? ` (${hiddenCount} more hidden)` : ""}
+              Recovery mode — system is protecting your capacity. Max 3 tasks visible today.
+              {hiddenCount > 0 ? ` (${hiddenCount} more hidden)` : ""}
             </span>
           </div>
         )}
 
-        {!recoveryMode && taskIntel.todayLoadRisk === "overloaded" && taskIntel.typeBalanceWarning && (
-          <div className="mb-3 flex items-start gap-2 rounded-xl bg-warning/8 border border-warning/20 px-3 py-2.5">
-            <span className="text-warning text-[11px] font-semibold leading-relaxed">
-              {taskIntel.typeBalanceWarning}
-            </span>
-          </div>
-        )}
+        {!recoveryMode &&
+          taskIntel.todayLoadRisk === "overloaded" &&
+          taskIntel.typeBalanceWarning && (
+            <div className="mb-3 flex items-start gap-2 rounded-xl bg-warning/8 border border-warning/20 px-3 py-2.5">
+              <span className="text-warning text-[11px] font-semibold leading-relaxed">
+                {taskIntel.typeBalanceWarning}
+              </span>
+            </div>
+          )}
 
         <div className="space-y-2.5">
           {tasks.map((t) => {

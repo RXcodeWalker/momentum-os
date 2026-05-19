@@ -17,24 +17,24 @@ There are no tests in this project.
 
 ## Architecture
 
-**Cadence** is a behavioral productivity app built on TanStack Start (SSR React meta-framework) deployed to Cloudflare Workers.
+**Cadence** is a behavioral productivity app built on TanStack Start (SSR React meta-framework) deployed to Vercel.
 
 ### Routing
 
 File-based routing via TanStack Router in `src/routes/`. The root layout (`__root.tsx`) wraps all pages with the sidebar, bottom nav, command palette, and aurora background. The 11 routes are:
 
-| Route         | Purpose                                                                                  |
-| ------------- | ---------------------------------------------------------------------------------------- |
-| `/`           | Today — daily dashboard, execution score, task list, morning briefing, streak pill       |
-| `/dashboard`  | Command center — analytics, heatmaps, KPIs, burnout risk                                 |
-| `/check-in`   | Evening reflection form (focus, energy, mood, sleep, distractions, tomorrow forecast)    |
+| Route         | Purpose                                                                                                                      |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `/`           | Today — daily dashboard, execution score, task list, morning briefing, streak pill                                           |
+| `/dashboard`  | Command center — analytics, heatmaps, KPIs, burnout risk                                                                     |
+| `/check-in`   | Evening reflection form (focus, energy, mood, sleep, distractions, tomorrow forecast)                                        |
 | `/insights`   | Behavioral diagnostics — distraction impact, blocker patterns, day-of-week profile, task intelligence, insight effectiveness |
-| `/weekly`     | Weekly patterns, day-of-week bars, distraction mix, streak stats                         |
-| `/recovery`   | Root cause analysis, personalized protocol matching, minimum viable day protocols        |
-| `/circles`    | Trusted circles — execution proof feed                                                   |
-| `/identity`   | User profile, streak history, operating protocols with effectiveness ratings             |
-| `/premium`    | Cadence Pro subscription page                                                            |
-| `/onboarding` | New user onboarding flow                                                                 |
+| `/weekly`     | Weekly patterns, day-of-week bars, distraction mix, streak stats                                                             |
+| `/recovery`   | Root cause analysis, personalized protocol matching, minimum viable day protocols                                            |
+| `/circles`    | Trusted circles — execution proof feed                                                                                       |
+| `/identity`   | User profile, streak history, operating protocols with effectiveness ratings                                                 |
+| `/premium`    | Cadence Pro subscription page                                                                                                |
+| `/onboarding` | New user onboarding flow                                                                                                     |
 
 ### State Management
 
@@ -130,4 +130,4 @@ Six protocols defined in `src/lib/recovery-data.ts`: `burnout`, `procrastination
 
 ### Deployment
 
-Cloudflare Workers via `wrangler.jsonc`. The Vite config (`vite.config.ts`) uses `@lovable.dev/vite-tanstack-config` and redirects TanStack Start's SSR server entry to `src/server.ts` for custom error handling.
+Vercel via `vercel.json`. Build outputs to `dist/client/` (static) and `dist/server/server.js` (SSR). The Vercel serverless adapter lives in `api/server.js` and bridges Vercel's Node.js `(req, res)` handler to TanStack Start's fetch-based server entry. The Vite config (`vite.config.ts`) uses `@lovable.dev/vite-tanstack-config` with `cloudflare: false` and redirects TanStack Start's SSR server entry to `src/server.ts` for custom error handling.

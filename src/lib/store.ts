@@ -1912,7 +1912,12 @@ export function useScoreAttribution() {
 
     const completed = tasks.filter((t) => t.done).length;
 
-    const deviations: { label: string; value: string; baseline: string; direction: "drag" | "boost" | "neutral" }[] = [];
+    const deviations: {
+      label: string;
+      value: string;
+      baseline: string;
+      direction: "drag" | "boost" | "neutral";
+    }[] = [];
 
     const sleepDiff = last.sleepHours - avgSleep;
     if (Math.abs(sleepDiff) >= 0.5) {
@@ -1955,7 +1960,9 @@ export function useScoreAttribution() {
     }
 
     // Sort: drags first (most impactful to explain a low score)
-    deviations.sort((a, b) => (a.direction === "drag" ? -1 : 1) - (b.direction === "drag" ? -1 : 1));
+    deviations.sort(
+      (a, b) => (a.direction === "drag" ? -1 : 1) - (b.direction === "drag" ? -1 : 1),
+    );
 
     return { deviations: deviations.slice(0, 3), hasBaseline: true };
   }, [checkIns, history, tasks]);
