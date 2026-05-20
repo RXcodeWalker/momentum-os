@@ -85,9 +85,9 @@ function Identity() {
   const streakCtx = useStreakContext();
   const insightEffectiveness = useInsightEffectiveness();
 
-  const handleSignOut = () => {
-    signOut();
-    navigate({ to: "/sign-in" });
+  const handleSignOut = async () => {
+    await signOut();
+    navigate({ to: "/" });
   };
 
   const handleAddPrinciple = () => {

@@ -3,24 +3,34 @@ import { useState } from "react";
 import { useApp } from "@/lib/store";
 import { ScreenHeader, Card } from "@/components/ui-bits";
 import { motion } from "framer-motion";
-import { ArrowRight, Mail, Lock, ShieldCheck } from "lucide-react";
+import { ArrowRight, Mail, Lock, ShieldCheck, CloudUpload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/sign-in")({
+  validateSearch: (search) => ({
+    mode: (search.mode as string | undefined) ?? "default",
+    redirect: (search.redirect as string | undefined) ?? "/",
+  }),
   component: SignIn,
 });
 
 function SignIn() {
   const navigate = useNavigate();
+  const { mode, redirect } = Route.useSearch();
+  const isUpgradeMode = mode === "upgrade";
+
   const signIn = useApp((s) => s.signIn);
   const signUp = useApp((s) => s.signUp);
+  const historyLength = useApp((s) => s.history.length);
+  const checkInsLength = useApp((s) => s.checkIns.length);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(isUpgradeMode);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,10 +39,12 @@ function SignIn() {
     try {
       if (isSignUp) {
         await signUp(email, password);
-        navigate({ to: "/onboarding" });
+        // If user was already onboarded as a guest, go home — not to onboarding
+        const alreadyOnboarded = useApp.getState().onboarded;
+        navigate({ to: alreadyOnboarded ? "/" : "/onboarding" });
       } else {
         await signIn(email, password);
-        navigate({ to: "/" });
+        navigate({ to: redirect ?? "/" });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
@@ -52,14 +64,32 @@ function SignIn() {
       >
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-6 relative h-16 w-16 rounded-2xl bg-gradient-accent shadow-glow flex items-center justify-center">
-            <ShieldCheck className="h-8 w-8 text-background" strokeWidth={1.5} />
+            {isUpgradeMode ? (
+              <CloudUpload className="h-8 w-8 text-background" strokeWidth={1.5} />
+            ) : (
+              <ShieldCheck className="h-8 w-8 text-background" strokeWidth={1.5} />
+            )}
           </div>
-          <h1 className="font-display text-4xl text-foreground">
-            {isSignUp ? "Get started" : "Welcome back"}
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            {isSignUp ? "Start your behavioral evolution." : "Continue your behavioral evolution."}
-          </p>
+
+          {isUpgradeMode ? (
+            <>
+              <h1 className="font-display text-4xl text-foreground">Save your progress</h1>
+              <p className="mt-2 text-muted-foreground">
+                {historyLength > 0 || checkInsLength > 0
+                  ? `You have ${historyLength} day${historyLength !== 1 ? "s" : ""} of behavioral data${checkInsLength > 0 ? ` and ${checkInsLength} check-in${checkInsLength !== 1 ? "s" : ""}` : ""}. Create an account to keep it.`
+                  : "Create an account to sync your progress across devices."}
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="font-display text-4xl text-foreground">
+                {isSignUp ? "Get started" : "Welcome back"}
+              </h1>
+              <p className="mt-2 text-muted-foreground">
+                {isSignUp ? "Start your behavioral evolution." : "Continue your behavioral evolution."}
+              </p>
+            </>
+          )}
         </div>
 
         <Card className="p-8 shadow-elegant">
@@ -119,7 +149,12 @@ function SignIn() {
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" />
               ) : (
                 <span className="flex items-center gap-2">
-                  {isSignUp ? "Create account" : "Sign In"} <ArrowRight className="h-4 w-4" />
+                  {isSignUp
+                    ? isUpgradeMode
+                      ? "Save & Create Account"
+                      : "Create account"
+                    : "Sign In"}{" "}
+                  <ArrowRight className="h-4 w-4" />
                 </span>
               )}
             </Button>
@@ -152,11 +187,23 @@ function SignIn() {
                 }}
                 className="text-accent font-medium hover:underline"
               >
-                Start for free
+                {isUpgradeMode ? "Create one to save your progress" : "Start for free"}
               </button>
             </>
           )}
         </p>
+
+        {!isUpgradeMode && (
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/" })}
+              className="hover:underline"
+            >
+              Continue without an account
+            </button>
+          </p>
+        )}
       </motion.div>
     </div>
   );

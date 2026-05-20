@@ -3,7 +3,6 @@ import {
   Outlet,
   Link,
   createRootRouteWithContext,
-  useRouter,
   useLocation,
   HeadContent,
   Scripts,
@@ -21,11 +20,13 @@ import {
   Crown,
   Calendar,
 } from "lucide-react";
-import { useUserState } from "@/lib/store";
+import { useApp, useUserState } from "@/lib/store";
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { hydrateFromDB } from "@/lib/sync";
 import { AuroraBackground } from "@/components/atmosphere/AuroraBackground";
 import { CommandPalette, CommandHint } from "@/components/command/CommandPalette";
+import { SaveProgressBanner } from "@/components/SaveProgressBanner";
 import { PageTransition } from "@/lib/motion";
 import { Toaster } from "sonner";
 import { motion, LayoutGroup } from "framer-motion";
@@ -276,30 +277,42 @@ function AdaptiveStateBinding() {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const loc = useLocation();
-  const router = useRouter();
   const isOnboarding = loc.pathname === "/onboarding";
   const isSignIn = loc.pathname === "/sign-in";
   const hideNav = isOnboarding || isSignIn;
 
   useEffect(() => {
-    // On mount, check if there's an active session. If not, redirect to sign-in.
+    // Restore an existing Supabase session if the store thinks we're a guest
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session && !isSignIn && !isOnboarding) {
-        router.navigate({ to: "/sign-in" });
+      const state = useApp.getState();
+      if (session && state.sessionType === "guest") {
+        // Returning authenticated user — hydrate from DB and transition to authenticated
+        hydrateFromDB(session.user.id).then((cloudData) => {
+          useApp.getState().migrateGuestToAccount(
+            session.user.id,
+            session.user.email ?? "",
+            cloudData,
+          );
+        });
+      } else if (!session && state.sessionType === "authenticated") {
+        // Session expired — gracefully drop to guest mode (no redirect)
+        useApp.getState().startGuestSession();
       }
+      // No session + guest = normal guest mode, no action needed
     });
 
-    // Listen for auth state changes (e.g. signOut from another tab)
+    // Listen for auth state changes from other tabs
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT" && !isSignIn) {
-        router.navigate({ to: "/sign-in" });
+      if (event === "SIGNED_OUT") {
+        useApp.getState().startGuestSession();
+        // User stays on current page in guest mode — no redirect
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [isSignIn, isOnboarding, router]);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -330,6 +343,7 @@ function RootComponent() {
               <CommandHint />
             </div>
             <div className="flex flex-1 flex-col lg:max-w-[1280px] lg:mx-auto lg:w-full">
+              <SaveProgressBanner />
               <PageTransition>
                 <Outlet />
               </PageTransition>

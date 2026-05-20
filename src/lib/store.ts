@@ -12,6 +12,7 @@ import {
   syncPersonalProof,
   syncCircleProof,
 } from "@/lib/sync";
+import { buildMigrationPayload } from "@/lib/migration";
 
 export type Task = {
   id: string;
@@ -183,6 +184,14 @@ type State = {
   members: Member[];
   circle: Circle;
 
+  // Guest/auth session metadata
+  sessionType: "guest" | "authenticated";
+  guestSince: string | null;
+  pendingMigration: boolean;
+  upgradePromptDismissed: boolean;
+  upgradePromptDismissedAt: string | null;
+  dataIsSeeded: boolean;
+
   // Actions
   acceptTomorrowPlan: () => void;
   completeOnboarding: () => void;
@@ -217,6 +226,9 @@ type State = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  startGuestSession: () => void;
+  dismissUpgradePrompt: () => void;
+  migrateGuestToAccount: (userId: string, email: string, cloudData: Partial<State> | null) => Promise<void>;
   hydrateStore: (
     data: Partial<State> & { _insightOverrides?: Map<string, Record<string, unknown>> },
   ) => void;
@@ -478,6 +490,12 @@ export const useApp = create<State>()(
         user: "",
         currentUserId: "",
         onboarded: false,
+        sessionType: "guest" as const,
+        guestSince: null,
+        pendingMigration: false,
+        upgradePromptDismissed: false,
+        upgradePromptDismissedAt: null,
+        dataIsSeeded: true,
         setup: {
           step: 0,
           completed: false,
@@ -533,6 +551,7 @@ export const useApp = create<State>()(
             onboarded: true,
             goals: profile.goals,
             struggles: profile.struggles,
+            guestSince: get().guestSince ?? todayStr(),
           });
           const userId = get().currentUserId;
           if (userId) {
@@ -595,6 +614,7 @@ export const useApp = create<State>()(
             ],
           })),
         saveCheckIn: (data) => {
+          set({ dataIsSeeded: false });
           const s = get();
           const completed = s.tasks.filter((t) => t.done).length;
           const planned = s.tasks.length;
@@ -980,34 +1000,98 @@ export const useApp = create<State>()(
           const { data, error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
           const userId = data.user.id;
-          set({ currentUserId: userId, user: data.user.email ?? email });
-          const storeData = await hydrateFromDB(userId);
-          if (storeData) {
-            get().hydrateStore(storeData);
-          } else {
-            // New user — clear seeded demo data so the app starts fresh
-            set({
-              currentUserId: userId,
-              user: email,
-              onboarded: false,
-              history: [],
-              checkIns: [],
-              tasks: defaultTasks,
-            });
-            syncProfile(userId, { display_name: email });
-          }
+          const cloudData = await hydrateFromDB(userId);
+          await get().migrateGuestToAccount(userId, data.user.email ?? email, cloudData);
         },
         signUp: async (email, password) => {
-          const { data, error } = await supabase.auth.signUp({ email, password });
+          const redirectTo = `${window.location.origin}/`;
+          const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } });
           if (error) throw error;
           const userId = data.user?.id ?? "";
-          set({ currentUserId: userId, user: email, onboarded: false });
-          if (userId) syncProfile(userId, { display_name: email });
+          if (userId) await get().migrateGuestToAccount(userId, email, null);
         },
         signOut: async () => {
           await supabase.auth.signOut();
-          localStorage.removeItem("cadence-store-v1");
-          window.location.reload();
+          set({
+            currentUserId: "",
+            user: "",
+            sessionType: "guest",
+            guestSince: todayStr(),
+          });
+        },
+        startGuestSession: () => {
+          set({
+            sessionType: "guest",
+            currentUserId: "",
+            user: "",
+            guestSince: get().guestSince ?? todayStr(),
+          });
+        },
+        dismissUpgradePrompt: () => {
+          set({
+            upgradePromptDismissed: true,
+            upgradePromptDismissedAt: todayStr(),
+          });
+        },
+        migrateGuestToAccount: async (userId, email, cloudData) => {
+          set({ pendingMigration: true });
+
+          // Safety check: verify the session still belongs to this userId
+          const { data: { user: sessionUser } } = await supabase.auth.getUser();
+          if (sessionUser && sessionUser.id !== userId) {
+            set({ pendingMigration: false });
+            return;
+          }
+
+          const local = get();
+
+          if (cloudData !== null) {
+            // Existing account — merge local guest data with cloud data
+            const merged = buildMigrationPayload(local, cloudData);
+            set(merged as Partial<State>);
+          } else {
+            // New account — push local data to cloud if it's real (not seeded)
+            if (!local.dataIsSeeded) {
+              try {
+                await Promise.all([
+                  syncProfile(userId, {
+                    display_name: email,
+                    goals: local.goals,
+                    struggles: local.struggles,
+                    profile_json: local.profile ?? undefined,
+                  }),
+                  ...local.history.map((entry) => syncDayLog(userId, entry)),
+                  ...local.checkIns.map((ci) => syncCheckIn(userId, ci)),
+                  syncTasks(userId, local.tasks, todayStr()),
+                  ...local.insights
+                    .filter((i) => i.unlocked || i.committed || i.dismissed)
+                    .map((i) =>
+                      syncInsightState(userId, i.id, {
+                        unlocked: i.unlocked,
+                        unlocked_at: i.unlockedAt,
+                        dismissed: i.dismissed,
+                        committed: i.committed,
+                      }),
+                    ),
+                  ...local.personalProofs.map((p) => syncPersonalProof(userId, p)),
+                ]);
+              } catch {
+                // Sync failures are non-fatal — local state is authoritative
+              }
+            } else {
+              // Data is seeded demo data; just create the profile record
+              syncProfile(userId, { display_name: email });
+            }
+          }
+
+          set({
+            currentUserId: userId,
+            user: email,
+            sessionType: "authenticated",
+            pendingMigration: false,
+            guestSince: null,
+            dataIsSeeded: false,
+          });
         },
         hydrateStore: (data) => {
           const { _insightOverrides, ...rest } = data as typeof data & {
@@ -1062,7 +1146,25 @@ export const useApp = create<State>()(
         },
       };
     },
-    { name: "cadence-store-v1" },
+    {
+      name: "cadence-store-v1",
+      version: 2,
+      migrate: (persistedState, version) => {
+        if (version < 2) {
+          const s = persistedState as Partial<State>;
+          return {
+            ...s,
+            sessionType: s.currentUserId ? ("authenticated" as const) : ("guest" as const),
+            guestSince: s.currentUserId ? null : todayStr(),
+            pendingMigration: false,
+            upgradePromptDismissed: false,
+            upgradePromptDismissedAt: null,
+            dataIsSeeded: false, // existing users have real data
+          };
+        }
+        return persistedState as State;
+      },
+    },
   ),
 );
 

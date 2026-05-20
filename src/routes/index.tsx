@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Card, Pill, Ring, ScreenHeader, StatLabel } from "@/components/ui-bits";
 import {
   Check,
@@ -34,7 +34,7 @@ import {
   useInsightEffectiveness,
   useScoreVelocity,
 } from "@/lib/store";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Stagger, StaggerItem, TapCard, FadeUp } from "@/lib/motion";
 import { BehavioralNote } from "@/components/cards/BehavioralNote";
 import { toast } from "sonner";
@@ -57,6 +57,12 @@ const TREND_DAYS = 14;
 const MAX_TASKS = 5;
 
 function Home() {
+  const onboarded = useApp((s) => s.onboarded);
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!onboarded) navigate({ to: "/onboarding" });
+  }, [onboarded, navigate]);
+
   const user = useApp((s) => s.user);
   const score = useExecutionScore();
   const { delta } = useMomentum();

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import {
   ArrowRight,
@@ -878,6 +878,17 @@ function Step6Activation({
 
       <p className="mt-6 text-center text-xs text-muted-foreground leading-relaxed max-w-[38ch] mx-auto">
         The system adapts as you log. First insights appear after 3 check-ins.
+      </p>
+
+      <p className="mt-4 text-center text-xs text-muted-foreground">
+        Already have an account?{" "}
+        <Link
+          to="/sign-in"
+          search={{ mode: "upgrade", redirect: "/" }}
+          className="text-accent hover:underline font-medium"
+        >
+          Sign in to sync your data
+        </Link>
       </p>
     </div>
   );
