@@ -225,6 +225,7 @@ type State = {
   refreshInsights: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   startGuestSession: () => void;
   dismissUpgradePrompt: () => void;
@@ -1009,6 +1010,13 @@ export const useApp = create<State>()(
           if (error) throw error;
           const userId = data.user?.id ?? "";
           if (userId) await get().migrateGuestToAccount(userId, email, null);
+        },
+        signInWithGoogle: async () => {
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: { redirectTo: `${window.location.origin}/` },
+          });
+          if (error) throw error;
         },
         signOut: async () => {
           await supabase.auth.signOut();
