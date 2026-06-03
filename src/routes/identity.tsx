@@ -32,18 +32,143 @@ import {
   useExecutionScore,
   useFakeProductivityFlags,
   useFocusAnalysis,
-  useMaturityLevel,
   useMomentum,
   useResilience,
   useUserState,
   useStreakContext,
   useInsightEffectiveness,
+  type OnboardingProfile,
 } from "@/lib/store";
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TapCard, Stagger, StaggerItem, FadeUp } from "@/lib/motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+
+// Option arrays — mirrors onboarding.tsx (not exported from there to avoid a new shared file)
+const ENERGY_PEAKS = [
+  { id: "early", label: "Early morning" },
+  { id: "morning", label: "Morning" },
+  { id: "midday", label: "Midday" },
+  { id: "evening", label: "Evening" },
+  { id: "night", label: "Late night" },
+];
+const SLEEP_PATTERNS = [
+  { id: "solid", label: "Solid (7–9h)" },
+  { id: "variable", label: "Variable" },
+  { id: "short", label: "Short (5–7h)" },
+  { id: "collapsed", label: "Collapsed" },
+];
+const FOCUS_DURATIONS = [
+  { id: "15", label: "15–30 min" },
+  { id: "45", label: "45–60 min" },
+  { id: "90", label: "90+ min" },
+  { id: "varies", label: "Varies" },
+];
+const WORKLOADS = [
+  { id: "light", label: "Light" },
+  { id: "moderate", label: "Moderate" },
+  { id: "heavy", label: "Heavy" },
+  { id: "unclear", label: "Unclear" },
+];
+const RECOVERY_SPEEDS = [
+  { id: "fast", label: "Fast" },
+  { id: "medium", label: "Medium" },
+  { id: "slow", label: "Slow" },
+  { id: "spiral", label: "Extended cycles" },
+];
+
+// Display labels: pattern-oriented language, not identity labels
+const ENERGY_PEAK_LABELS: Record<string, string> = {
+  early: "Early-morning energy tendency",
+  morning: "Morning energy tendency",
+  midday: "Midday energy tendency",
+  evening: "Evening energy tendency",
+  night: "Late-night energy tendency",
+};
+const FOCUS_BLOCK_LABELS: Record<string, string> = {
+  "15": "Short focus rhythm (15–30 min)",
+  "45": "Mid-range focus rhythm (45–60 min)",
+  "90": "Extended focus rhythm (90+ min)",
+  varies: "Variable focus rhythm",
+};
+const SLEEP_LABELS: Record<string, string> = {
+  solid: "Solid sleep pattern (7–9h)",
+  variable: "Variable sleep pattern",
+  short: "Short sleep pattern (5–7h)",
+  collapsed: "Disrupted sleep currently",
+};
+const WORKLOAD_LABELS: Record<string, string> = {
+  light: "Lower workload tolerance (1–2 tasks)",
+  moderate: "Moderate workload tolerance (3–4 tasks)",
+  heavy: "Higher workload tolerance (5+ tasks)",
+  unclear: "Workload tolerance unclear",
+};
+const RECOVERY_LABELS: Record<string, string> = {
+  fast: "Quick recovery cycles (1–2 days)",
+  medium: "Moderate recovery cycles (3–5 days)",
+  slow: "Longer recovery cycles (1+ week)",
+  spiral: "Recovery currently takes longer",
+};
+
+function deriveProfileInterpretation(profile: OnboardingProfile): string {
+  const peak = profile.energyPeak[0];
+  const focus = profile.focus[0];
+  const workload = profile.workload[0];
+  const recovery = profile.recovery[0];
+
+  const isLateRiser = peak === "evening" || peak === "night";
+  const shortFocus = focus === "15" || focus === "varies";
+  const heavyLoad = workload === "heavy";
+  const slowRecovery = recovery === "slow" || recovery === "spiral";
+
+  if (slowRecovery && !heavyLoad) {
+    return "Your current setup suggests protecting recovery and avoiding overload will matter more than intensity.";
+  }
+  if (shortFocus && !heavyLoad) {
+    return "You tend to perform best with shorter planning horizons and moderate task loads.";
+  }
+  if (isLateRiser && heavyLoad) {
+    return "Your energy peaks later in the day — front-loading heavy work may work against you.";
+  }
+  if (focus === "90" && workload !== "light") {
+    return "Your rhythm favors fewer, deeper commitments over a packed schedule.";
+  }
+  return "Your profile is set. Cadence will adapt as real execution patterns emerge.";
+}
+
+function EditRow({
+  label,
+  options,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  options: { id: string; label: string }[];
+  selected: string[];
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div>
+      <StatLabel className="mb-2">{label}</StatLabel>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((opt) => (
+          <button
+            key={opt.id}
+            onClick={() => onSelect(opt.id)}
+            className={`text-[11px] font-medium px-2 py-0.5 rounded-md border transition-colors ${
+              selected.includes(opt.id)
+                ? "bg-accent/15 text-accent border-accent/30"
+                : "bg-background/50 text-foreground border-border/50 hover:border-accent/30"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/identity")({
   head: () => ({
@@ -58,8 +183,6 @@ export const Route = createFileRoute("/identity")({
   component: Identity,
 });
 
-const MATURITY_ORDER = ["calibrating", "building", "consistent", "advanced", "resilient"] as const;
-
 function Identity() {
   const navigate = useNavigate();
   const history = useApp((s) => s.history);
@@ -72,7 +195,6 @@ function Identity() {
   const removePrinciple = useApp((s) => s.removePrinciple);
   const signOut = useApp((s) => s.signOut);
 
-  const { level, label: maturityLabel, daysToNext, archetype } = useMaturityLevel();
   const { state, label: stateLabel, tone } = useUserState();
   const consistency28 = useConsistency(28);
   const score = useExecutionScore();
@@ -81,9 +203,28 @@ function Identity() {
   const { flags } = useFakeProductivityFlags();
   const focusAnalysis = useFocusAnalysis();
 
+  const profile = useApp((s) => s.profile);
+  const setOnboardingProfile = useApp((s) => s.setOnboardingProfile);
   const [newPrinciple, setNewPrinciple] = useState("");
+  const [editingSetup, setEditingSetup] = useState(false);
+  const [localProfile, setLocalProfile] = useState<typeof profile>(null);
   const streakCtx = useStreakContext();
   const insightEffectiveness = useInsightEffectiveness();
+
+  function handleStartEdit() {
+    setLocalProfile(profile ? { ...profile } : null);
+    setEditingSetup(true);
+  }
+  function handleSaveSetup() {
+    if (localProfile) {
+      setOnboardingProfile({
+        ...localProfile,
+        goals: profile?.goals ?? [],
+        struggles: profile?.struggles ?? [],
+      });
+    }
+    setEditingSetup(false);
+  }
 
   const handleSignOut = async () => {
     await signOut();
@@ -146,92 +287,18 @@ function Identity() {
     ];
   }, [history, consistency28, resilience, avgRecoveryDays, avgHours]);
 
-  const maturityIndex = MATURITY_ORDER.indexOf(level);
-
-  const arcNarrative = {
-    calibrating: {
-      from: "motivated when inspired",
-      to: "reliable when committed",
-      action: "The foundation is forming. Every day you execute teaches the system who you are.",
-    },
-    building: {
-      from: "reactive and overwhelmed",
-      to: "proactive and focused",
-      action: "Patterns are emerging. Reliability is becoming your competitive advantage.",
-    },
-    consistent: {
-      from: "inconsistent but capable",
-      to: "dependably consistent",
-      action: "You've proven you can show up. Now the work is deepening quality over quantity.",
-    },
-    advanced: {
-      from: "consistent under ideal conditions",
-      to: "resilient under pressure",
-      action:
-        "The system is working. You're building the kind of discipline that compounds quietly.",
-    },
-    resilient: {
-      from: "ambitious but fragile",
-      to: "reliably execution-oriented",
-      action: "You've built what most people only talk about. Keep going — it compounds from here.",
-    },
-  };
-  const arc = arcNarrative[level];
-
   return (
     <div className="flex flex-col gap-8 pb-12">
       <ScreenHeader
-        eyebrow={`Operating profile · Day ${daysOnApp}`}
+        eyebrow="Operating profile"
         title="Identity"
-        subtitle="Your evolution is measured by what you do, not what you feel."
+        subtitle="What Cadence has noticed about how you actually work."
         right={
           <div className="flex flex-col items-end">
             <Pill tone={tone}>{stateLabel}</Pill>
-            <span className="mt-1 text-[10px] text-muted-foreground uppercase tracking-wider">
-              Score: {Math.round(score)}
-            </span>
           </div>
         }
       />
-
-      {/* Hero: Archetype & Status */}
-      <section className="px-5">
-        <FadeUp>
-          <Card className="bg-gradient-to-br from-card to-secondary/30 relative overflow-hidden border-accent/10">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-              <Brain className="h-24 w-24" />
-            </div>
-            <div className="relative flex flex-col gap-4">
-              <div>
-                <StatLabel>Current Archetype</StatLabel>
-                <h2 className="font-display text-2xl text-foreground mt-1 flex items-center gap-2">
-                  {archetype}
-                  <Sparkles className="h-5 w-5 text-accent animate-pulse" />
-                </h2>
-              </div>
-              <div className="flex items-center gap-6">
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                    Maturity
-                  </p>
-                  <p className="text-sm font-medium text-accent">{maturityLabel}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                    Momentum
-                  </p>
-                  <p
-                    className={`text-sm font-medium ${delta >= 0 ? "text-success" : "text-danger"}`}
-                  >
-                    {delta >= 0 ? "+" : ""}
-                    {delta} pts
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </FadeUp>
-      </section>
 
       {/* The Foundation: Goals & Struggles */}
       <section className="px-5 space-y-4">
@@ -270,6 +337,117 @@ function Identity() {
           </Card>
         </div>
       </section>
+
+      {/* Your Operating System */}
+      {profile && (
+        <section className="px-5 space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-sm font-semibold tracking-tight text-foreground flex items-center gap-2">
+              <Zap className="h-4 w-4 text-accent" />
+              Your Operating System
+            </h2>
+            <button
+              onClick={editingSetup ? handleSaveSetup : handleStartEdit}
+              className="text-[11px] text-accent hover:underline"
+            >
+              {editingSetup ? "Save" : "Edit"}
+            </button>
+          </div>
+          <AnimatePresence mode="wait">
+            {!editingSetup ? (
+              <motion.div
+                key="read"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <Card className="bg-gradient-to-br from-card to-accent/5 border-accent/10 space-y-4">
+                  <Stagger>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        profile.energyPeak[0] && ENERGY_PEAK_LABELS[profile.energyPeak[0]],
+                        profile.focus[0] && FOCUS_BLOCK_LABELS[profile.focus[0]],
+                        profile.sleep[0] && SLEEP_LABELS[profile.sleep[0]],
+                        profile.workload[0] && WORKLOAD_LABELS[profile.workload[0]],
+                        profile.recovery[0] && RECOVERY_LABELS[profile.recovery[0]],
+                      ]
+                        .filter(Boolean)
+                        .map((label) => (
+                          <StaggerItem key={label as string}>
+                            <span className="text-[11px] font-medium text-foreground bg-background/50 px-2 py-0.5 rounded-md border border-border/50">
+                              {label}
+                            </span>
+                          </StaggerItem>
+                        ))}
+                    </div>
+                  </Stagger>
+                  <p className="text-[11px] text-muted-foreground italic leading-relaxed">
+                    {deriveProfileInterpretation(profile)}
+                  </p>
+                  <p className="pt-3 border-t border-border/50 text-[11px] text-muted-foreground">
+                    These patterns initialize the system. Cadence adapts as real execution data
+                    accumulates.
+                  </p>
+                  {!!profile.baselineScore && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Execution stability since day one:{" "}
+                      <span className="text-muted-foreground font-medium">
+                        {profile.baselineScore}
+                      </span>
+                      {" → "}
+                      <span className="text-accent font-medium">{Math.round(score)}</span>
+                    </p>
+                  )}
+                </Card>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="edit"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+              >
+                {localProfile && (
+                  <Card className="bg-secondary/10 space-y-5">
+                    <EditRow
+                      label="Energy Peak"
+                      options={ENERGY_PEAKS}
+                      selected={localProfile.energyPeak}
+                      onSelect={(id) =>
+                        setLocalProfile((p) => (p ? { ...p, energyPeak: [id] } : p))
+                      }
+                    />
+                    <EditRow
+                      label="Focus Rhythm"
+                      options={FOCUS_DURATIONS}
+                      selected={localProfile.focus}
+                      onSelect={(id) => setLocalProfile((p) => (p ? { ...p, focus: [id] } : p))}
+                    />
+                    <EditRow
+                      label="Sleep Pattern"
+                      options={SLEEP_PATTERNS}
+                      selected={localProfile.sleep}
+                      onSelect={(id) => setLocalProfile((p) => (p ? { ...p, sleep: [id] } : p))}
+                    />
+                    <EditRow
+                      label="Workload Tolerance"
+                      options={WORKLOADS}
+                      selected={localProfile.workload}
+                      onSelect={(id) => setLocalProfile((p) => (p ? { ...p, workload: [id] } : p))}
+                    />
+                    <EditRow
+                      label="Recovery Pattern"
+                      options={RECOVERY_SPEEDS}
+                      selected={localProfile.recovery}
+                      onSelect={(id) => setLocalProfile((p) => (p ? { ...p, recovery: [id] } : p))}
+                    />
+                  </Card>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </section>
+      )}
 
       {/* Biological Profile */}
       {focusAnalysis && (
@@ -315,65 +493,6 @@ function Identity() {
           </Card>
         </section>
       )}
-
-      {/* Evolution Arc */}
-      <section className="px-5">
-        <div className="mb-4 px-1">
-          <h2 className="text-sm font-semibold tracking-tight text-foreground flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-accent" />
-            Evolution Arc
-          </h2>
-        </div>
-        <Card className="bg-gradient-surface">
-          <div className="flex items-center justify-between mb-6">
-            <StatLabel>Maturity Progression</StatLabel>
-            {daysToNext > 0 && (
-              <span className="text-[10px] text-muted-foreground">
-                {daysToNext} days to level-up
-              </span>
-            )}
-          </div>
-
-          <div className="relative flex items-center justify-between px-2">
-            <div className="absolute top-4 left-4 right-4 h-px bg-border -z-10" />
-            {MATURITY_ORDER.map((m, i) => {
-              const reached = i <= maturityIndex;
-              const current = i === maturityIndex;
-              return (
-                <div key={m} className="flex flex-col items-center gap-2">
-                  <div
-                    className={`h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
-                      current
-                        ? "bg-accent text-accent-foreground ring-4 ring-accent/20"
-                        : reached
-                          ? "bg-accent/40 text-accent"
-                          : "bg-secondary text-muted-foreground"
-                    }`}
-                  >
-                    {reached && !current ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
-                  </div>
-                  <span
-                    className={`text-[9px] uppercase tracking-tighter font-medium ${current ? "text-accent" : "text-muted-foreground"}`}
-                  >
-                    {m}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-border/50">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
-              Narrative Shift
-            </p>
-            <p className="font-display text-lg leading-snug text-foreground">
-              From <span className="text-muted-foreground italic">"{arc.from}"</span> to{" "}
-              <span className="text-accent italic font-semibold">"{arc.to}"</span>
-            </p>
-            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{arc.action}</p>
-          </div>
-        </Card>
-      </section>
 
       {/* Operating Traits Grid */}
       <section className="px-5 space-y-4">

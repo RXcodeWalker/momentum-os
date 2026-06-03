@@ -13,6 +13,17 @@ import {
   syncCircleProof,
 } from "@/lib/sync";
 import { buildMigrationPayload } from "@/lib/migration";
+import {
+  buildDemoHistory,
+  buildDemoInsights,
+  buildDemoMembers,
+  buildDemoProofs,
+  demoCircle,
+  demoPersonalProofs,
+  demoPrinciples,
+  demoTasks,
+  emptyCircle,
+} from "@/lib/demo-data";
 
 export type Task = {
   id: string;
@@ -89,7 +100,7 @@ export type Member = {
   name: string;
   initials: string;
   consistency: number;
-  state: "peak" | "steady" | "recovery" | "inconsistent";
+  state: "peak" | "steady" | "building" | "recovery" | "inconsistent";
   lastActive?: string;
   recentActivity: number[]; // 1 for active, 0 for inactive, last 7 days
 };
@@ -191,6 +202,9 @@ type State = {
   upgradePromptDismissed: boolean;
   upgradePromptDismissedAt: string | null;
   dataIsSeeded: boolean;
+  firstCheckInAt: string | null;
+  consentedToAutoRecovery: boolean;
+  recoverySuggestion: { reason: string; suggestedAt: string } | null;
 
   // Actions
   acceptTomorrowPlan: () => void;
@@ -215,6 +229,9 @@ type State = {
   setPremium: (v: boolean) => void;
   setCheckInStyle: (style: "wizard" | "quick") => void;
   resetDemo: () => void;
+  loadDemoData: () => void;
+  dismissRecoverySuggestion: () => void;
+  acceptRecoverySuggestion: () => void;
   addProof: (proof: Omit<ExecutionProof, "id" | "timestamp">) => void;
   acknowledgeProof: (proofId: string, memberId: string) => void;
   dismissInsight: (id: string) => void;
@@ -229,264 +246,23 @@ type State = {
   signOut: () => Promise<void>;
   startGuestSession: () => void;
   dismissUpgradePrompt: () => void;
-  migrateGuestToAccount: (userId: string, email: string, cloudData: Partial<State> | null) => Promise<void>;
+  migrateGuestToAccount: (
+    userId: string,
+    email: string,
+    cloudData: Partial<State> | null,
+  ) => Promise<void>;
   hydrateStore: (
     data: Partial<State> & { _insightOverrides?: Map<string, Record<string, unknown>> },
   ) => void;
 };
 
-const defaultTasks: Task[] = [
-  {
-    id: "1",
-    label: "Deep focus: Core feature implementation",
-    estMin: 90,
-    done: false,
-    type: "deep",
-  },
-  { id: "2", label: "Quick admin: Email and scheduling", estMin: 20, done: true, type: "admin" },
-  { id: "3", label: "Recovery: 20 min afternoon walk", estMin: 20, done: false, type: "movement" },
-];
-
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function seedHistory(): DayData[] {
-  const out: DayData[] = [];
-  const now = new Date();
-  for (let i = 28; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
-
-    // Synthetic data generation with some patterns
-    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-    const baseScore = isWeekend ? 40 : 65;
-    const variance = Math.random() * 30 - 15;
-    const score = Math.max(20, Math.min(100, baseScore + variance));
-
-    out.push({
-      date: dateStr,
-      executionScore: Math.round(score),
-      focus: Math.round(score / 10 + Math.random() * 2),
-      sleepHours: 6 + Math.random() * 2.5,
-      distractions: Math.floor(Math.random() * 8),
-      planned: 3 + Math.floor(Math.random() * 4),
-      completed: 2 + Math.floor(Math.random() * 3),
-      recovery: score < 50,
-    });
-  }
-  return out;
-}
-
-function seedInsights(history: DayData[]): BehavioralInsight[] {
-  // Calculate some real stats from the synthetic history to make insights feel real
-  const last28 = history.slice(-28);
-  const movementDays = last28.filter((d) => d.recovery);
-  const nonMovementDays = last28.filter((d) => !d.recovery);
-
-  const avgMovementScore = movementDays.length
-    ? Math.round(movementDays.reduce((a, d) => a + d.executionScore, 0) / movementDays.length)
-    : 75;
-  const avgNonMovementScore = nonMovementDays.length
-    ? Math.round(nonMovementDays.reduce((a, d) => a + d.executionScore, 0) / nonMovementDays.length)
-    : 52;
-  const movementLift = avgMovementScore - avgNonMovementScore;
-
-  const avgDistractions =
-    last28.reduce((a, d) => a + d.distractions, 0) / Math.max(1, last28.length);
-  const eveningDrop = Math.round(avgDistractions * 8); // Synthesized drop
-
-  return [
-    {
-      id: "i1",
-      type: "pattern",
-      title: `Focus quality drops significantly after 8 PM.`,
-      body: `Evening distraction signals are ${eveningDrop}% higher than morning baselines. Protect the evening — it sets up tomorrow's execution window.`,
-      unlocked: true,
-      unlockedAt: new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10),
-      dismissed: false,
-    },
-    {
-      id: "i2",
-      type: "breakthrough",
-      title: "Your best execution days follow movement.",
-      body: `Days with recovery movement average ${movementLift} points higher execution score. This is your highest-leverage behavioral input.`,
-      unlocked: true,
-      unlockedAt: new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10),
-      dismissed: false,
-    },
-    {
-      id: "i3",
-      type: "warning",
-      title: "Monday overplanning pattern detected.",
-      body: "Mondays average 2x the task load of other days but only 1.2x the execution. The ambition is real; the capacity isn't. Cap Mondays at 3 priorities.",
-      unlocked: true,
-      unlockedAt: new Date(Date.now() - 1 * 86400000).toISOString().slice(0, 10),
-      dismissed: false,
-      actionType: "prune",
-      actionLabel: "Prune Monday Load",
-    },
-    {
-      id: "i4",
-      type: "identity",
-      title: "Your recovery resilience is trending up.",
-      body: "You've shortened your bounce-back time after a missed day by nearly 40% in 4 weeks. That's not willpower — that's a system working.",
-      unlocked: true,
-      unlockedAt: new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10),
-      dismissed: false,
-    },
-    {
-      id: "i5",
-      type: "pattern",
-      title: "Shorter task lists lead to faster recoveries.",
-      body: "After a missed day, days with 3 or fewer priorities recover momentum significantly faster than higher-load days. Less surface area, more execution.",
-      unlocked: false,
-      dismissed: false,
-      actionType: "prune",
-      actionLabel: "Reduce Surface Area",
-    },
-    {
-      id: "i6",
-      type: "breakthrough",
-      title: "Your morning window is neurologically optimal.",
-      body: "The majority of your high-focus deep work lands between 8 AM and 11 AM. Guard it like a meeting you cannot cancel.",
-      unlocked: false,
-      dismissed: false,
-    },
-    {
-      id: "i7",
-      type: "warning",
-      title: "Integrity gap detected.",
-      body: "Your reported honesty is high, but execution score is lagging. You are aware of the problem, but the structural load is too high to overcome with willpower alone.",
-      unlocked: false,
-      dismissed: false,
-      actionType: "recovery",
-      actionLabel: "Start System Reset",
-    },
-  ];
-}
-
-function seedProofs(): ExecutionProof[] {
-  const now = Date.now();
-  return [
-    {
-      id: "p1",
-      memberId: "u1",
-      text: "Shipped signup screen · 2h",
-      timestamp: new Date(now - 2 * 3600000).toISOString(),
-      type: "deep-work",
-      acknowledgedBy: ["u2", "u5"],
-    },
-    {
-      id: "p2",
-      memberId: "u2",
-      text: "3hr linear algebra deep work — locked in",
-      timestamp: new Date(now - 5 * 3600000).toISOString(),
-      type: "deep-work",
-      acknowledgedBy: ["u1"],
-    },
-    {
-      id: "p3",
-      memberId: "u3",
-      text: "20 min review, accepted minimum viable day",
-      timestamp: new Date(now - 8 * 3600000).toISOString(),
-      type: "recovery",
-      acknowledgedBy: ["u1", "u2", "u4"],
-    },
-    {
-      id: "p4",
-      memberId: "u4",
-      text: "Zone 2 run · 32 min, no headphones",
-      timestamp: new Date(now - 11 * 3600000).toISOString(),
-      type: "movement",
-    },
-    {
-      id: "p5",
-      memberId: "u5",
-      text: "Closed 4 of 4 priorities",
-      timestamp: new Date(now - 14 * 3600000).toISOString(),
-      type: "completion",
-      acknowledgedBy: ["u1", "u3"],
-    },
-  ];
-}
-
-const defaultPersonalProofs = [
-  {
-    id: "pp1",
-    text: "Rejected distraction during deep work session",
-    trait: "Focus",
-    date: todayStr(),
-  },
-  {
-    id: "pp2",
-    text: "Accepted minimum viable day instead of quitting",
-    trait: "Resilience",
-    date: todayStr(),
-  },
-];
-
-const defaultPrinciples = [
-  "Execution is a discipline, not an emotion.",
-  "Never miss twice. Fast recovery is the only metric that matters.",
-  "Protect the morning focus window at all costs.",
-];
-
-function seedMembers(): Member[] {
-  return [
-    {
-      id: "u2",
-      name: "Maya R.",
-      initials: "MR",
-      consistency: 84,
-      state: "peak",
-      lastActive: new Date(Date.now() - 3600000).toISOString(),
-      recentActivity: [1, 1, 1, 1, 1, 1, 1],
-    },
-    {
-      id: "u3",
-      name: "Daniel K.",
-      initials: "DK",
-      consistency: 41,
-      state: "recovery",
-      lastActive: new Date(Date.now() - 14400000).toISOString(),
-      recentActivity: [0, 0, 1, 0, 1, 0, 0],
-    },
-    {
-      id: "u4",
-      name: "Sami O.",
-      initials: "SO",
-      consistency: 67,
-      state: "inconsistent",
-      lastActive: new Date(Date.now() - 43200000).toISOString(),
-      recentActivity: [1, 0, 1, 1, 0, 1, 0],
-    },
-    {
-      id: "u5",
-      name: "Lin T.",
-      initials: "LT",
-      consistency: 78,
-      state: "steady",
-      lastActive: new Date(Date.now() - 1800000).toISOString(),
-      recentActivity: [1, 1, 0, 1, 1, 1, 1],
-    },
-  ];
-}
-
-const defaultCircle: Circle = {
-  id: "c1",
-  name: "Deep Work · Spring",
-  subtitle: "Shared resilience over social performance. Small groups built on proof of execution.",
-  charter:
-    "We prioritize deep work, movement, and recovery. We support each other without judgment.",
-  memberIds: ["u1", "u2", "u3", "u4", "u5"],
-};
-
 export const useApp = create<State>()(
   persist(
     (set, get) => {
-      const history = seedHistory();
       return {
         user: "",
         currentUserId: "",
@@ -496,7 +272,10 @@ export const useApp = create<State>()(
         pendingMigration: false,
         upgradePromptDismissed: false,
         upgradePromptDismissedAt: null,
-        dataIsSeeded: true,
+        dataIsSeeded: false,
+        firstCheckInAt: null,
+        consentedToAutoRecovery: false,
+        recoverySuggestion: null,
         setup: {
           step: 0,
           completed: false,
@@ -504,9 +283,9 @@ export const useApp = create<State>()(
         goals: [],
         struggles: [],
         profile: null,
-        tasks: defaultTasks,
+        tasks: [],
         checkIns: [],
-        history,
+        history: [],
         blockerHistory: [],
         distractionLog: [],
         streaks: {
@@ -521,14 +300,14 @@ export const useApp = create<State>()(
         recoveryHighScoreDays: 0,
         premium: false,
         checkInStyle: "wizard",
-        insights: seedInsights(history),
+        insights: [],
         committedRules: [],
-        daysOnApp: history.length,
-        proofs: seedProofs(),
-        personalProofs: defaultPersonalProofs,
-        principles: defaultPrinciples,
-        members: seedMembers(),
-        circle: defaultCircle,
+        daysOnApp: 0,
+        proofs: [],
+        personalProofs: [],
+        principles: [],
+        members: [],
+        circle: emptyCircle,
 
         completeOnboarding: () => set({ onboarded: true }),
         updateSetup: (step) => set((s) => ({ setup: { ...s.setup, step } })),
@@ -784,9 +563,16 @@ export const useApp = create<State>()(
             } else {
               recoveryHighScoreDays = 0;
             }
-          } else if (newScore < 45) {
-            nextRecoveryMode = true;
-            recoveryHighScoreDays = 0;
+          }
+
+          // Recovery is never auto-flipped on. A low score raises a suggestion the user can accept or dismiss.
+          let nextSuggestion = get().recoverySuggestion;
+          if (!wasRecovery && newScore < 45 && !nextSuggestion) {
+            nextSuggestion = {
+              reason:
+                "Your last reflection landed low. Cadence can switch to a smaller-surface recovery mode if that fits today.",
+              suggestedAt: todayStr(),
+            };
           }
 
           set((state) => ({
@@ -794,6 +580,9 @@ export const useApp = create<State>()(
             checkIns: [...state.checkIns, { ...data, date: todayStr() }],
             recoveryMode: nextRecoveryMode,
             recoveryHighScoreDays,
+            recoverySuggestion: nextSuggestion,
+            firstCheckInAt: state.firstCheckInAt ?? todayStr(),
+            dataIsSeeded: false,
             blockerHistory: [...state.blockerHistory, ...newBlockers],
             distractionLog,
             streaks,
@@ -1006,7 +795,11 @@ export const useApp = create<State>()(
         },
         signUp: async (email, password) => {
           const redirectTo = `${window.location.origin}/`;
-          const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } });
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: redirectTo },
+          });
           if (error) throw error;
           const userId = data.user?.id ?? "";
           if (userId) await get().migrateGuestToAccount(userId, email, null);
@@ -1045,7 +838,9 @@ export const useApp = create<State>()(
           set({ pendingMigration: true });
 
           // Safety check: verify the session still belongs to this userId
-          const { data: { user: sessionUser } } = await supabase.auth.getUser();
+          const {
+            data: { user: sessionUser },
+          } = await supabase.auth.getUser();
           if (sessionUser && sessionUser.id !== userId) {
             set({ pendingMigration: false });
             return;
@@ -1126,9 +921,12 @@ export const useApp = create<State>()(
         },
         resetDemo: () => {
           if (import.meta.env.PROD) return;
-          const h = seedHistory();
+          get().loadDemoData();
+        },
+        loadDemoData: () => {
+          const h = buildDemoHistory();
           set({
-            tasks: defaultTasks,
+            tasks: demoTasks,
             checkIns: [],
             history: h,
             blockerHistory: [],
@@ -1143,34 +941,74 @@ export const useApp = create<State>()(
             tomorrowPlan: null,
             recoveryMode: false,
             recoveryReason: undefined,
-            insights: seedInsights(h),
-            proofs: seedProofs(),
-            daysOnApp: 84,
+            recoverySuggestion: null,
+            insights: buildDemoInsights(h),
+            proofs: buildDemoProofs(),
+            daysOnApp: h.length,
             checkInStyle: "wizard",
-            principles: defaultPrinciples,
-            members: seedMembers(),
-            circle: defaultCircle,
+            personalProofs: demoPersonalProofs,
+            principles: demoPrinciples,
+            members: buildDemoMembers(),
+            circle: demoCircle,
+            dataIsSeeded: true,
+          });
+        },
+        dismissRecoverySuggestion: () => set({ recoverySuggestion: null }),
+        acceptRecoverySuggestion: () => {
+          const s = get();
+          set({
+            recoveryMode: true,
+            recoveryReason: s.recoverySuggestion?.reason,
+            recoverySuggestion: null,
+            consentedToAutoRecovery: true,
           });
         },
       };
     },
     {
       name: "cadence-store-v1",
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) => {
+        let s = persistedState as Partial<State>;
         if (version < 2) {
-          const s = persistedState as Partial<State>;
-          return {
+          s = {
             ...s,
             sessionType: s.currentUserId ? ("authenticated" as const) : ("guest" as const),
             guestSince: s.currentUserId ? null : todayStr(),
             pendingMigration: false,
             upgradePromptDismissed: false,
             upgradePromptDismissedAt: null,
-            dataIsSeeded: false, // existing users have real data
+            dataIsSeeded: false,
           };
         }
-        return persistedState as State;
+        if (version < 3) {
+          // Truth Foundation migration: wipe seeded data for users who never reflected.
+          // Real users (firstCheckInAt set, or any real checkIns) keep everything.
+          const hasRealCheckIns = (s.checkIns?.length ?? 0) > 0;
+          const wasSeeded = s.dataIsSeeded === true;
+          if (wasSeeded && !hasRealCheckIns) {
+            s = {
+              ...s,
+              tasks: [],
+              history: [],
+              insights: [],
+              proofs: [],
+              members: [],
+              personalProofs: [],
+              principles: [],
+              daysOnApp: 0,
+              dataIsSeeded: false,
+            };
+          }
+          s = {
+            ...s,
+            firstCheckInAt:
+              s.firstCheckInAt ?? (hasRealCheckIns ? (s.checkIns?.[0]?.date ?? null) : null),
+            consentedToAutoRecovery: s.consentedToAutoRecovery ?? false,
+            recoverySuggestion: s.recoverySuggestion ?? null,
+          };
+        }
+        return s as State;
       },
     },
   ),
@@ -1417,6 +1255,7 @@ export function useFocusAnalysis() {
   const h = useApp((s) => s.history);
   const tasks = useApp((s) => s.tasks);
   const premium = useApp((s) => s.premium);
+  const profile = useApp((s) => s.profile);
 
   return useMemo(() => {
     if (!premium) return null;
@@ -1425,7 +1264,25 @@ export function useFocusAnalysis() {
     const deepTasks = tasks.filter((t) => t.type === "deep").length;
     const avgSleep = last14.reduce((a, d) => a + d.sleepHours, 0) / Math.max(1, last14.length);
 
-    // Simulate optimal focus window based on sleep and history
+    // With sparse history, derive window from declared energy peak rather than sleep-based estimate.
+    // Once 7+ days of data accumulate, real patterns take over.
+    if (last14.length < 7 && profile?.energyPeak[0]) {
+      const peakWindowMap: Record<string, string> = {
+        early: "5:00 – 9:00",
+        morning: "9:00 – 12:00",
+        midday: "12:00 – 15:00",
+        evening: "17:00 – 21:00",
+        night: "21:00 – 24:00",
+      };
+      return {
+        optimalWindow: peakWindowMap[profile.energyPeak[0]] ?? "9:00 – 12:00",
+        distractionRisk: avgSleep < 7 ? "High (after 14:00)" : "Low",
+        capacity: deepTasks > 3 ? "Oversaturated" : "Optimal",
+        score: Math.round((avgSleep / 8) * 100),
+      };
+    }
+
+    // Behavior-derived window once sufficient history exists
     const startHour = avgSleep > 7.5 ? 8 : 10;
     const duration = Math.max(2, Math.min(4, avgSleep - 4));
 
@@ -1435,7 +1292,7 @@ export function useFocusAnalysis() {
       capacity: deepTasks > 3 ? "Oversaturated" : "Optimal",
       score: Math.round((avgSleep / 8) * 100),
     };
-  }, [h, tasks, premium]);
+  }, [h, tasks, premium, profile]);
 }
 
 export function useFakeProductivityFlags() {
@@ -1479,32 +1336,6 @@ export function useFakeProductivityFlags() {
       phonePickups,
     };
   }, [tasks, h]);
-}
-
-export function useMaturityLevel() {
-  const daysOnApp = useApp((s) => s.daysOnApp);
-  const consistency = useConsistency(28);
-
-  return useMemo(() => {
-    const levels = ["calibrating", "building", "consistent", "advanced", "resilient"] as const;
-    const labels = ["Calibrating", "Building", "Consistent", "Advanced", "Resilient"];
-    const archetypes = [
-      "The Explorer",
-      "The Builder",
-      "The Strategist",
-      "The Architect",
-      "The Guardian",
-    ];
-
-    const levelIdx = Math.min(4, Math.floor(daysOnApp / 30) + (consistency > 80 ? 1 : 0));
-
-    return {
-      level: levels[levelIdx],
-      label: labels[levelIdx],
-      archetype: archetypes[levelIdx],
-      daysToNext: Math.max(0, 30 - (daysOnApp % 30)),
-    };
-  }, [daysOnApp, consistency]);
 }
 
 export function useLatestInsight() {
@@ -1670,11 +1501,21 @@ export function useDayOfWeekProfile() {
 // E3: Smart check-in defaults based on personal history
 export function useSmartCheckInDefaults() {
   const checkIns = useApp((s) => s.checkIns);
+  const profile = useApp((s) => s.profile);
 
   return useMemo(() => {
     const recent = checkIns.slice(-7);
     if (recent.length === 0) {
-      return { sleepHours: 6.5, focus: 7, energy: 60, tomorrowFocusSuggestion: null };
+      // Seed from declared profile when no behavioral history exists yet.
+      // Real check-in data will override these once it accumulates.
+      const sleepMap: Record<string, number> = { solid: 8, variable: 7, short: 6, collapsed: 5 };
+      const focusMap: Record<string, number> = { "15": 3, "45": 6, "90": 8, varies: 6 };
+      return {
+        sleepHours: sleepMap[profile?.sleep[0] ?? ""] ?? 6.5,
+        focus: focusMap[profile?.focus[0] ?? ""] ?? 7,
+        energy: 60,
+        tomorrowFocusSuggestion: null,
+      };
     }
 
     const avgSleep = recent.reduce((a, c) => a + c.sleepHours, 0) / recent.length;
@@ -1692,7 +1533,7 @@ export function useSmartCheckInDefaults() {
       energy: lastEnergy,
       tomorrowFocusSuggestion: lastTomorrowFocus || null,
     };
-  }, [checkIns]);
+  }, [checkIns, profile]);
 }
 
 // E1: Blocker pattern analysis
@@ -1800,6 +1641,7 @@ export function useStreakContext() {
 export function useTaskIntelligence() {
   const tasks = useApp((s) => s.tasks);
   const history = useApp((s) => s.history);
+  const profile = useApp((s) => s.profile);
   const { state } = useUserState();
 
   return useMemo(() => {
@@ -1848,8 +1690,23 @@ export function useTaskIntelligence() {
           ? "underloaded"
           : "optimal";
 
-    const suggestedCap =
+    const stateCap =
       recommended.deep + recommended.shallow + recommended.admin + recommended.movement;
+    // Profile cap acts as a soft ceiling — behavioral history is trusted more as it accumulates.
+    const workloadCapMap: Record<string, number> = {
+      light: 2,
+      moderate: 3,
+      heavy: 4,
+      unclear: Infinity,
+    };
+    const profileCap = workloadCapMap[profile?.workload[0] ?? "unclear"] ?? Infinity;
+    // Blend: profile is the starting signal; after 14 days of history it fades to a secondary guide.
+    const onboardingWeight = history.length < 14 ? 1 : 0.35;
+    const blendedCap =
+      profileCap === Infinity
+        ? stateCap
+        : Math.round(stateCap * (1 - onboardingWeight) + profileCap * onboardingWeight);
+    const suggestedCap = Math.max(1, blendedCap);
 
     return {
       todayLoadRisk,
@@ -1859,7 +1716,7 @@ export function useTaskIntelligence() {
       actual,
       recommended,
     };
-  }, [tasks, history, state]);
+  }, [tasks, history, state, profile]);
 }
 
 // E6: Personalized recovery protocol matching
@@ -1922,6 +1779,12 @@ export function usePersonalizedRecoveryMatch() {
     if (avgSleep < 6.5) scores["sleep-debt"] += 3;
     if (avgDist > 5) scores.distraction += 3;
     if (weekDrop > 25) scores.burnout += 2;
+
+    // Recovery pattern signal — self-reported tendency as a soft directional weight
+    const recoverySpeed = profile?.recovery[0];
+    if (recoverySpeed === "spiral") scores.burnout += 15;
+    else if (recoverySpeed === "slow") scores["low-energy"] += 10;
+    else if (recoverySpeed === "fast") scores.procrastination += 5;
 
     const sorted = (Object.entries(scores) as [ProtocolKey, number][]).sort((a, b) => b[1] - a[1]);
     const top = sorted[0];

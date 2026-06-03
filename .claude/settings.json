@@ -1,5 +1,8 @@
 {
   "permissions": {
-    "allow": ["Bash(npm install *)"]
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(grep -n \"completeOnboarding\\\\|setOnboarded\\\\|navigate.*dashboard\\\\|navigate.*\\\\/\\\\$\" \"c:\\\\Users\\\\om\\\\OneDrive\\\\Desktop\\\\momentum-os\\\\src\\\\routes\\\\onboarding.tsx\")"
+    ]
   }
 }

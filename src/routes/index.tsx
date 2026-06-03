@@ -25,9 +25,7 @@ import {
   useMomentum,
   useUserState,
   useLatestInsight,
-  useMaturityLevel,
   usePredictiveRecoveryAlert,
-  useStreakContext,
   useTomorrowBriefing,
   useTaskIntelligence,
   useBlockerPattern,
@@ -39,6 +37,8 @@ import { Stagger, StaggerItem, TapCard, FadeUp } from "@/lib/motion";
 import { BehavioralNote } from "@/components/cards/BehavioralNote";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { MetricSurface } from "@/components/MetricSurface";
+import { useDataReadiness } from "@/lib/maturity";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -68,7 +68,9 @@ function Home() {
   const { delta } = useMomentum();
   const consistency = useConsistency(TREND_DAYS);
   const { state, label: stateLabel, tone: stateTone } = useUserState();
-  const maturity = useMaturityLevel();
+  const checkInCount = useApp((s) => s.checkIns.length);
+  const dataIsSeeded = useApp((s) => s.dataIsSeeded);
+  const showUserStatePill = dataIsSeeded || checkInCount >= 5;
   const tasks = useApp((s) => s.tasks);
   const toggleTask = useApp((s) => s.toggleTask);
   const dismissInsight = useApp((s) => s.dismissInsight);
@@ -87,6 +89,9 @@ function Home() {
     hour < 11 ? "morning" : hour < 17 ? "midday" : "evening";
 
   const subtitle = (() => {
+    if (!showUserStatePill) {
+      return "Cadence learns from what you do. Today is a clean page.";
+    }
     if (state === "burnout")
       return "Burnout signals detected. Cut the surface area in half — sleep is the lever today.";
     if (state === "recovery")
@@ -107,7 +112,6 @@ function Home() {
         : "Steady";
 
   const latestInsight = useLatestInsight();
-  const streakCtx = useStreakContext();
   const tomorrowBriefing = useTomorrowBriefing();
   const acceptTomorrowPlan = useApp((s) => s.acceptTomorrowPlan);
   const checkIns = useApp((s) => s.checkIns);
@@ -115,6 +119,9 @@ function Home() {
   const blockerPattern = useBlockerPattern();
   const insightEffectiveness = useInsightEffectiveness();
   const velocity = useScoreVelocity();
+  const todayScoreReadiness = useDataReadiness("todayScore");
+  const momentumReadiness = useDataReadiness("momentum");
+  const consistencyReadiness = useDataReadiness("consistency");
 
   // Yesterday's context for morning continuity
   const yesterdayCheckIn = checkIns.length >= 2 ? checkIns[checkIns.length - 2] : null;
@@ -143,15 +150,10 @@ function Home() {
         subtitle={subtitle}
         right={
           <div className="flex items-center gap-2">
-            <div className="hidden lg:flex items-center gap-2">
-              <Pill tone="accent">{maturity.label}</Pill>
-              <Pill tone={stateTone}>{stateLabel}</Pill>
-            </div>
-            {streakCtx.currentStreak >= 2 && (
-              <Pill tone={streakCtx.atRisk ? "warning" : "success"} className="text-[10px]">
-                {streakCtx.currentStreak}d{" "}
-                {streakCtx.streakType === "resilience" ? "resilience" : "streak"}
-              </Pill>
+            {showUserStatePill && (
+              <div className="hidden lg:flex items-center gap-2">
+                <Pill tone={stateTone}>{stateLabel}</Pill>
+              </div>
             )}
             <Link
               to="/identity"
@@ -203,12 +205,16 @@ function Home() {
                 </div>
 
                 <div className="flex flex-wrap gap-2.5 pt-2">
-                  <Pill tone={stateTone} className="px-4 py-1.5 text-xs font-bold">
-                    {stateLabel}
-                  </Pill>
-                  <Pill tone="accent" className="px-4 py-1.5 text-xs font-bold">
-                    {consistency}% Consistency
-                  </Pill>
+                  {showUserStatePill && (
+                    <Pill tone={stateTone} className="px-4 py-1.5 text-xs font-bold">
+                      {stateLabel}
+                    </Pill>
+                  )}
+                  {consistencyReadiness.hasMinimum && (
+                    <Pill tone="accent" className="px-4 py-1.5 text-xs font-bold">
+                      {consistency}% Consistency
+                    </Pill>
+                  )}
                   {recoveryMode && (
                     <Pill tone="warning" className="px-4 py-1.5 text-xs font-bold">
                       Recovery Active
@@ -218,124 +224,142 @@ function Home() {
               </div>
 
               <div className="flex flex-col items-center lg:items-end">
-                <div className="relative">
-                  <Ring value={score} size={200} stroke={16} label="Score" sub="Today" />
-                  {delta !== 0 && (
-                    <motion.div
-                      initial={{ scale: 0, rotate: -20 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      className={`absolute -right-3 -top-3 flex h-14 w-14 items-center justify-center rounded-full hairline bg-card text-xs font-black shadow-2xl ${delta > 0 ? "text-success" : "text-danger"}`}
-                    >
-                      {delta > 0 ? "+" : ""}
-                      {delta}
-                    </motion.div>
-                  )}
+                {todayScoreReadiness.hasMinimum ? (
+                  <div className="relative">
+                    <Ring value={score} size={200} stroke={16} label="Score" sub="Today" />
+                    {delta !== 0 && momentumReadiness.hasMinimum && (
+                      <motion.div
+                        initial={{ scale: 0, rotate: -20 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        className={`absolute -right-3 -top-3 flex h-14 w-14 items-center justify-center rounded-full hairline bg-card text-xs font-black shadow-2xl ${delta > 0 ? "text-success" : "text-danger"}`}
+                      >
+                        {delta > 0 ? "+" : ""}
+                        {delta}
+                      </motion.div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="hairline rounded-3xl px-6 py-8 text-center max-w-[260px]">
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                      Today's score
+                    </p>
+                    <p className="mt-3 text-sm text-foreground leading-relaxed">
+                      Appears after tonight's reflection.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {momentumReadiness.hasMinimum && (
+              <div className="mt-12 pt-8 border-t border-border relative">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-bold">
+                    Execution Trend · {TREND_DAYS}d
+                  </span>
+                  <span className="text-[10px] font-bold text-accent uppercase tracking-[0.2em]">
+                    {Math.round((completed / Math.max(1, tasks.length)) * 100)}% Today
+                  </span>
                 </div>
-              </div>
-            </div>
 
-            {/* Integrated Consistency Strip */}
-            <div className="mt-12 pt-8 border-t border-white/5 relative">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-bold">
-                  Execution Trend · {TREND_DAYS}d
-                </span>
-                <span className="text-[10px] font-bold text-accent uppercase tracking-[0.2em]">
-                  {Math.round((completed / Math.max(1, tasks.length)) * 100)}% Today
-                </span>
-              </div>
+                <div className="flex items-end justify-between gap-1.5 h-12">
+                  {history.slice(-TREND_DAYS).map((d, i) => {
+                    const v = d.executionScore;
+                    const isToday = i === TREND_DAYS - 1;
+                    const tone =
+                      v >= 70
+                        ? "var(--accent)"
+                        : v >= 50
+                          ? "color-mix(in oklab, var(--accent) 45%, transparent)"
+                          : "color-mix(in oklab, var(--danger) 55%, transparent)";
+                    return (
+                      <motion.div
+                        key={d.date}
+                        initial={{ height: 4, opacity: 0 }}
+                        animate={{ height: `${4 + (v / 100) * 36}px`, opacity: 1 }}
+                        transition={{
+                          duration: 0.6,
+                          delay: 0.2 + i * 0.03,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        className={`flex-1 rounded-full ${isToday ? "shadow-glow" : ""}`}
+                        style={{
+                          background: tone,
+                          border: isToday ? "1.5px solid var(--accent)" : "none",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
 
-              <div className="flex items-end justify-between gap-1.5 h-12">
-                {history.slice(-TREND_DAYS).map((d, i) => {
-                  const v = d.executionScore;
-                  const isToday = i === TREND_DAYS - 1;
-                  const tone =
-                    v >= 70
-                      ? "var(--accent)"
-                      : v >= 50
-                        ? "color-mix(in oklab, var(--accent) 45%, transparent)"
-                        : "color-mix(in oklab, var(--danger) 55%, transparent)";
-                  return (
+                {tasks.length > 0 && (
+                  <div className="mt-8 h-2.5 w-full rounded-full bg-secondary overflow-hidden hairline">
                     <motion.div
-                      key={d.date}
-                      initial={{ height: 4, opacity: 0 }}
-                      animate={{ height: `${4 + (v / 100) * 36}px`, opacity: 1 }}
-                      transition={{
-                        duration: 0.6,
-                        delay: 0.2 + i * 0.03,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                      className={`flex-1 rounded-full ${isToday ? "shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)]" : ""}`}
-                      style={{
-                        background: tone,
-                        border: isToday ? "1.5px solid var(--accent)" : "none",
-                      }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(completed / Math.max(1, tasks.length)) * 100}%` }}
+                      transition={{ type: "spring", stiffness: 80, damping: 20 }}
+                      className="h-full bg-gradient-accent shadow-glow"
                     />
-                  );
-                })}
+                  </div>
+                )}
               </div>
-
-              <div className="mt-8 h-2.5 w-full rounded-full bg-white/5 overflow-hidden hairline">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(completed / Math.max(1, tasks.length)) * 100}%` }}
-                  transition={{ type: "spring", stiffness: 80, damping: 20 }}
-                  className="h-full bg-gradient-accent shadow-[0_0_20px_rgba(var(--accent-rgb),0.6)]"
-                />
-              </div>
-            </div>
+            )}
           </div>
         </StaggerItem>
 
-        <StaggerItem className="lg:col-span-12">
-          <Card className="hairline bg-card/50 backdrop-blur-md">
-            <div className="flex items-center justify-between">
-              <StatLabel className="tracking-widest uppercase text-[10px] font-bold">
-                Today's Journey
-              </StatLabel>
-              <span className="text-[10px] text-accent font-bold uppercase tracking-widest">
-                {phase} Session Active
-              </span>
-            </div>
-            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <FlowRow
-                icon={<Sunrise className="h-4 w-4" />}
-                label="Morning Calibration"
-                desc="Set 3 priorities · energy check"
-                active={phase === "morning"}
-                done={phase !== "morning"}
-                onClick={() => {
-                  if (tasks.length === 0) {
-                    toast("Ready to calibrate?", { description: "Add your first priority below." });
-                  } else {
-                    toast("Calibration complete", {
-                      description: "You have clear focus for the day.",
+        {tasks.length > 0 && (
+          <StaggerItem className="lg:col-span-12">
+            <Card className="hairline bg-card/50 backdrop-blur-md">
+              <div className="flex items-center justify-between">
+                <StatLabel className="tracking-widest uppercase text-[10px] font-bold">
+                  Today's Journey
+                </StatLabel>
+                <span className="text-[10px] text-accent font-bold uppercase tracking-widest">
+                  {phase} Session Active
+                </span>
+              </div>
+              <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <FlowRow
+                  icon={<Sunrise className="h-4 w-4" />}
+                  label="Morning Calibration"
+                  desc="Set 3 priorities · energy check"
+                  active={phase === "morning"}
+                  done={phase !== "morning"}
+                  onClick={() => {
+                    if (tasks.length === 0) {
+                      toast("Ready to calibrate?", {
+                        description: "Add your first priority below.",
+                      });
+                    } else {
+                      toast("Calibration complete", {
+                        description: "You have clear focus for the day.",
+                      });
+                    }
+                  }}
+                />
+                <FlowRow
+                  icon={<Sun className="h-4 w-4" />}
+                  label="Deep Execution"
+                  desc="High focus · zero distractions"
+                  active={phase === "midday"}
+                  done={phase === "evening"}
+                  onClick={() => {
+                    toast.success("Execution Window Active", {
+                      description: "Protect this time from interruptions.",
                     });
-                  }
-                }}
-              />
-              <FlowRow
-                icon={<Sun className="h-4 w-4" />}
-                label="Deep Execution"
-                desc="High focus · zero distractions"
-                active={phase === "midday"}
-                done={phase === "evening"}
-                onClick={() => {
-                  toast.success("Execution Window Active", {
-                    description: "Protect this time from interruptions.",
-                  });
-                }}
-              />
-              <FlowRow
-                icon={<Moon className="h-4 w-4" />}
-                label="Evening Reflection"
-                desc="Wins · recovery preparation"
-                active={phase === "evening"}
-                to="/check-in"
-              />
-            </div>
-          </Card>
-        </StaggerItem>
+                  }}
+                />
+                <FlowRow
+                  icon={<Moon className="h-4 w-4" />}
+                  label="Evening Reflection"
+                  desc="Wins · recovery preparation"
+                  active={phase === "evening"}
+                  to="/check-in"
+                />
+              </div>
+            </Card>
+          </StaggerItem>
+        )}
       </Stagger>
 
       {/* Score velocity warning — pre-burnout alert shown before score hits 45 */}

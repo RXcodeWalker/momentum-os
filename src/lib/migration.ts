@@ -13,10 +13,7 @@ import type { State, DayData, CheckIn, BehavioralInsight } from "@/lib/store";
  * - personalProofs: union by id
  * - daysOnApp: take max of both
  */
-export function buildMigrationPayload(
-  local: State,
-  cloud: Partial<State>,
-): Partial<State> {
+export function buildMigrationPayload(local: State, cloud: Partial<State>): Partial<State> {
   // History: merge by date, take higher executionScore on conflict
   const historyMap = new Map<string, DayData>();
   (cloud.history ?? []).forEach((d) => historyMap.set(d.date, d));
@@ -26,25 +23,19 @@ export function buildMigrationPayload(
       historyMap.set(d.date, d);
     }
   });
-  const mergedHistory = Array.from(historyMap.values()).sort((a, b) =>
-    a.date < b.date ? -1 : 1,
-  );
+  const mergedHistory = Array.from(historyMap.values()).sort((a, b) => (a.date < b.date ? -1 : 1));
 
   // CheckIns: merge by date, cloud wins on conflict
   const checkInMap = new Map<string, CheckIn>();
   (local.checkIns ?? []).forEach((c) => checkInMap.set(c.date, c));
   (cloud.checkIns ?? []).forEach((c) => checkInMap.set(c.date, c)); // cloud overwrites
-  const mergedCheckIns = Array.from(checkInMap.values()).sort((a, b) =>
-    a.date < b.date ? -1 : 1,
-  );
+  const mergedCheckIns = Array.from(checkInMap.values()).sort((a, b) => (a.date < b.date ? -1 : 1));
 
   // Profile: local wins if already onboarded as guest, else fall back to cloud
   const useLocalProfile = local.onboarded;
   const mergedProfile = useLocalProfile ? local.profile : (cloud.profile ?? local.profile);
   const mergedGoals = useLocalProfile ? local.goals : (cloud.goals ?? local.goals);
-  const mergedStruggles = useLocalProfile
-    ? local.struggles
-    : (cloud.struggles ?? local.struggles);
+  const mergedStruggles = useLocalProfile ? local.struggles : (cloud.struggles ?? local.struggles);
 
   // Insights: take the most advanced state per insight id
   // Order: committed > unlocked > base; dismissed is sticky

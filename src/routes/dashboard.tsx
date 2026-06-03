@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { useVisibleRoutes } from "@/lib/maturity";
 import { BarRow, Card, Pill, Ring, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
 import { ExecutionHeatmap } from "@/components/heatmap";
 import {
@@ -9,7 +11,6 @@ import {
   useDistractionStats,
   useExecutionScore,
   useFakeProductivityFlags,
-  useMaturityLevel,
   useMomentum,
   useResilience,
   useUserState,
@@ -47,6 +48,13 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardPage() {
+  const navigate = useNavigate();
+  const visibleRoutes = useVisibleRoutes();
+  const isUnlocked = visibleRoutes.includes("this-week");
+  useEffect(() => {
+    if (!isUnlocked) navigate({ to: "/" });
+  }, [isUnlocked, navigate]);
+
   const score = useExecutionScore();
   const { delta, trend } = useMomentum();
   const consistency = useConsistency(28);
@@ -57,7 +65,6 @@ function DashboardPage() {
   const activeInsights = useActiveInsights();
   const { avgHours, sleepImpact } = useDeepWorkStats();
   const { avg: avgDist, peakWindow, reduction } = useDistractionStats();
-  const { label: maturityLabel, daysToNext } = useMaturityLevel();
   const recoveryPlan = useApp((s) => s.recoveryPlan);
   const { state, label, tone } = useUserState();
   const { score: resilience, avgRecoveryDays } = useResilience();
@@ -113,6 +120,8 @@ function DashboardPage() {
     const distractions = last28.slice(-7).reduce((a, d) => a + d.distractions, 0);
     return Math.min(100, lowSleep * 14 + lowDays * 12 + distractions * 4);
   }, [last28]);
+
+  if (!isUnlocked) return null;
 
   return (
     <div className="flex flex-col gap-5 pb-12 lg:gap-7 lg:pb-8">
@@ -261,9 +270,6 @@ function DashboardPage() {
                   ))}
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground pt-2">
-                Status: {maturityLabel}. {daysToNext} days until next level of adaptive insights.
-              </p>
             </div>
           </Card>
 

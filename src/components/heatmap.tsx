@@ -9,12 +9,13 @@ export function ExecutionHeatmap({ weeks = 4 }: { weeks?: number }) {
   history.forEach((d) => cells.push(d.executionScore));
 
   const colorFor = (v: number | null) => {
-    if (v == null) return "oklch(1 0 0 / 0.04)";
-    if (v < 40) return "oklch(0.68 0.18 25 / 0.55)";
-    if (v < 55) return "oklch(0.78 0.14 75 / 0.30)";
-    if (v < 70) return "oklch(0.78 0.14 75 / 0.55)";
-    if (v < 85) return "oklch(0.85 0.16 80 / 0.75)";
-    return "oklch(0.78 0.14 155 / 0.80)";
+    if (v == null)
+      return "var(--heatmap-empty, color-mix(in oklab, var(--foreground) 6%, transparent))";
+    if (v < 40) return "color-mix(in oklab, var(--danger) 55%, transparent)";
+    if (v < 55) return "color-mix(in oklab, var(--accent) 28%, transparent)";
+    if (v < 70) return "color-mix(in oklab, var(--accent) 52%, transparent)";
+    if (v < 85) return "color-mix(in oklab, var(--accent-glow) 72%, transparent)";
+    return "color-mix(in oklab, var(--success) 78%, transparent)";
   };
 
   // 7 rows (days) x weeks columns

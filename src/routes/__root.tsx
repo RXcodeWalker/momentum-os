@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useLocation,
+  useRouter,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -21,15 +22,17 @@ import {
   Calendar,
 } from "lucide-react";
 import { useApp, useUserState } from "@/lib/store";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { hydrateFromDB } from "@/lib/sync";
 import { AuroraBackground } from "@/components/atmosphere/AuroraBackground";
 import { CommandPalette, CommandHint } from "@/components/command/CommandPalette";
+import { HelpModal, HelpButton, MobileHelpButton } from "@/components/help";
 import { SaveProgressBanner } from "@/components/SaveProgressBanner";
 import { PageTransition } from "@/lib/motion";
 import { Toaster } from "sonner";
 import { motion, LayoutGroup } from "framer-motion";
+import { ThemeToggle, useTheme } from "@/components/ThemeToggle";
 
 function NotFoundComponent() {
   return (
@@ -93,9 +96,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      // Geist is preferred (self-hosted from /public/fonts/ when present);
+      // Inter + JetBrains Mono ride along as named fallbacks until the
+      // WOFF2 files land. Instrument Serif remains the display face.
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Bebas+Neue&display=swap",
       },
     ],
   }),
@@ -105,10 +111,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+const themeInitScript = `
+(function(){
+  try {
+    var t = localStorage.getItem('cadence-theme');
+    if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.classList.add(t);
+    if (t === 'dark') document.documentElement.classList.remove('light');
+    if (t === 'light') document.documentElement.classList.remove('dark');
+  } catch(e) {
+    document.documentElement.classList.add('dark');
+  }
+})();
+`;
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <HeadContent />
       </head>
       <body>
@@ -119,25 +140,40 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-const primaryNav = [
+import type { RouteKey } from "@/lib/maturity";
+import { useVisibleRoutes } from "@/lib/maturity";
+
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof Home;
+  exact?: boolean;
+  gate?: RouteKey;
+};
+
+const primaryNav: readonly NavItem[] = [
   { to: "/", label: "Today", icon: Home, exact: true },
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, gate: "this-week" },
   { to: "/check-in", label: "Check-in", icon: ClipboardCheck },
-  { to: "/insights", label: "Insights", icon: BarChart3 },
-  { to: "/weekly", label: "Weekly", icon: Calendar },
+  { to: "/insights", label: "Insights", icon: BarChart3, gate: "patterns" },
+  { to: "/weekly", label: "Weekly", icon: Calendar, gate: "this-week" },
   { to: "/recovery", label: "Recovery", icon: LifeBuoy },
-  { to: "/circles", label: "Circles", icon: Users },
+  { to: "/circles", label: "Circles", icon: Users, gate: "circles" },
   { to: "/identity", label: "Identity", icon: User },
-] as const;
+];
 
 // Tighter mobile bottom nav (5 items)
-const mobileNav = [
+const mobileNav: readonly NavItem[] = [
   { to: "/", label: "Today", icon: Home, exact: true },
   { to: "/check-in", label: "Check-in", icon: ClipboardCheck },
   { to: "/recovery", label: "Recovery", icon: LifeBuoy },
-  { to: "/insights", label: "Insights", icon: BarChart3 },
+  { to: "/insights", label: "Insights", icon: BarChart3, gate: "patterns" },
   { to: "/identity", label: "You", icon: User },
-] as const;
+];
+
+function filterByVisibility(items: readonly NavItem[], visible: RouteKey[]): NavItem[] {
+  return items.filter((i) => !i.gate || visible.includes(i.gate));
+}
 
 function isActive(pathname: string, to: string, exact?: boolean) {
   if (exact) return pathname === to;
@@ -146,6 +182,8 @@ function isActive(pathname: string, to: string, exact?: boolean) {
 
 function BottomNav() {
   const loc = useLocation();
+  const visible = useVisibleRoutes();
+  const items = filterByVisibility(mobileNav, visible);
   const hide = loc.pathname === "/onboarding" || loc.pathname === "/sign-in";
   if (hide) return null;
   return (
@@ -154,7 +192,7 @@ function BottomNav() {
       <div className="glass mx-3 mb-3 rounded-3xl px-2 py-2 shadow-elegant">
         <LayoutGroup id="mobile-nav">
           <ul className="relative flex items-center justify-between">
-            {mobileNav.map((item) => {
+            {items.map((item) => {
               const Icon = item.icon;
               const active = isActive(loc.pathname, item.to, "exact" in item ? item.exact : false);
               return (
@@ -191,6 +229,11 @@ function BottomNav() {
 function Sidebar() {
   const loc = useLocation();
   const { state, label, tone } = useUserState();
+  const visible = useVisibleRoutes();
+  const sidebarItems = filterByVisibility(primaryNav, visible);
+  const checkInCount = useApp((s) => s.checkIns.length);
+  const dataIsSeeded = useApp((s) => s.dataIsSeeded);
+  const showStatePanel = dataIsSeeded || checkInCount >= 5;
   const toneClass: Record<string, string> = {
     success: "bg-success/15 text-success border-success/20",
     accent: "bg-accent/15 text-accent border-accent/20",
@@ -199,8 +242,8 @@ function Sidebar() {
     neutral: "bg-secondary text-muted-foreground border-border",
   };
   return (
-    <aside className="hidden lg:flex lg:w-[260px] lg:flex-col lg:gap-2 lg:border-r lg:border-border lg:px-5 lg:py-7 lg:sticky lg:top-0 lg:h-screen">
-      <Link to="/" className="mb-6 flex items-center gap-2.5 px-2">
+    <aside className="hidden lg:flex lg:w-[260px] lg:flex-col lg:gap-1 lg:border-r lg:border-border lg:px-5 lg:py-7 lg:sticky lg:top-0 lg:h-screen font-['Bebas_Neue',_sans-serif]">
+      <Link to="/" className="mb-4 flex items-center gap-2.5 px-2">
         <div className="relative h-8 w-8 rounded-xl bg-gradient-accent shadow-glow" />
         <div>
           <p className="font-display text-xl leading-none text-foreground">Cadence</p>
@@ -210,22 +253,24 @@ function Sidebar() {
         </div>
       </Link>
 
-      <div className={`mb-4 rounded-2xl border px-3 py-2.5 text-[11px] ${toneClass[tone]}`}>
-        <p className="text-[9px] uppercase tracking-[0.18em] opacity-70">Current state</p>
-        <p className="mt-1 text-sm font-medium">{label}</p>
-        <p className="mt-0.5 text-[10px] opacity-70 capitalize">{state}</p>
-      </div>
+      {showStatePanel && (
+        <div className={`mb-2 rounded-2xl border px-3 py-2 text-[11px] ${toneClass[tone]}`}>
+          <p className="text-[9px] uppercase tracking-[0.18em] opacity-70">Current state</p>
+          <p className="mt-1 text-sm font-medium">{label}</p>
+          <p className="mt-0.5 text-[10px] opacity-70 capitalize">{state}</p>
+        </div>
+      )}
 
       <LayoutGroup id="sidebar-nav">
-        <nav className="flex flex-col gap-0.5">
-          {primaryNav.map((item) => {
+        <nav className="flex flex-col gap-0">
+          {sidebarItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(loc.pathname, item.to, "exact" in item ? item.exact : false);
             return (
               <Link
                 key={item.to}
                 to={item.to}
-                className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                className={`group relative flex items-center gap-3 rounded-xl px-3 py-1.5 text-sm transition-colors ${
                   active
                     ? "text-foreground"
                     : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
@@ -249,7 +294,13 @@ function Sidebar() {
         </nav>
       </LayoutGroup>
 
-      <div className="mt-auto">
+      <div className="mt-auto flex flex-col gap-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Appearance
+          </span>
+          <ThemeToggle />
+        </div>
         <Link
           to="/premium"
           className="flex items-center gap-3 rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/10 to-transparent px-3 py-3 transition-all hover:border-accent/50"
@@ -280,6 +331,22 @@ function RootComponent() {
   const isOnboarding = loc.pathname === "/onboarding";
   const isSignIn = loc.pathname === "/sign-in";
   const hideNav = isOnboarding || isSignIn;
+  const { theme } = useTheme();
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if ((e.target as HTMLElement)?.isContentEditable) return;
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setHelpOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     // Restore an existing Supabase session if the store thinks we're a guest
@@ -288,11 +355,9 @@ function RootComponent() {
       if (session && state.sessionType === "guest") {
         // Returning authenticated user — hydrate from DB and transition to authenticated
         hydrateFromDB(session.user.id).then((cloudData) => {
-          useApp.getState().migrateGuestToAccount(
-            session.user.id,
-            session.user.email ?? "",
-            cloudData,
-          );
+          useApp
+            .getState()
+            .migrateGuestToAccount(session.user.id, session.user.email ?? "", cloudData);
         });
       } else if (!session && state.sessionType === "authenticated") {
         // Session expired — gracefully drop to guest mode (no redirect)
@@ -319,8 +384,9 @@ function RootComponent() {
       <AdaptiveStateBinding />
       <AuroraBackground />
       <CommandPalette />
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       <Toaster
-        theme="dark"
+        theme={theme}
         position="bottom-center"
         toastOptions={{
           style: {
@@ -328,6 +394,7 @@ function RootComponent() {
             border: "1px solid var(--border)",
             color: "var(--foreground)",
             borderRadius: "14px",
+            boxShadow: "var(--shadow-elegant)",
           },
         }}
       />
@@ -339,8 +406,15 @@ function RootComponent() {
         <div className="min-h-screen bg-transparent lg:flex">
           <Sidebar />
           <main className="relative mx-auto flex min-h-screen w-full max-w-[460px] flex-col lg:max-w-none lg:flex-1 lg:px-10 lg:py-8 lg:overflow-x-hidden">
-            <div className="hidden lg:flex justify-end pb-4">
+            {/* Desktop top-bar */}
+            <div className="hidden lg:flex items-center justify-end gap-3 pb-4">
+              <ThemeToggle />
+              <HelpButton onClick={() => setHelpOpen(true)} />
               <CommandHint />
+            </div>
+            {/* Mobile theme toggle — floats top-right */}
+            <div className="flex lg:hidden justify-end px-5 pt-4 pb-0">
+              <ThemeToggle />
             </div>
             <div className="flex flex-1 flex-col lg:max-w-[1280px] lg:mx-auto lg:w-full">
               <SaveProgressBanner />
@@ -348,6 +422,7 @@ function RootComponent() {
                 <Outlet />
               </PageTransition>
             </div>
+            <MobileHelpButton onClick={() => setHelpOpen(true)} />
             <BottomNav />
           </main>
         </div>

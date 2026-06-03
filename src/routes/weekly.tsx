@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { useVisibleRoutes } from "@/lib/maturity";
 import { BarRow, Card, Pill, Ring, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
 import { ExecutionHeatmap } from "@/components/heatmap";
 import {
@@ -6,7 +8,6 @@ import {
   useApp,
   useConsistency,
   useFakeProductivityFlags,
-  useMaturityLevel,
   useMomentum,
   useResilience,
   useStreakContext,
@@ -41,13 +42,19 @@ export const Route = createFileRoute("/weekly")({
 });
 
 function Weekly() {
+  const navigate = useNavigate();
+  const visibleRoutes = useVisibleRoutes();
+  const isUnlocked = visibleRoutes.includes("this-week");
+  useEffect(() => {
+    if (!isUnlocked) navigate({ to: "/" });
+  }, [isUnlocked, navigate]);
+
   const history = useApp((s) => s.history);
   const principles = useApp((s) => s.principles);
   const flags = useFakeProductivityFlags();
   const momentum = useMomentum();
   const consistency = useConsistency(14);
   const resilience = useResilience();
-  const maturity = useMaturityLevel();
   const activeInsights = useActiveInsights();
 
   const streakCtx = useStreakContext();
@@ -83,6 +90,8 @@ function Weekly() {
   };
 
   const quote = principles[week.length % principles.length] || "Reliability compounds.";
+
+  if (!isUnlocked) return null;
 
   return (
     <Stagger className="flex flex-col gap-5 pb-6">
@@ -263,30 +272,6 @@ function Weekly() {
           </Card>
         </StaggerItem>
       )}
-
-      <StaggerItem className="px-5">
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Zap className="h-3 w-3 text-warning" />
-              <StatLabel>Maturity Level</StatLabel>
-            </div>
-            <Pill tone="accent">{maturity.label}</Pill>
-          </div>
-          <div className="space-y-3">
-            <BarRow
-              label="Progress to next level"
-              value={100 - (maturity.daysToNext / 30) * 100}
-              tone="accent"
-            />
-            <p className="text-[10px] text-muted-foreground text-center">
-              {maturity.daysToNext > 0
-                ? `${maturity.daysToNext} days remaining until level up`
-                : "Max level reached"}
-            </p>
-          </div>
-        </Card>
-      </StaggerItem>
 
       <StaggerItem className="px-5">
         <Card>

@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { useVisibleRoutes } from "@/lib/maturity";
 import { BarRow, Card, Pill, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
 import { ExecutionHeatmap } from "@/components/heatmap";
 import {
@@ -18,7 +20,6 @@ import {
   useApp,
   useActiveInsights,
   useFakeProductivityFlags,
-  useMaturityLevel,
   useConsistency,
   useUserState,
   useResilience,
@@ -114,53 +115,6 @@ function CurrentStateBanner() {
   );
 }
 
-function ArchetypeCard() {
-  const { archetype, level, daysToNext } = useMaturityLevel();
-  const consistency = useConsistency(14);
-
-  const progress = Math.min(100, Math.max(5, ((30 - daysToNext) / 30) * 100));
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="px-5"
-    >
-      <TapCard className="bg-gradient-to-br from-accent/10 to-transparent border-accent/20">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/20 text-accent">
-            <Sparkles className="h-6 w-6" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <StatLabel>Behavioral Archetype</StatLabel>
-              <span className="text-[10px] font-medium text-accent uppercase tracking-tighter">
-                {level}
-              </span>
-            </div>
-            <h2 className="font-display text-2xl text-foreground">{archetype}</h2>
-            <div className="mt-1 flex items-center gap-2">
-              <Pill tone="accent">{consistency}% Consistency</Pill>
-              <span className="text-xs text-muted-foreground">14d window</span>
-            </div>
-          </div>
-        </div>
-
-        {daysToNext > 0 && (
-          <div className="mt-5 space-y-2">
-            <div className="flex justify-between text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
-              <span>Evolution Progress</span>
-              <span>{daysToNext} days to next level</span>
-            </div>
-            <Progress value={progress} className="h-1" />
-          </div>
-        )}
-      </TapCard>
-    </motion.div>
-  );
-}
-
 function RootCauseDiagnostics() {
   const analysis = useRootCauseAnalysis();
   const { sleepImpact } = useDeepWorkStats();
@@ -251,6 +205,13 @@ function RootCauseDiagnostics() {
 }
 
 function Insights() {
+  const navigate = useNavigate();
+  const visibleRoutes = useVisibleRoutes();
+  const isUnlocked = visibleRoutes.includes("patterns");
+  useEffect(() => {
+    if (!isUnlocked) navigate({ to: "/" });
+  }, [isUnlocked, navigate]);
+
   const history = useApp((s) => s.history);
   const allInsights = useApp((s) => s.insights);
   const dismissInsight = useApp((s) => s.dismissInsight);
@@ -323,6 +284,8 @@ function Insights() {
     });
   };
 
+  if (!isUnlocked) return null;
+
   return (
     <div className="flex flex-col gap-6 pb-12">
       <ScreenHeader
@@ -340,7 +303,6 @@ function Insights() {
       />
 
       <CurrentStateBanner />
-      <ArchetypeCard />
 
       <Stagger>
         {/* CHAPTER 1: THE PULSE */}

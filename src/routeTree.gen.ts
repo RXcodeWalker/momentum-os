@@ -16,6 +16,7 @@ import { Route as PremiumRouteImport } from './routes/premium'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as IdentityRouteImport } from './routes/identity'
+import { Route as DemoRouteImport } from './routes/demo'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CirclesRouteImport } from './routes/circles'
 import { Route as CheckInRouteImport } from './routes/check-in'
@@ -56,6 +57,11 @@ const IdentityRoute = IdentityRouteImport.update({
   path: '/identity',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemoRoute = DemoRouteImport.update({
+  id: '/demo',
+  path: '/demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/check-in': typeof CheckInRoute
   '/circles': typeof CirclesRoute
   '/dashboard': typeof DashboardRoute
+  '/demo': typeof DemoRoute
   '/identity': typeof IdentityRoute
   '/insights': typeof InsightsRoute
   '/onboarding': typeof OnboardingRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/check-in': typeof CheckInRoute
   '/circles': typeof CirclesRoute
   '/dashboard': typeof DashboardRoute
+  '/demo': typeof DemoRoute
   '/identity': typeof IdentityRoute
   '/insights': typeof InsightsRoute
   '/onboarding': typeof OnboardingRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/check-in': typeof CheckInRoute
   '/circles': typeof CirclesRoute
   '/dashboard': typeof DashboardRoute
+  '/demo': typeof DemoRoute
   '/identity': typeof IdentityRoute
   '/insights': typeof InsightsRoute
   '/onboarding': typeof OnboardingRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/circles'
     | '/dashboard'
+    | '/demo'
     | '/identity'
     | '/insights'
     | '/onboarding'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/circles'
     | '/dashboard'
+    | '/demo'
     | '/identity'
     | '/insights'
     | '/onboarding'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/check-in'
     | '/circles'
     | '/dashboard'
+    | '/demo'
     | '/identity'
     | '/insights'
     | '/onboarding'
@@ -164,6 +176,7 @@ export interface RootRouteChildren {
   CheckInRoute: typeof CheckInRoute
   CirclesRoute: typeof CirclesRoute
   DashboardRoute: typeof DashboardRoute
+  DemoRoute: typeof DemoRoute
   IdentityRoute: typeof IdentityRoute
   InsightsRoute: typeof InsightsRoute
   OnboardingRoute: typeof OnboardingRoute
@@ -224,6 +237,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IdentityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demo': {
+      id: '/demo'
+      path: '/demo'
+      fullPath: '/demo'
+      preLoaderRoute: typeof DemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -260,6 +280,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckInRoute: CheckInRoute,
   CirclesRoute: CirclesRoute,
   DashboardRoute: DashboardRoute,
+  DemoRoute: DemoRoute,
   IdentityRoute: IdentityRoute,
   InsightsRoute: InsightsRoute,
   OnboardingRoute: OnboardingRoute,

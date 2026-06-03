@@ -410,22 +410,32 @@ function Onboarding() {
         <div className="pointer-events-none h-8 bg-gradient-to-t from-background to-transparent" />
         <div className="bg-background/85 px-5 pb-8 pt-3 backdrop-blur-xl lg:px-10">
           <div className="mx-auto flex max-w-[480px] items-center gap-3 lg:max-w-none">
-            {step > 0 && (
+            {step < 4 && (
               <button
-                onClick={back}
-                className="hairline rounded-full px-5 py-3 text-sm text-muted-foreground transition hover:text-foreground"
+                onClick={finish}
+                className="text-sm text-muted-foreground transition hover:text-foreground px-4 py-3"
               >
-                Back
+                Skip
               </button>
             )}
-            <button
-              disabled={!canNext}
-              onClick={step === TOTAL_STEPS - 1 ? finish : advance}
-              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-foreground py-3.5 text-sm font-semibold text-background transition-all disabled:opacity-25 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98]"
-            >
-              {step === TOTAL_STEPS - 1 ? "Activate my system" : "Continue"}
-              <ArrowRight className="h-4 w-4" />
-            </button>
+            <div className="flex-1 flex items-center justify-end gap-3">
+              {step > 0 && (
+                <button
+                  onClick={back}
+                  className="hairline rounded-full px-5 py-3 text-sm text-muted-foreground transition hover:text-foreground"
+                >
+                  Back
+                </button>
+              )}
+              <button
+                disabled={!canNext}
+                onClick={step === TOTAL_STEPS - 1 ? finish : advance}
+                className="flex flex-1 items-center justify-center gap-2 rounded-full bg-foreground py-3.5 text-sm font-semibold text-background transition-all disabled:opacity-25 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98]"
+              >
+                {step === TOTAL_STEPS - 1 ? "Activate my system" : "Continue"}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>

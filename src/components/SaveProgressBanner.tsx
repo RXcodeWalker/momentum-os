@@ -52,14 +52,14 @@ export function SaveProgressBanner() {
                   ? `${daysOfData} day${daysOfData !== 1 ? "s" : ""} of data stored locally only`
                   : "Your progress lives here only"}
               </p>
-              <p className="text-xs text-muted-foreground">
-                Save to sync across devices
-              </p>
+              <p className="text-xs text-muted-foreground">Save to sync across devices</p>
             </div>
 
             <button
               type="button"
-              onClick={() => navigate({ to: "/sign-in", search: { mode: "upgrade", redirect: "/" } })}
+              onClick={() =>
+                navigate({ to: "/sign-in", search: { mode: "upgrade", redirect: "/" } })
+              }
               className="flex-none rounded-xl bg-accent px-3 py-1.5 text-xs font-semibold text-background transition-opacity hover:opacity-90"
             >
               Save Progress

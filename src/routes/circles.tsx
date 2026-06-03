@@ -43,6 +43,7 @@ const PROOF_TYPE_LABELS: Record<string, { label: string; toneClass: string }> = 
   "deep-work": { label: "Deep work", toneClass: "bg-accent/15 text-accent" },
   movement: { label: "Movement", toneClass: "bg-success/15 text-success" },
   recovery: { label: "Recovery", toneClass: "bg-warning/15 text-warning" },
+  completion: { label: "Completion", toneClass: "bg-success/15 text-success" },
   milestone: { label: "Milestone", toneClass: "bg-foreground/15 text-foreground" },
 };
 
@@ -312,22 +313,28 @@ export default function CirclesPage() {
                       <StatLabel>Share execution proof</StatLabel>
                       <div className="mt-4 space-y-4">
                         <div className="flex flex-wrap gap-2">
-                          {(["deep-work", "movement", "recovery", "milestone"] as const).map(
-                            (t) => (
-                              <button
-                                key={t}
-                                onClick={() => setProofType(t)}
-                                className={cn(
-                                  "rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all",
-                                  proofType === t
-                                    ? "bg-accent text-accent-foreground"
-                                    : "bg-secondary text-muted-foreground hover:bg-border",
-                                )}
-                              >
-                                {PROOF_TYPE_LABELS[t].label}
-                              </button>
-                            ),
-                          )}
+                          {(
+                            [
+                              "deep-work",
+                              "movement",
+                              "completion",
+                              "recovery",
+                              "milestone",
+                            ] as const
+                          ).map((t) => (
+                            <button
+                              key={t}
+                              onClick={() => setProofType(t)}
+                              className={cn(
+                                "rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all",
+                                proofType === t
+                                  ? "bg-accent text-accent-foreground"
+                                  : "bg-secondary text-muted-foreground hover:bg-border",
+                              )}
+                            >
+                              {PROOF_TYPE_LABELS[t].label}
+                            </button>
+                          ))}
                         </div>
                         <textarea
                           autoFocus
@@ -508,6 +515,7 @@ function MemberRow({ m }: { m: Member }) {
   const tones: Record<Member["state"], string> = {
     peak: "text-success",
     steady: "text-accent",
+    building: "text-accent/70",
     recovery: "text-warning",
     inconsistent: "text-muted-foreground",
   };

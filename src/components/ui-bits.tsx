@@ -113,7 +113,7 @@ export function Ring({
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke="oklch(1 0 0 / 0.07)"
+          stroke="var(--ring-track)"
           strokeWidth={stroke}
           fill="none"
         />
@@ -165,7 +165,7 @@ export function Sparkline({
     .map((v, i) => `${i * stepX},${height - ((v - min) / span) * (height - 4) - 2}`)
     .join(" ");
   const area = `0,${height} ${points} ${w},${height}`;
-  const stroke = accent ? "oklch(0.85 0.16 80)" : "oklch(0.98 0.003 270)";
+  const stroke = accent ? "var(--sparkline-accent)" : "var(--sparkline-default)";
   return (
     <svg
       viewBox={`0 0 ${w} ${height}`}
