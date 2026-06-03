@@ -133,12 +133,7 @@ Cadence is designed to be a compact, evidence-informed productivity OS that help
 
 ---
 
-Missing / Ambiguous information
-
-- Project metadata: repository `author` and public demo URL were provided manually and included in this README; if you want them shown differently please edit the top-level heading.
-- No tests or CI configuration present; adding a test runner and CI pipeline is recommended.
-
-If you want this file updated (add screenshots, change tone, or include more examples), tell me which sections to expand and I will update the repo README.
+Note: This is still a work in progress; I am not yet done designing it so there are quite a few functional gaps and errors. But I'm working hard on it!
 
 ---
 
