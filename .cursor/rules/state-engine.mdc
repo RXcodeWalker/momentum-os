@@ -1,0 +1,64 @@
+---
+description: State interpretation, mode transitions, trajectory, and re-entry behavior
+globs: src/engine/state/**,src/engine/trajectory/**,src/engine/reentry/**
+alwaysApply: false
+---
+
+# State Engine
+
+## Purpose
+
+Derive `UserState` from raw behavioral evidence. Own state interpretation, mode transitions, trajectory analysis, and re-entry — not type definitions (see `engine-contracts.mdc`).
+
+## Non-Negotiable Constraints
+
+- Import `UserState`, `UserMode`, `UserTrajectory`, `StateTransition` from `src/core/state/` — never redefine.
+- **Mode vs trajectory** — `UserMode` is current operational condition; `UserTrajectory` is long-term behavioral direction. They may diverge (e.g., RECOVERY mode + EXPANDING trajectory).
+- **Dimension computation** — Derive scalars from evidence via models:
+  - RecoveryDebt: sleep quality, sustained intensity, exhaustion accumulation
+  - CognitiveStrain: task switching, ambiguity, interruption density
+  - ExecutionStability: completion integrity, rhythm, follow-through (quality over quantity)
+  - EmotionalFriction: initiation resistance, avoidance pressure, perfectionism
+- **Risk levels** — Compute `overloadRisk`, `burnoutRisk`, `avoidanceRisk`, `collapseRisk` from sustained signals, not single inputs.
+- **State transitions** — Require sustained multi-factor confirmation over multiple days. Transitions must be reversible. Single-day dips must NOT flip mode.
+- **stateConfidence** — Every `UserState` output includes confidence reflecting evidence quality and consistency.
+- **Trajectory independence** — `/engine/trajectory` computes long-term direction independent of visible mode and UI state.
+- **Re-entry** — `/engine/reentry` absorbs inconsistency intelligently: backlog compression, recovery-first restart, rhythm rebuilding. Never punish gaps.
+
+## Implementation Guidance
+
+- Input: raw session evidence from `/domains/session` and `/persistence` — not pre-interpreted state.
+- Output: computed `UserState` + optional `StateTransition` + `UserTrajectory` update.
+- Recompute on every pipeline run; never read persisted interpretation as authority.
+- Version tag outputs: State Engine v1.
+
+```typescript
+import type { UserState, UserMode, StateTransition } from '@/core/state'
+
+function interpretState(evidence: SessionEvidence[]): UserState {
+  // derive all scalars from evidence — no UI inputs
+}
+```
+
+## Anti-Patterns
+
+```typescript
+// ❌ Reactive thrashing — one bad check-in flips mode
+if (today.sleepQuality < 4) return { currentMode: 'RECOVERY' }
+
+// ❌ Trajectory coupled to UI toggle
+if (userClickedRecoveryMode) trajectory = 'FRAGILE'
+
+// ✅ Sustained signal confirmation
+if (sustainedDays(signals.recoveryCollapse) >= 3 && multiFactorConfirm(...))
+  return transition('FOCUSED', 'RECOVERY', { confidence: 0.82 })
+```
+
+## Never Do This
+
+- Redefine `UserState` or mode enums locally
+- Persist computed state as authoritative truth
+- Let UI state influence trajectory or mode derivation
+- Transition modes on single-day evidence
+- Punish inconsistency with shame-based messaging (see `product-philosophy.mdc`)
+- Compute task sequencing or intervention triggers in this engine

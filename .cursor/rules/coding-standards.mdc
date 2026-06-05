@@ -1,0 +1,65 @@
+---
+description: TypeScript implementation discipline, import rules, and legacy freeze
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Coding Standards
+
+## Purpose
+
+Enforce implementation patterns that protect engine integrity during AI-assisted development. Complements `architecture.mdc` (structure) and `engine-contracts.mdc` (types). Scenario tests → `simulation-testing.mdc`.
+
+## Non-Negotiable Constraints
+
+- **Pure TypeScript engines** — All code in `src/engine/` must be framework-agnostic. No React, Zustand, or DOM imports in engines.
+- **Strict target architecture** — All new behavioral logic goes in frozen folders (`core`, `engine`, `orchestration`, `adaptation`, `domains`, `persistence`). **No new behavioral logic** in:
+  - `src/lib/store.ts`
+  - Legacy selector hooks (`useExecutionScore`, `useTaskIntelligence`, etc.)
+  - Route components (`src/routes/*.tsx`)
+- **Import direction** (never reverse):
+  ```
+  ui → adaptation → orchestration → engine → core
+  domains → core (types only)
+  persistence → domains, core
+  services → persistence (fetch/store only)
+  ```
+- **Single scoring authority** — All behavioral scoring lives in engines. One implementation per score type.
+- **No parallel state** — Never create frontend behavioral stores, duplicated adaptation logic, or backend interpretation separate from engines.
+- **Unit tests required** — Every engine public function has unit tests. Simulation scenarios additionally required (see `simulation-testing.mdc`).
+- **Event naming** — PascalCase past tense: `TaskCompleted`, `ReflectionSubmitted`, `ModeTransitioned`, `InterventionTriggered`.
+- **Validate against philosophy** — Run `product-philosophy.mdc` checklist before merging user-facing features.
+
+## Implementation Guidance
+
+- Create frozen folders on first engine work if they do not exist yet.
+- Extract behavioral logic from legacy paths into appropriate `src/engine/` modules rather than extending legacy code.
+- Use `@/` path alias mapping to `src/`.
+- Canonical types always imported from `@/core/`, never redefined.
+
+```typescript
+// ❌ Behavioral logic in legacy store
+// src/lib/store.ts
+const score = sleep * 0.14 + focus * 0.22
+
+// ✅ Extract to engine
+// src/engine/state/interpret.ts
+export function interpretState(evidence: SessionEvidence[]): UserState { ... }
+```
+
+## Anti-Patterns
+
+- Inventing metrics not in `engine-contracts.mdc` (focus score, discipline index, motivation meter)
+- `eslint-disable` to bypass architectural import boundaries
+- Copy-pasting scoring logic between engine and component
+- Adding `useBehavioralState()` hooks that compute interpretation client-side
+- Framework imports inside `src/engine/`
+
+## Never Do This
+
+- Add behavioral interpretation to `src/lib/store.ts` or legacy hooks
+- Create duplicate type definitions outside `src/core/`
+- Import from `ui/` into `engine/` or `core/`
+- Skip unit tests for engine functions
+- Use Zustand as behavioral authority
+- Bypass engine pipeline with UI-side shortcuts

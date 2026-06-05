@@ -1,0 +1,78 @@
+---
+description: Canonical behavioral type contracts — single source of truth in src/core
+globs: src/core/**,src/types/**
+alwaysApply: false
+---
+
+# Engine Contracts
+
+## Purpose
+
+Define all shared behavioral types in `src/core/`. Engines consume these contracts; they never redefine shapes locally. Semantic behavior for each type lives in engine-specific rules.
+
+## Non-Negotiable Constraints
+
+- **Single definition** — Each canonical type exists exactly once under `src/core/`. No duplicate `type Task` in `/engine/`, `/ui/`, or `/lib/`.
+- **Import direction** — `engine → core` only. Core never imports from engine, ui, or orchestration.
+- **Primitives** (`src/core/primitives.ts`): `Scalar` (0–100), `Timestamp`, `TrendDirection`, `RiskLevel`, `ConfidenceBand`.
+- **State types** (`src/core/state/`): `UserState`, `UserMode`, `UserTrajectory`, `RecoveryDebtModel`, `CognitiveStrainModel`, `ExecutionStabilityModel`, `EmotionalFrictionModel`, `StateTransition`.
+- **Task types** (`src/core/tasks/`): `Task`, `TaskCategory`, `StateCompatibility`, `CompatibilityBand`, `TimeHorizon`.
+- **TaskScore family** (`src/core/tasks/`): `ExecutionWeight`, `ResistanceWeight`, `RecoveryBurden`.
+- **Intervention types** (`src/core/interventions/`): `Intervention`, `InterventionLevel`, `InterventionType`, `InterventionTrigger`, `BehavioralSignal`, `SuppressionRule`, `CooldownPolicy`.
+- **Adaptation types** (`src/core/adaptation/`): `AdaptationOutput`, `EnvironmentalAdaptation`, `ExecutionAdaptation`, `GuidanceAdaptation`, `PacingRecommendation`, `MessagingTone`.
+- **Daily I/O** (`src/core/flow/`): `DailyInputs`, `MorningCalibrationOutput`, `MiddayRegulationOutput`, `EveningReflectionOutput`.
+- **Pipeline types** (`src/core/pipeline/`): `BehavioralPipeline`, `SequencingDecision`, `ReentryProtocol`, `BehavioralInsight`.
+
+### Key Enum Values (frozen)
+
+- `UserMode`: RECOVERY | STABILIZING | FOCUSED | EXPANDING
+- `UserTrajectory`: EXPANDING | STABLE | FRAGILE | CONTRACTING
+- `InterventionLevel`: 0 (silent) | 1 (soft) | 2 (active) | 3 (structural)
+- `TaskCategory`: MAINTENANCE | RECOVERY | GROWTH | ADVANCEMENT | SUPPORT
+- `BehavioralSignal`: RISING_FRAGMENTATION | DECLINING_EXECUTION_QUALITY | RECOVERY_COLLAPSE | AVOIDANCE_CLUSTERING | MEANINGFULNESS_DEFERRAL | OVERCOMMITMENT_EXPANSION | DEEP_WORK_DEGRADATION | VOLATILITY_ACCELERATION | PLANNING_ESCAPE | PACING_INSTABILITY
+
+## Implementation Guidance
+
+- Organize by domain subdirectory matching engine ownership: `core/state/`, `core/tasks/`, `core/interventions/`, `core/adaptation/`, `core/flow/`, `core/pipeline/`.
+- Export via barrel files (`index.ts`) per subdirectory.
+- Types are interfaces and type aliases only — no computation, no side effects, no framework imports.
+- When extending a contract, update `src/core/` first; then update engine behavior rules if semantics change.
+
+```typescript
+// src/core/tasks/task.ts — canonical definition
+export type Task = {
+  id: string
+  title: string
+  category: TaskCategory
+  meaningfulness: Scalar
+  cognitiveLoad: Scalar
+  emotionalResistance: Scalar
+  // ... remaining fields per docs/engine-contracts.md
+}
+
+// src/engine/tasks/scoring.ts — imports, never redefines
+import type { Task, ExecutionWeight } from '@/core/tasks'
+```
+
+## Anti-Patterns
+
+```typescript
+// ❌ Engine-local duplicate
+// src/engine/tasks/types.ts
+type Task = { id: string; title: string }
+
+// ❌ UI-extended behavioral type
+// src/components/TaskCard.tsx
+interface TaskWithScore extends Task { burnoutRisk: number }
+
+// ✅ Single source
+import type { Task } from '@/core/tasks'
+```
+
+## Never Do This
+
+- Redefine `UserState`, `Task`, `Intervention`, or `AdaptationOutput` outside `src/core/`
+- Add behavioral fields to types without architectural review
+- Invent new behavioral constructs (focus score, discipline index) not in canonical contracts
+- Put computation or scoring logic in `src/core/`
+- Mirror enums with string literals scattered across engines

@@ -1,0 +1,73 @@
+---
+description: Frozen system architecture, folder structure, and state authority model
+alwaysApply: true
+---
+
+# Architecture
+
+## Purpose
+
+Momentum OS is a behavioral regulation engine with a projected interface. The behavioral engine is the product — not React components, charts, or dashboards. This rule freezes structural law that prevents AI-generated architectural drift.
+
+## Non-Negotiable Constraints
+
+- **UI never owns behavioral logic** — Reasoning must be central, deterministic, interpretable, and independent from presentation.
+- **Frozen folder structure** — All new code must respect:
+  - `src/app/` — routes, providers, layouts only
+  - `src/core/` — immutable contracts, enums, primitives (see `engine-contracts.mdc`)
+  - `src/engine/` — behavioral reasoning (state, tasks, interventions, adaptation, trajectory, reentry)
+  - `src/domains/` — persistent entities only (tasks, user, session) — no intelligence
+  - `src/orchestration/` — flow coordination, zero reasoning
+  - `src/persistence/` — evidence and entity storage
+  - `src/adaptation/` — engine output → UI projection mapping
+  - `src/ui/` — components, design system, visual composition
+  - `src/hooks/` — view-layer hooks only
+  - `src/services/` — external systems; behaviorally dumb (fetch/persist, never interpret)
+  - `src/testing/` — behavioral tests (see `simulation-testing.mdc`)
+- **State authority hierarchy** (no shortcuts):
+  ```
+  Raw Inputs → Interpreted State → Adaptation Outputs → UI Projection
+  ```
+- **Canonical data flow** (strict order):
+  ```
+  User Input → Raw Capture → State Interpretation → Trajectory Analysis
+  → Task Intelligence → Intervention Evaluation → Adaptation Generation
+  → UI Projection → Rendered Experience
+  ```
+- **Persistence freeze** — Persist raw evidence, domain entities, and historical event logs. Recompute all behavioral interpretations. Never persist current overload, burnout classification, adaptation output, or execution stability as authoritative truth.
+- **Event-driven internally** — Use events (`TaskCompleted`, `ReflectionSubmitted`, `ModeTransitioned`, `InterventionTriggered`, etc.), not CRUD-driven intelligence.
+- **Engine boundaries** — Engines receive inputs, compute, return contracts. Engines must NOT mutate UI, fetch APIs, store persistence, or trigger navigation.
+- **Zustand scope** — UI state, session cache, view state only. Never behavioral authority.
+- **Versioning** — Behavioral logic versioned: State Engine v1, Task Intelligence v1, Intervention Matrix v1.
+
+## Implementation Guidance
+
+- Orchestration example: `MorningCalibrationFlow` fetches evidence → runs engines in pipeline order → returns UI-ready payload. No scoring inside orchestration.
+- Adaptation projection: engine outputs `{ interfaceDensity: 0.2, visibleTaskLimit: 2 }` → `/adaptation` maps to tokens/layout → UI consumes tokens.
+- Historical logs (interventions fired, mode transitions) are audit trails — not authoritative current state.
+- Services fetch and persist; engines interpret.
+
+```typescript
+// ❌ BAD — intervention opens modal
+interventionEngine.evaluate() → openModal()
+
+// ✅ GOOD — intervention returns contract
+const intervention = interventionEngine.evaluate(state)
+// UI layer decides rendering
+```
+
+## Anti-Patterns
+
+- Mixing behavioral logic, UI logic, persistence, and orchestration in one folder
+- `if (overwhelm > 7) showRecoveryUI()` inside a component
+- Parallel behavioral stores (frontend + backend interpretation)
+- Persisting derived `UserState` to localStorage as source of truth
+- Skipping pipeline steps for UI convenience
+
+## Never Do This
+
+- Put behavioral reasoning in `/app`, `/ui`, `/hooks`, or route components
+- Let AI invent new folders outside the frozen structure
+- Store interpreted behavioral state as primary persistence truth
+- Create frontend behavioral authority separate from the engine
+- Optimize architecture for component convenience or premature microservices

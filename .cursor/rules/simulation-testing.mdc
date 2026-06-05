@@ -1,0 +1,89 @@
+---
+description: Behavioral simulation and scenario-based regression testing requirements
+globs: src/testing/**,**/*.test.ts,**/*.spec.ts
+alwaysApply: false
+---
+
+# Simulation Testing
+
+## Purpose
+
+Verify behavioral coherence across time — not just individual function correctness. Unit tests are necessary but insufficient. Types from `engine-contracts.mdc`; behavioral expectations from engine rules; copy checks from `product-philosophy.mdc`.
+
+## Non-Negotiable Constraints
+
+- **Scenario tests required** — In addition to unit tests, every engine domain must have temporal simulation tests feeding multi-day synthetic evidence timelines.
+- **Required simulation domains** — State transitions, task sequencing, intervention triggering/suppression, adaptation outputs, re-entry protocols.
+- **Spec-validity assertions** — Assert outputs satisfy both contract shapes AND engine behavioral semantics. Type-correct but behaviorally wrong outputs must fail.
+- **Temporal testing** — Intelligence is time-based. Feed sequential daily evidence; assert outputs at each day boundary.
+- **Regression guard** — Flag when outputs are technically valid but violate specs (e.g., EXPANDING mode recommending HARMFUL tasks, single-day mode flip, level-3 intervention without CRITICAL risk).
+
+## Implementation Guidance
+
+- Place simulations in `src/testing/simulations/`.
+- Build reusable timeline fixtures: `buildTimeline(days).withSleep(declining).withFragmentation(rising)`.
+- Assert on semantic properties, not snapshot strings.
+- Cross-validate messaging copy against `product-philosophy.mdc` forbidden patterns.
+
+### Minimum Scenario Catalog
+
+**RecoverySpiral** — 3 days declining sleep + rising fragmentation
+- Expected: `UserMode` → RECOVERY, `visibleTaskLimit` ≤ 2, intervention level ≤ 1 unless `collapseRisk` is CRITICAL
+
+**ExpandingOvercommit** — EXPANDING mode + `OVERCOMMITMENT_EXPANSION` signal
+- Expected: tasks suppressed, workload compressed, no level-3 interruption
+
+**AvoidanceCluster** — `MEANINGFULNESS_DEFERRAL` sustained 3 days
+- Expected: `AVOIDANCE_INTERRUPTION` eligible, sequencing deprioritizes high-resistance tasks
+
+**ReentryAfterGap** — 14-day absence, user returns
+- Expected: re-entry protocol activates, backlog compression, recovery-first task, no shame/streak messaging
+
+**ModeThrashing** — Single-day sleep dip in otherwise stable 14-day history
+- Expected: `UserMode` unchanged, no `StateTransition` emitted, `stateConfidence` may decrease
+
+```typescript
+// src/testing/simulations/recovery-spiral.test.ts
+describe('RecoverySpiral', () => {
+  it('transitions to RECOVERY after sustained decline', () => {
+    const timeline = buildTimeline(5)
+      .day(0, { sleepQuality: 70, fragmentation: 20 })
+      .day(1, { sleepQuality: 55, fragmentation: 35 })
+      .day(2, { sleepQuality: 40, fragmentation: 55 })
+      .day(3, { sleepQuality: 30, fragmentation: 70 })
+
+    const outputs = runPipeline(timeline)
+    expect(outputs[3].interpretedState.currentMode).toBe('RECOVERY')
+    expect(outputs[3].adaptationOutput.execution.visibleTaskLimit).toBeLessThanOrEqual(2)
+    expect(maxInterventionLevel(outputs[3])).toBeLessThanOrEqual(1)
+  })
+})
+```
+
+## Anti-Patterns
+
+```typescript
+// ❌ Shape-only assertion
+expect(result).toHaveProperty('currentMode')
+
+// ❌ Happy-path-only unit test
+expect(scoreTask(mockTask)).toBeGreaterThan(0)
+
+// ❌ Snapshot without semantics
+expect(output).toMatchSnapshot()
+
+// ✅ Semantic assertion
+expect(result.currentMode).toBe('RECOVERY')
+expect(result.sequencingDecision.suppressedTasks).toContainEqual(
+  expect.objectContaining({ category: 'ADVANCEMENT' })
+)
+```
+
+## Never Do This
+
+- Replace unit tests with simulations (both required)
+- Assert only that output parses or has correct shape
+- Define canonical types in test files
+- Write simulations that redefine engine behavior expectations
+- Skip re-entry or mode-thrashing scenarios
+- Approve technically valid outputs that violate engine semantics

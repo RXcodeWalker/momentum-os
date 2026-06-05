@@ -1,0 +1,64 @@
+---
+description: Task scoring, burden analysis, and sequencing behavior
+globs: src/engine/tasks/**
+alwaysApply: false
+---
+
+# Task Intelligence
+
+## Purpose
+
+Evaluate tasks for meaningful execution sustainability. Produce TaskScore outputs and `SequencingDecision` from `UserState` + task entities. Does not own `Task` type shape (see `engine-contracts.mdc`) or task storage (`/domains/tasks`).
+
+## Non-Negotiable Constraints
+
+- Import `Task`, `TaskCategory`, `SequencingDecision`, and TaskScore types from `src/core/tasks/`.
+- **TaskCategory semantics** — Categories represent systemic contribution (MAINTENANCE, RECOVERY, GROWTH, ADVANCEMENT, SUPPORT), not moral worth.
+- **StateCompatibility evaluation** — Score each task against current `UserMode`. A task OPTIMAL in EXPANDING may be HARMFUL in RECOVERY.
+- **TaskScore outputs** — Compute `ExecutionWeight`, `ResistanceWeight`, `RecoveryBurden` from task attributes + current state. Each score is deterministic and centralized here.
+- **Sequencing prioritizes** — Behavioral sustainability, meaningful movement, cognitive coherence. NOT maximum throughput or completion volume.
+- **SequencingDecision output** — Return `recommendedPrimaryTask`, `recommendedSecondaryTask`, `suppressedTasks`, `compressedTasks`, `sequencingReasoning`, impact estimates, and `sequencingConfidence`.
+- **Recovery burden influences** — Pacing, sequencing, adaptation compression, and intervention sensitivity downstream.
+
+## Implementation Guidance
+
+- Input: `UserState` from state engine + `Task[]` from domain layer (entities only).
+- Output: `TaskEvaluation[]` + `SequencingDecision`.
+- Suppress tasks incompatible with current mode; compress scope when burden exceeds recovery capacity.
+- Version tag: Task Intelligence v1.
+
+```typescript
+import type { Task, SequencingDecision, ExecutionWeight } from '@/core/tasks'
+import type { UserState } from '@/core/state'
+
+function sequenceTasks(state: UserState, tasks: Task[]): SequencingDecision {
+  const scored = tasks.map(t => evaluateTask(t, state))
+  // sustainability-first ordering — not due-date or priority CRUD
+}
+```
+
+## Anti-Patterns
+
+```typescript
+// ❌ Contextless productivity — schedule hardest task regardless of mode
+return { recommendedPrimaryTask: highestPriority(tasks) }
+
+// ❌ Throughput optimization
+return { recommendedPrimaryTask: tasks.sort(byCompletionSpeed)[0] }
+
+// ❌ Local Task type in engine
+interface LocalTask { id: string; done: boolean }
+
+// ✅ State-aware sequencing
+if (state.currentMode === 'RECOVERY')
+  return selectRecoveryCompatible(scored, { maxBurden: state.recoveryCapacity })
+```
+
+## Never Do This
+
+- Redefine `Task` or `TaskCategory` outside `src/core/`
+- Store tasks or mutate persistence from this engine
+- Render task lists or mutate UI state
+- Derive `UserState` or recovery debt here
+- Optimize for raw completion count or streak preservation
+- Duplicate scoring logic in components or hooks

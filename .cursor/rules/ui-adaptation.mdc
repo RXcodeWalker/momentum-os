@@ -1,0 +1,75 @@
+---
+description: UI projection layer — render adaptations, never compute behavioral logic
+globs: src/ui/**,src/adaptation/**,src/**/*.tsx,src/hooks/**
+alwaysApply: false
+---
+
+# UI Adaptation
+
+## Purpose
+
+Project behavioral adaptations into the interface. UI is behavioral infrastructure, not decoration. Consume adaptation projections and tokens — never raw `UserState` or engine scoring.
+
+## Non-Negotiable Constraints
+
+- Import `AdaptationOutput` and sub-types from `src/core/adaptation/` for typing only. Values arrive via `/adaptation` projection layer.
+- **Projection pipeline**:
+  ```
+  AdaptationOutput → /adaptation (token mapping) → UI components (render)
+  ```
+- **Consume projections, not state** — Components receive `UIProjection` (density tokens, visible task limit, motion scale, messaging tone). Never access `UserState` scalars directly in components.
+- **EnvironmentalAdaptation** — Map `interfaceDensity`, `spacingIntensity`, `visualNoiseLevel`, `motionIntensity`, `visibleComplexity` to layout tokens and animation config.
+- **ExecutionAdaptation** — Map `visibleTaskLimit`, `workloadCompressionRatio`, `pacingRecommendation` to task list rendering caps.
+- **GuidanceAdaptation** — Map `messagingTone`, `reflectionDepth`, `emotionalPressureLevel` to copy variants. Tone must align with `product-philosophy.mdc`.
+- **Intervention rendering** — UI decides how to render `Intervention` contracts (modal, banner, silent). Engine does not open UI.
+- **Legacy freeze** — Do not add behavioral logic to `src/lib/store.ts`, legacy selector hooks, or existing Cadence route components. Extract to engine folders.
+
+## Implementation Guidance
+
+- `/adaptation/` contains pure mapping functions: `AdaptationOutput → UIProjection`.
+- `/ui/` components are presentational — props in, JSX out.
+- Hooks may hold view state (expanded/collapsed, active tab) — not behavioral interpretation.
+- Interface density reduction is a valid behavioral intervention (level 0) — implement via tokens, not conditional business logic.
+
+```typescript
+// src/adaptation/project.ts
+export function projectAdaptation(output: AdaptationOutput): UIProjection {
+  return {
+    density: mapDensity(output.environmental.interfaceDensity),
+    taskLimit: output.execution.visibleTaskLimit,
+    motionScale: output.environmental.motionIntensity,
+    tone: output.guidance.messagingTone,
+  }
+}
+
+// src/ui/TodayView.tsx
+function TodayView({ projection }: { projection: UIProjection }) {
+  return <TaskList maxVisible={projection.taskLimit} density={projection.density} />
+}
+```
+
+## Anti-Patterns
+
+```typescript
+// ❌ Behavioral reasoning in component
+if (userState.overwhelmLevel > 70) return <RecoveryMode />
+
+// ❌ Duplicate scoring in hook
+const useTaskPriority = () => tasks.sort((a, b) => score(b) - score(a))
+
+// ❌ Raw state in UI
+const { recoveryDebt, burnoutRisk } = useStore()
+
+// ✅ Projected values only
+const { projection } = useAdaptation()
+return <Layout density={projection.density} />
+```
+
+## Never Do This
+
+- Compute `UserState`, overload, burnout, or avoidance in components or hooks
+- Define or extend `AdaptationOutput` shape (see `engine-contracts.mdc`)
+- Duplicate task scoring or sequencing logic in the UI layer
+- Add new behavioral selector hooks to `src/lib/store.ts`
+- Trigger interventions from components (evaluate in engine; render here)
+- Use gamified visuals, streak pressure, or urgency styling

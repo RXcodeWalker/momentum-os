@@ -1,0 +1,74 @@
+---
+description: Daily behavioral pipeline orchestration and flow output wiring
+globs: src/orchestration/**,src/routes/**
+alwaysApply: false
+---
+
+# Daily Flow
+
+## Purpose
+
+Coordinate the behavioral pipeline across morning, midday, and evening phases. Wire engines to produce DailyOutputs — zero reasoning, zero scoring. Type shapes owned by `engine-contracts.mdc`.
+
+## Non-Negotiable Constraints
+
+- Import `DailyInputs`, `MorningCalibrationOutput`, `MiddayRegulationOutput`, `EveningReflectionOutput`, `BehavioralPipeline` from `src/core/flow/` and `src/core/pipeline/`.
+- **Pipeline order is fixed** — No step skipping, no reordering for UI convenience:
+  ```
+  inputCollection → stateInterpretation → trajectoryAnalysis
+  → taskEvaluation → sequencingDecision → interventionEvaluation
+  → adaptationGeneration → uiProjection
+  ```
+- **Orchestration coordinates only** — Fetch evidence, invoke engines in order, assemble output payload. No behavioral computation in orchestration files.
+- **Morning calibration** — Produces `MorningCalibrationOutput`: interpreted state, recommended focus tasks, orientation message, workload recommendation, adaptation output, optional intervention.
+- **Midday regulation** — Produces `MiddayRegulationOutput`: drift detection, fragmentation level, deep work integrity, recalibration flag, optional intervention/environment adjustment.
+- **Evening reflection** — Produces `EveningReflectionOutput`: execution integrity, meaningful progress quality, recovery impact, behavioral insights, tomorrow orientation, updated trajectory.
+- **Daily rhythm** — Morning orient → execute → midday regulate → evening reflect → generate tomorrow orientation.
+
+## Implementation Guidance
+
+- Place flows in `src/orchestration/` (e.g., `morning-calibration.ts`, `midday-regulation.ts`, `evening-reflection.ts`).
+- Routes in `src/routes/` consume orchestration output — they do not run engines directly.
+- Each flow returns a typed DailyOutput ready for UI projection via `/adaptation`.
+
+```typescript
+import type { DailyInputs, MorningCalibrationOutput } from '@/core/flow'
+import { interpretState } from '@/engine/state'
+import { sequenceTasks } from '@/engine/tasks'
+import { evaluateInterventions } from '@/engine/interventions'
+import { generateAdaptation } from '@/engine/adaptation'
+
+async function runMorningCalibration(inputs: DailyInputs): Promise<MorningCalibrationOutput> {
+  const state = interpretState(inputs)
+  const sequencing = sequenceTasks(state, await fetchTasks())
+  const interventions = evaluateInterventions(state, sequencing)
+  const adaptation = generateAdaptation(state, sequencing)
+  return { interpretedState: state, /* ...assemble contract fields */ }
+}
+```
+
+## Anti-Patterns
+
+```typescript
+// ❌ Scoring inside orchestration
+function morningFlow(inputs) {
+  const score = inputs.sleep * 0.3 + inputs.energy * 0.7
+}
+
+// ❌ Skipping pipeline steps
+function quickMorning(inputs) {
+  return { orientationMessage: 'Good morning!' } // no state interpretation
+}
+
+// ❌ Route runs engine directly
+// src/routes/index.tsx
+const state = interpretState(checkInData)
+```
+
+## Never Do This
+
+- Redefine `DailyInputs` or DailyOutput shapes outside `src/core/`
+- Compute state, sequence tasks, or score interventions in orchestration
+- Reorder pipeline steps to simplify a screen
+- Import from `/ui` into orchestration
+- Bypass adaptation projection and pass raw `UserState` to components

@@ -1,0 +1,63 @@
+---
+description: Constitutional product philosophy and trust boundaries for Momentum OS
+alwaysApply: true
+---
+
+# Product Philosophy
+
+## Purpose
+
+Momentum OS is a behavioral regulation system for sustainable capability expansion — not a productivity maximizer, habit tracker, or engagement engine. Every feature must pass constitutional validation before implementation.
+
+## Non-Negotiable Constraints
+
+- **Regulation over engagement** — Improve pacing, clarity, meaningful execution. Reject features that increase screen time, compulsive checking, or busyness rewards.
+- **Sustainability over intensity** — Support long-term capability. Reject glorification of overwork, chronic intensity, or burnout-risk pressure.
+- **Meaningful advancement over theater** — Reward meaningful movement, not completion volume, pseudo-productivity, or dashboard clutter.
+- **Clarity over manipulation** — Preserve calm and autonomy. Forbidden: guilt, shame, urgency pressure, streak anxiety, fear of falling behind.
+- **Observational, not judgmental** — Critique patterns, never identity. Forbidden: "You are lazy", "You entered burnout mode". Allowed: "Recent patterns suggest increasing avoidance pressure."
+- **Silent adaptation first** — Default to silent adaptation (InterventionLevel 0). Reject interruptions whose primary purpose is re-engagement.
+- **AI must remain grounded** — Probabilistic interpretation only. No fabricated certainty, invented psychology, therapy simulation, or authority over the user.
+- **Cognitive load minimization** — Interface must feel calm, breathable, focused, restrained — not hyperactive, gamified, or dopamine-driven.
+- **User autonomy is sacred** — Support intentionality; never create emotional dependency, compliance pressure, or app-trust replacing self-trust.
+- **Final constitutional rule** — Reject any feature that improves retention/engagement/growth metrics but violates sustainability, autonomy, behavioral honesty, cognitive stability, or emotional integrity.
+
+### Forbidden Engine Behaviors
+
+Never implement: `FAKE_CERTAINTY`, `PSYCHOLOGICAL_DIAGNOSIS`, `SHAME_MANIPULATION`, `COMPULSIVE_ENGAGEMENT_OPTIMIZATION`, `PRODUCTIVITY_MORALIZATION`, `FABRICATED_CAUSALITY`, `FAKE_AI_LANGUAGE`, `IDENTITY_LABELING`.
+
+### Trust Boundary
+
+- Interpretability required on all behavioral outputs
+- Probabilistic language required in all user-facing interpretation
+- Psychological claims, emotional manipulation, and addiction optimization forbidden
+- Intervention restraint required — escalate only with sustained evidence
+
+## Implementation Guidance
+
+- Run the 9-point checklist above before shipping any feature, screen, intervention, or AI output.
+- Frame insights as observations with confidence bands, not diagnoses.
+- User modes (RECOVERY, FOCUSED, etc.) are temporary operational conditions — never identity labels.
+- When copy is ambiguous, choose the calmer, less authoritative phrasing.
+
+## Anti-Patterns
+
+```text
+❌ "You broke your streak." / "You're falling behind."
+✅ "You missed yesterday's check-in. Patterns resume when you return."
+
+❌ "Based on your psychology, you are avoiding work."
+✅ "Recent patterns suggest increasing avoidance pressure on meaningful tasks."
+
+❌ Urgent red badge to drive daily opens
+✅ Silent interface density reduction when overload risk rises
+```
+
+## Never Do This
+
+- Introduce gamification, XP, streak punishment, or engagement farming
+- Add excessive notifications or urgency manipulation
+- Present speculative interpretation as certainty
+- Moralize productivity or frame friction as personal weakness
+- Optimize for dopamine, compulsive checking, or raw completion counts
+- Label users with psychological or personality types

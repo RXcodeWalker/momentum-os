@@ -1,0 +1,71 @@
+---
+description: Intervention triggering, suppression, cooldown, and escalation behavior
+globs: src/engine/interventions/**
+alwaysApply: false
+---
+
+# Intervention System
+
+## Purpose
+
+Evaluate when behavioral interruption is warranted. Return `Intervention` contracts — never render UI or persist as current truth. Type shapes owned by `engine-contracts.mdc`; trust language owned by `product-philosophy.mdc`.
+
+## Non-Negotiable Constraints
+
+- Import `Intervention`, `InterventionLevel`, `InterventionType`, `BehavioralSignal` from `src/core/interventions/`.
+- **Default to level 0** — Silent adaptation first. Escalate only when sustained evidence demands it.
+- **InterventionLevel semantics**:
+  - 0: silent adaptation (interface/execution changes only)
+  - 1: soft guidance (calm messaging)
+  - 2: active interruption (modal/banner)
+  - 3: structural intervention (scope/workflow change)
+- **Required evidence** — Every trigger must cite `BehavioralSignal[]` meeting `minimumConfidence`. No firing on single weak signals.
+- **InterventionType catalog** — OVERLOAD, BURNOUT_PREVENTION, AVOIDANCE_INTERRUPTION, MOMENTUM_EXPANSION, DEEP_WORK_PROTECTION, RECOVERY_ENFORCEMENT, RESTART_ASSISTANCE, FRAGMENTATION_REDUCTION, CAPABILITY_CONTRACTION.
+- **Suppression** — Respect `suppressionRules` and `cooldownPolicy`. Prevent intervention inflation.
+- **Escalation** — Level increases require sustained signal duration and `escalationThreshold` confirmation.
+- **Return contract only** — Engine returns `Intervention`; UI layer decides rendering. No modals, navigation, or notifications from engine code.
+- **Restraint** — Deterministic, interpretable, emotionally paced. Include `triggerReasoning` on every intervention.
+
+## Implementation Guidance
+
+- Input: `UserState`, `SequencingDecision`, recent behavioral events.
+- Output: `Intervention[]` (may be empty — empty is valid and preferred).
+- Each intervention includes `emotionalGoal`, `behavioralObjective`, optional `interventionMessage`, `uiAdaptations`, `executionAdaptations`, `cooldownDurationHours`.
+- Version tag: Intervention Matrix v1.
+
+```typescript
+import type { Intervention, InterventionLevel, BehavioralSignal } from '@/core/interventions'
+
+function evaluateInterventions(state: UserState, signals: BehavioralSignal[]): Intervention[] {
+  // prefer level 0 adaptations via AdaptationOutput
+  // escalate only with sustained, high-confidence evidence
+  return []
+}
+```
+
+## Anti-Patterns
+
+```typescript
+// ❌ Engagement-driven interruption
+if (daysSinceLastOpen > 2) return { level: 2, type: 'RESTART_ASSISTANCE' }
+
+// ❌ Engine opens UI
+if (overload) showModal('Take a break!')
+
+// ❌ Shame-based messaging
+return { interventionMessage: 'You are procrastinating again.' }
+
+// ✅ Evidence-based, restrained
+if (signalDuration('AVOIDANCE_CLUSTERING') >= 3 && confidence >= 0.75)
+  return { level: 1, type: 'AVOIDANCE_INTERRUPTION', triggerReasoning: [...] }
+```
+
+## Never Do This
+
+- Redefine intervention types or signals outside `src/core/`
+- Fire interventions to drive re-engagement or retention
+- Open modals, toasts, or navigation from engine code
+- Persist intervention output as authoritative behavioral state
+- Skip cooldown/suppression checks
+- Use guilt, shame, or urgency in `interventionMessage`
+- Compute environmental adaptation values (that is `/engine/adaptation`)
