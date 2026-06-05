@@ -1,7 +1,6 @@
 import type { UserTrajectory } from '@/core/contracts/state/modes'
 import type { SessionEvidence } from '@/core/contracts/signals/session-evidence'
-import { movingAverage, weightedAverage } from '@/engine/signals/averages'
-import { calculateTrend } from '@/engine/signals/trend'
+import { movingAverage, weightedAverage, calculateTrend } from '@/engine/shared'
 
 /**
  * Trajectory is computed over a longer window than mode (ideally 7–14 days)
@@ -84,8 +83,6 @@ export function analyzeTrajectory(evidence: SessionEvidence[]): UserTrajectory {
     return 'FRAGILE'
   }
 
-  // STABLE trend — check absolute level
-  if (recentMean >= 68) return 'EXPANDING'
-  if (recentMean < 45)  return 'FRAGILE'
+  // STABLE trend — maintenance at a level is not directional expansion or fragility
   return 'STABLE'
 }

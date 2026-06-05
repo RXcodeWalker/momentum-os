@@ -2,8 +2,7 @@ import type { BehavioralSignal } from '@/core/contracts/signals/behavioral-signa
 import type { DailyInputs } from '@/core/contracts/signals/daily-inputs'
 import type { SessionEvidence } from '@/core/contracts/signals/session-evidence'
 import type { ConfidenceBand, Scalar } from '@/core/contracts/primitives'
-import { movingAverage } from './averages'
-import { calculateTrend } from './trend'
+import { movingAverage, calculateTrend } from '@/engine/shared'
 import {
   DEFAULT_SMOOTHING_WINDOW,
   MIN_TIMELINE_DAYS,

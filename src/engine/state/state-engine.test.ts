@@ -79,8 +79,8 @@ describe('Scenario 2: ExpandingMomentum', () => {
     expect(result.state.emotionalFriction).toBeLessThan(42)
   })
 
-  it('produces EXPANDING or STABLE trajectory', () => {
-    expect(['EXPANDING', 'STABLE']).toContain(result.state.currentTrajectory)
+  it('produces STABLE trajectory for flat sustained strength', () => {
+    expect(result.state.currentTrajectory).toBe('STABLE')
   })
 
   it('carries MEDIUM or HIGH confidence with 14 days of evidence', () => {
@@ -99,6 +99,14 @@ describe('Scenario 3: SingleBadDayNoModeFlip', () => {
 
   it('does not flip to RECOVERY after a single bad day', () => {
     expect(result.state.currentMode).not.toBe('RECOVERY')
+  })
+
+  it('does not flip to RECOVERY on the first day of evidence alone', () => {
+    const singleDay = evaluate({
+      evidence: [makeEvidence(0, { sleepQuality: 15, physicalEnergy: 15, mentalClarity: 15 })],
+      signalSnapshots: [],
+    })
+    expect(singleDay.state.currentMode).not.toBe('RECOVERY')
   })
 
   it('does not emit a mode transition on a single-day anomaly', () => {
@@ -234,13 +242,27 @@ describe('analyzeTrajectory', () => {
     expect(analyzeTrajectory([])).toBe('STABLE')
   })
 
-  it('returns EXPANDING for sustained strong performance', () => {
+  it('returns EXPANDING when performance is actively rising', () => {
+    const evidence = Array.from({ length: 14 }, (_, day) =>
+      makeEvidence(day, {
+        sleepQuality: 62 + day * 2,
+        physicalEnergy: 60 + day * 2,
+        meaningfulAdvancementQuality: 58 + day * 2,
+        executionIntegrity: 58 + day * 2,
+        fragmentationLevel: 30 - day,
+        avoidancePressure: 28 - day,
+      }),
+    )
+    expect(analyzeTrajectory(evidence)).toBe('EXPANDING')
+  })
+
+  it('returns STABLE for consistently high but flat performance', () => {
     const evidence = buildEvidence(14, {
       sleepQuality: 82, physicalEnergy: 80,
       meaningfulAdvancementQuality: 80, executionIntegrity: 80,
       fragmentationLevel: 15, avoidancePressure: 15,
     })
-    expect(analyzeTrajectory(evidence)).toBe('EXPANDING')
+    expect(analyzeTrajectory(evidence)).toBe('STABLE')
   })
 
   it('returns CONTRACTING for steep multi-week decline', () => {

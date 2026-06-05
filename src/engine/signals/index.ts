@@ -1,7 +1,6 @@
 export { SIGNAL_ENGINE_VERSION, DEFAULT_SMOOTHING_WINDOW } from './config'
 export { normalize } from './normalize'
-export { movingAverage, weightedAverage } from './averages'
-export { calculateTrend, type TrendOptions } from './trend'
+export { movingAverage, weightedAverage, calculateTrend, type TrendOptions } from '@/engine/shared'
 export {
   buildMetricTimeline,
   seriesFromTimeline,

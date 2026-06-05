@@ -76,7 +76,7 @@ export function evaluate(input: StateEngineInput): StateEngineResult {
   const snapshot = mostRecentSnapshot(signalSnapshots)
 
   // 4. Classify operational mode (RECOVERY / STABILIZING / FOCUSED / EXPANDING)
-  const classification = classifyMode(dimensions, snapshot, previousMode)
+  const classification = classifyMode(dimensions, snapshot, previousMode, evidence.length)
 
   // 5. Derive trajectory independently from mode
   const trajectory = analyzeTrajectory(evidence)

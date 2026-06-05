@@ -1,7 +1,7 @@
 import type { DailyInputs } from '@/core/contracts/signals/daily-inputs'
 import type { SessionEvidence } from '@/core/contracts/signals/session-evidence'
 import type { Percentage, Timestamp } from '@/core/contracts/primitives'
-import { weightedAverage } from './averages'
+import { weightedAverage } from '@/engine/shared'
 
 export type DailyMetricPoint = {
   capturedAt: Timestamp

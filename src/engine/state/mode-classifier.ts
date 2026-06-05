@@ -1,5 +1,6 @@
 import type { UserMode } from '@/core/contracts/state/modes'
 import type { RiskLevel } from '@/core/contracts/primitives'
+import type { BehavioralSignal } from '@/core/contracts/signals/behavioral-signals'
 import type { SignalSnapshot } from '@/core/contracts/signals/signal-snapshot'
 import type { DimensionResult } from './state-dimensions'
 import {
@@ -57,6 +58,16 @@ export function assessRisks(
 // Mode classification — priority ordered: RECOVERY → EXPANDING → STABILIZING → FOCUSED
 // ---------------------------------------------------------------------------
 
+const EXPANDING_BLOCKED_SIGNALS: BehavioralSignal[] = [
+  'RECOVERY_COLLAPSE',
+  'DECLINING_EXECUTION_QUALITY',
+  'VOLATILITY_ACCELERATION',
+  'RISING_FRAGMENTATION',
+  'AVOIDANCE_CLUSTERING',
+  'PACING_INSTABILITY',
+  'MEANINGFULNESS_DEFERRAL',
+]
+
 export type ModeClassification = {
   mode: UserMode
   supportingFactors: string[]
@@ -71,29 +82,31 @@ function checkRecovery(
   dimensions: DimensionResult,
   snapshot: SignalSnapshot | undefined,
   risks: RiskAssessment,
+  evidenceDays: number,
 ): string[] | null {
   const factors: string[] = []
+  const hasSustainedEvidence = evidenceDays >= RECOVERY_SUSTAINED_DAYS
 
-  // Hard trigger: recovery debt above threshold (multi-factor confirmation via smoothing)
-  if (dimensions.recoveryDebt >= THRESHOLDS.recoveryDebtRecovery) {
+  // Dimension trigger: recovery debt above threshold — requires sustained evidence window
+  if (hasSustainedEvidence && dimensions.recoveryDebt >= THRESHOLDS.recoveryDebtRecovery) {
     factors.push(`Recovery debt elevated (${Math.round(dimensions.recoveryDebt)}/100)`)
   }
 
-  // Signal-driven trigger: RECOVERY_COLLAPSE sustained
+  // Signal-driven trigger: RECOVERY_COLLAPSE sustained (signal engine enforces its own duration)
   const collapseDays = snapshotDuration(snapshot, 'RECOVERY_COLLAPSE')
   if (collapseDays >= RECOVERY_SUSTAINED_DAYS) {
     factors.push(`Recovery collapse signal sustained ${collapseDays} days`)
   }
 
   // Compound trigger: HIGH burnout risk + LOW execution stability
-  if (risks.burnoutRisk === 'HIGH' || risks.burnoutRisk === 'CRITICAL') {
+  if (hasSustainedEvidence && (risks.burnoutRisk === 'HIGH' || risks.burnoutRisk === 'CRITICAL')) {
     if (dimensions.executionStability < THRESHOLDS.executionStabilityFocused) {
       factors.push('High burnout risk with declining execution stability')
     }
   }
 
-  // Compound trigger: CRITICAL collapse risk is always recovery-eligible
-  if (risks.collapseRisk === 'CRITICAL') {
+  // Compound trigger: CRITICAL collapse risk requires sustained evidence
+  if (hasSustainedEvidence && risks.collapseRisk === 'CRITICAL') {
     factors.push('Critical collapse risk requires recovery posture')
   }
 
@@ -104,20 +117,20 @@ function checkExpanding(
   dimensions: DimensionResult,
   snapshot: SignalSnapshot | undefined,
   previousMode: UserMode | undefined,
+  evidenceDays: number,
 ): string[] | null {
+  if (evidenceDays < EXPANSION_SUSTAINED_DAYS) return null
+  if (dimensions.expandingGateSustainedDays < EXPANSION_SUSTAINED_DAYS) return null
+
   // EXPANDING requires ALL dimension gates
   if (dimensions.recoveryDebt      > THRESHOLDS.expandingRecoveryDebt)      return null
   if (dimensions.cognitiveStrain   > THRESHOLDS.expandingCognitiveStrain)   return null
   if (dimensions.executionStability < THRESHOLDS.expandingExecutionStability) return null
   if (dimensions.emotionalFriction > THRESHOLDS.expandingEmotionalFriction) return null
 
-  // No active collapse-class signals
+  // No active negative signals that contradict safe expansion
   const hasNegativeSignal =
-    (snapshot?.activeSignals ?? []).some(s =>
-      s === 'RECOVERY_COLLAPSE' ||
-      s === 'DECLINING_EXECUTION_QUALITY' ||
-      s === 'VOLATILITY_ACCELERATION',
-    )
+    (snapshot?.activeSignals ?? []).some(s => EXPANDING_BLOCKED_SIGNALS.includes(s))
   if (hasNegativeSignal) return null
 
   // Require FOCUSED or already EXPANDING as prior mode (can't leap from RECOVERY)
@@ -131,6 +144,7 @@ function checkExpanding(
     `Recovery debt low (${Math.round(dimensions.recoveryDebt)})`,
     `Execution stability strong (${Math.round(dimensions.executionStability)})`,
     `Emotional friction low (${Math.round(dimensions.emotionalFriction)})`,
+    `Positive gates sustained ${dimensions.expandingGateSustainedDays} days`,
   ]
 }
 
@@ -156,15 +170,16 @@ export function classifyMode(
   dimensions: DimensionResult,
   snapshot: SignalSnapshot | undefined,
   previousMode: UserMode | undefined,
+  evidenceDays: number,
 ): ModeClassification {
   const risks = assessRisks(dimensions, snapshot)
 
-  const recoveryFactors = checkRecovery(dimensions, snapshot, risks)
+  const recoveryFactors = checkRecovery(dimensions, snapshot, risks, evidenceDays)
   if (recoveryFactors) {
     return { mode: 'RECOVERY', supportingFactors: recoveryFactors, risks }
   }
 
-  const expandingFactors = checkExpanding(dimensions, snapshot, previousMode)
+  const expandingFactors = checkExpanding(dimensions, snapshot, previousMode, evidenceDays)
   if (expandingFactors) {
     return { mode: 'EXPANDING', supportingFactors: expandingFactors, risks }
   }

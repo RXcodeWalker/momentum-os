@@ -7,9 +7,8 @@ import type {
   EmotionalFrictionModel,
 } from '@/core/contracts/state/dimensions'
 import type { TrendDirection } from '@/core/contracts/primitives'
-import { movingAverage, weightedAverage } from '@/engine/signals/averages'
-import { calculateTrend } from '@/engine/signals/trend'
-import { DIMENSION_SMOOTHING_WINDOW, EVIDENCE_DEFAULTS } from './config'
+import { movingAverage, weightedAverage, calculateTrend } from '@/engine/shared'
+import { DIMENSION_SMOOTHING_WINDOW, EVIDENCE_DEFAULTS, THRESHOLDS } from './config'
 
 // ---------------------------------------------------------------------------
 // Internal series types — all values 0–100
@@ -76,6 +75,8 @@ export type DimensionResult = {
   consistencyTrend: TrendDirection
   recoveryTrend: TrendDirection
   engagementTrend: TrendDirection
+  /** Consecutive trailing days all EXPANDING dimension gates were satisfied. */
+  expandingGateSustainedDays: number
 }
 
 // ---------------------------------------------------------------------------
@@ -217,14 +218,19 @@ function buildRecoveryDebtModel(
   }
 }
 
+function deepWorkTrendFactor(trend: TrendDirection): number {
+  if (trend === 'RISING') return 0.5
+  if (trend === 'STABLE') return 0.75
+  return 1.0
+}
+
 function buildCognitiveStrainModel(
   recent: RecentValues,
   smooth: SmoothedSeries,
 ): CognitiveStrainModel {
   const deepWorkTrend = calculateTrend(smooth.deepWorkContinuity)
-  const deepWorkDegradation = deepWorkTrend === 'DECLINING'
-    ? Math.max(0, 100 - last(smooth.deepWorkContinuity))
-    : Math.max(0, 65 - last(smooth.deepWorkContinuity))
+  const deepWorkDegradation =
+    Math.max(0, 100 - last(smooth.deepWorkContinuity)) * deepWorkTrendFactor(deepWorkTrend)
 
   return {
     taskSwitchingRate:    weightedAverage([recent.fragmentationLevel, recent.distractionPatterns], [0.6, 0.4]),
@@ -305,6 +311,48 @@ function collapseEmotionalFriction(m: EmotionalFrictionModel): number {
   )
 }
 
+function truncateSeries<T extends Record<string, number[]>>(series: T, length: number): T {
+  const truncated = {} as T
+  for (const key of Object.keys(series) as (keyof T)[]) {
+    truncated[key] = series[key].slice(0, length) as T[keyof T]
+  }
+  return truncated
+}
+
+function satisfiesExpandingGates(raw: RawSeries, smooth: SmoothedSeries): boolean {
+  const recent = getRecentValues(smooth)
+  const recoveryDebt = collapseRecoveryDebt(buildRecoveryDebtModel(recent, raw, smooth))
+  const cognitiveStrain = collapseCognitiveStrain(buildCognitiveStrainModel(recent, smooth))
+  const executionStability = collapseExecutionStability(
+    buildExecutionStabilityModel(recent, raw, smooth),
+  )
+  const emotionalFriction = collapseEmotionalFriction(buildEmotionalFrictionModel(recent))
+
+  return (
+    recoveryDebt <= THRESHOLDS.expandingRecoveryDebt &&
+    cognitiveStrain <= THRESHOLDS.expandingCognitiveStrain &&
+    executionStability >= THRESHOLDS.expandingExecutionStability &&
+    emotionalFriction <= THRESHOLDS.expandingEmotionalFriction
+  )
+}
+
+function computeExpandingGateSustainedDays(raw: RawSeries, smooth: SmoothedSeries): number {
+  const n = smooth.sleepQuality.length
+  let count = 0
+
+  for (let i = n - 1; i >= 0; i--) {
+    const truncatedRaw = truncateSeries(raw, i + 1)
+    const truncatedSmooth = truncateSeries(smooth, i + 1)
+    if (satisfiesExpandingGates(truncatedRaw, truncatedSmooth)) {
+      count++
+    } else {
+      break
+    }
+  }
+
+  return count
+}
+
 // ---------------------------------------------------------------------------
 // Secondary scalars
 // ---------------------------------------------------------------------------
@@ -374,6 +422,7 @@ function buildDefaultDimensions(): DimensionResult {
     consistencyTrend: 'STABLE',
     recoveryTrend:    'STABLE',
     engagementTrend:  'STABLE',
+    expandingGateSustainedDays: 0,
   }
 }
 
@@ -423,6 +472,7 @@ export function computeDimensions(evidence: SessionEvidence[]): DimensionResult 
       (1 - cognitiveStrain / 100) *
       150,
   )
+  const expandingGateSustainedDays = computeExpandingGateSustainedDays(raw, smooth)
 
   return {
     core: {
@@ -441,5 +491,6 @@ export function computeDimensions(evidence: SessionEvidence[]): DimensionResult 
     consistencyTrend: calculateTrend(smooth.executionIntegrity),
     recoveryTrend:    calculateTrend(smooth.sleepQuality),
     engagementTrend:  calculateTrend(smooth.meaningfulAdvancementQuality),
+    expandingGateSustainedDays,
   }
 }
