@@ -30,8 +30,6 @@ export type TaskScore = {
   execution: ExecutionWeight
   resistance: ResistanceWeight
   burden: RecoveryBurden
-  /** Net priority after sustainability weighting. */
-  netPriority: Scalar
   evaluatedAt: Timestamp
 }
 
