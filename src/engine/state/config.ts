@@ -44,6 +44,37 @@ export const RISK_THRESHOLDS = {
   collapse:  { moderate: 55, high: 72, critical: 86 },
 } as const
 
+/**
+ * Sleep quality floor below which exhaustion accumulates across the trailing window.
+ * Intentionally below EVIDENCE_DEFAULTS.sleepQuality to detect early fatigue drift.
+ */
+export const EXHAUSTION_SLEEP_FLOOR = 55
+
+/** Scale factor converting accumulated sleep deficit into an exhaustion scalar. */
+export const EXHAUSTION_SCALE_FACTOR = 200
+
+/** Amplifies expansion readiness when all dimension gates are satisfied. */
+export const EXPANSION_READINESS_AMPLIFIER = 150
+
+/** Converts mean day-to-day behavioral variation into a 0–100 volatility scalar. */
+export const VOLATILITY_SCALE_FACTOR = 4
+
+/** State confidence band cutoffs (0–100 composite score). */
+export const CONFIDENCE_BAND_HIGH_THRESHOLD = 70
+export const CONFIDENCE_BAND_MEDIUM_THRESHOLD = 42
+
+/** Transition confidence priors — anchored at mode gate thresholds, not arbitrary offsets. */
+export const TRANSITION_CONFIDENCE = {
+  /** Confidence score when dimension sits exactly at the mode gate threshold. */
+  atThreshold: 50,
+  /** Points added per scalar point above/below the gate threshold. */
+  perPointMultiplier: 2,
+  stabilizingBase: 55,
+  focusedBase: 60,
+  maxDurationBoost: 20,
+  durationBoostPerDay: 5,
+} as const
+
 /** Neutral-healthy defaults used when evidence is absent. */
 export const EVIDENCE_DEFAULTS = {
   sleepQuality: 65,

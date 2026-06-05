@@ -8,7 +8,15 @@ import type {
 } from '@/core/contracts/state/dimensions'
 import type { TrendDirection } from '@/core/contracts/primitives'
 import { movingAverage, weightedAverage, calculateTrend } from '@/engine/shared'
-import { DIMENSION_SMOOTHING_WINDOW, EVIDENCE_DEFAULTS, THRESHOLDS } from './config'
+import {
+  DIMENSION_SMOOTHING_WINDOW,
+  EVIDENCE_DEFAULTS,
+  EXHAUSTION_SCALE_FACTOR,
+  EXHAUSTION_SLEEP_FLOOR,
+  EXPANSION_READINESS_AMPLIFIER,
+  THRESHOLDS,
+  VOLATILITY_SCALE_FACTOR,
+} from './config'
 
 // ---------------------------------------------------------------------------
 // Internal series types — all values 0–100
@@ -169,7 +177,7 @@ function computeBehavioralVolatility(smooth: SmoothedSeries): number {
     deltas.push(Math.abs(composite[i] - composite[i - 1]))
   }
   const avg = deltas.reduce((s, d) => s + d, 0) / deltas.length
-  return Math.min(100, avg * 4)
+  return Math.min(100, avg * VOLATILITY_SCALE_FACTOR)
 }
 
 /** Captures high execution demand while recovery is declining — risk proxy. */
@@ -186,15 +194,14 @@ function computeSustainedIntensity(smooth: SmoothedSeries): number {
 function computeExhaustionAccumulation(sleepSeries: number[]): number {
   const window = sleepSeries.slice(-7)
   if (window.length === 0) return 0
-  const threshold = 55
   let acc = 0
   for (let i = 0; i < window.length; i++) {
     const weight = (i + 1) / window.length
-    if (window[i] < threshold) {
-      acc += ((threshold - window[i]) / threshold) * weight
+    if (window[i] < EXHAUSTION_SLEEP_FLOOR) {
+      acc += ((EXHAUSTION_SLEEP_FLOOR - window[i]) / EXHAUSTION_SLEEP_FLOOR) * weight
     }
   }
-  return Math.min(100, (acc / window.length) * 200)
+  return Math.min(100, (acc / window.length) * EXHAUSTION_SCALE_FACTOR)
 }
 
 // ---------------------------------------------------------------------------
@@ -470,7 +477,7 @@ export function computeDimensions(evidence: SessionEvidence[]): DimensionResult 
       (executionStability / 100) *
       (1 - emotionalFriction / 100) *
       (1 - cognitiveStrain / 100) *
-      150,
+      EXPANSION_READINESS_AMPLIFIER,
   )
   const expandingGateSustainedDays = computeExpandingGateSustainedDays(raw, smooth)
 

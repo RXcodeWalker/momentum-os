@@ -2,7 +2,11 @@ import type { StateConfidence } from '@/core/contracts/state/confidence'
 import type { ConfidenceBand } from '@/core/contracts/primitives'
 import type { SessionEvidence } from '@/core/contracts/signals/session-evidence'
 import type { SignalSnapshot } from '@/core/contracts/signals/signal-snapshot'
-import { FULL_CONFIDENCE_DAYS } from './config'
+import {
+  CONFIDENCE_BAND_HIGH_THRESHOLD,
+  CONFIDENCE_BAND_MEDIUM_THRESHOLD,
+  FULL_CONFIDENCE_DAYS,
+} from './config'
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -35,8 +39,8 @@ function signalConsistency(snapshots: SignalSnapshot[]): number {
 }
 
 function scoreToBand(score: number): ConfidenceBand {
-  if (score >= 70) return 'HIGH'
-  if (score >= 42) return 'MEDIUM'
+  if (score >= CONFIDENCE_BAND_HIGH_THRESHOLD) return 'HIGH'
+  if (score >= CONFIDENCE_BAND_MEDIUM_THRESHOLD) return 'MEDIUM'
   return 'LOW'
 }
 

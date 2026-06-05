@@ -3,6 +3,7 @@ import type { UserMode } from '@/core/contracts/state/modes'
 import type { SignalSnapshot } from '@/core/contracts/signals/signal-snapshot'
 import type { DimensionResult } from './state-dimensions'
 import type { ModeClassification } from './mode-classifier'
+import { THRESHOLDS, TRANSITION_CONFIDENCE } from './config'
 
 /**
  * Emits a `StateTransition` only when `currentMode` differs from `previousMode`.
@@ -44,35 +45,43 @@ function resolveMinSustainedDays(
   return Math.min(...durations)
 }
 
+function confidenceFromThresholdDistance(distance: number): number {
+  return Math.min(
+    100,
+    TRANSITION_CONFIDENCE.atThreshold + distance * TRANSITION_CONFIDENCE.perPointMultiplier,
+  )
+}
+
 function resolveTransitionConfidence(
   dimensions: DimensionResult,
   classification: ModeClassification,
   sustainedDays: number,
 ): number {
-  // Base from dimension evidence quality (how far from threshold)
   let base: number
 
   switch (classification.mode) {
     case 'RECOVERY': {
       const debt = dimensions.recoveryDebt
-      base = Math.min(100, 50 + (debt - 62) * 2)
+      base = confidenceFromThresholdDistance(debt - THRESHOLDS.recoveryDebtRecovery)
       break
     }
     case 'EXPANDING': {
       const stability = dimensions.executionStability
-      base = Math.min(100, 50 + (stability - 68) * 2)
+      base = confidenceFromThresholdDistance(stability - THRESHOLDS.expandingExecutionStability)
       break
     }
     case 'STABILIZING': {
-      base = 55
+      base = TRANSITION_CONFIDENCE.stabilizingBase
       break
     }
     default: {
-      base = 60
+      base = TRANSITION_CONFIDENCE.focusedBase
     }
   }
 
-  // Duration boost: each sustained day adds modest confidence
-  const durationBoost = Math.min(20, sustainedDays * 5)
+  const durationBoost = Math.min(
+    TRANSITION_CONFIDENCE.maxDurationBoost,
+    sustainedDays * TRANSITION_CONFIDENCE.durationBoostPerDay,
+  )
   return Math.min(100, Math.round(base + durationBoost))
 }

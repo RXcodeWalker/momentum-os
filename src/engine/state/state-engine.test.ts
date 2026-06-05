@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { evaluate } from './state-engine'
+import { THRESHOLDS, CONFIDENCE_BAND_MEDIUM_THRESHOLD } from './config'
 import { computeDimensions } from './state-dimensions'
 import { computeStateConfidence } from './state-confidence'
 import { analyzeTrajectory } from './trajectory-analyzer'
@@ -300,6 +301,21 @@ describe('StateTransition shape', () => {
     expect(typeof t.sustainedSignalDurationDays).toBe('number')
     expect(t.reversible).toBe(true)
     expect(typeof t.occurredAt).toBe('string')
+  })
+
+  it('RECOVERY transition confidence is anchored at the recovery debt gate threshold', () => {
+    const evidence = buildScenario_RecoveryTrigger()
+    const result = evaluate({
+      evidence,
+      signalSnapshots: [emptySnapshot(2)],
+      previousMode: 'FOCUSED',
+    })
+    const t = result.transition
+    expect(t).toBeDefined()
+    if (!t) return
+
+    expect(result.state.recoveryDebt).toBeGreaterThanOrEqual(THRESHOLDS.recoveryDebtRecovery)
+    expect(t.confidence).toBeGreaterThanOrEqual(CONFIDENCE_BAND_MEDIUM_THRESHOLD)
   })
 
   it('signal-snapshot driven RECOVERY transition includes collapse duration', () => {
