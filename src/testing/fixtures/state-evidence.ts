@@ -53,9 +53,21 @@ export function buildEvidence(
 /** 3 days declining sleep + high overwhelm + declining execution → RECOVERY */
 export function buildScenario_RecoveryTrigger(): SessionEvidence[] {
   return [
-    makeEvidence(0, { sleepQuality: 68, physicalEnergy: 65, overwhelm: 55, meaningfulAdvancementQuality: 60 }),
-    makeEvidence(1, { sleepQuality: 45, physicalEnergy: 40, overwhelm: 74, meaningfulAdvancementQuality: 48 }),
-    makeEvidence(2, { sleepQuality: 28, physicalEnergy: 28, overwhelm: 85, meaningfulAdvancementQuality: 35, executionIntegrity: 32 }),
+    makeEvidence(0, {
+      sleepQuality: 62, physicalEnergy: 60, mentalClarity: 62,
+      overwhelm: 62, emotionalResistance: 58, stressPressure: 52,
+      meaningfulAdvancementQuality: 60,
+    }),
+    makeEvidence(1, {
+      sleepQuality: 38, physicalEnergy: 35, mentalClarity: 40,
+      overwhelm: 78, emotionalResistance: 70, stressPressure: 62,
+      meaningfulAdvancementQuality: 48,
+    }),
+    makeEvidence(2, {
+      sleepQuality: 22, physicalEnergy: 22, mentalClarity: 25,
+      overwhelm: 86, emotionalResistance: 76, stressPressure: 68,
+      meaningfulAdvancementQuality: 32, executionIntegrity: 28,
+    }),
   ]
 }
 

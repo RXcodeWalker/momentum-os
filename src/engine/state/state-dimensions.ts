@@ -264,15 +264,17 @@ function buildEmotionalFrictionModel(recent: RecentValues): EmotionalFrictionMod
 // ---------------------------------------------------------------------------
 
 function collapseRecoveryDebt(m: RecoveryDebtModel): number {
+  // sleepQuality and recoveryBehaviorQuality are the primary direct indicators;
+  // exhaustionAccumulation captures multi-day accumulation. sustainedIntensity and
+  // sleepConsistency remain on the sub-model for interpretability but are not
+  // collapsed here to avoid over-dampening acute recovery deficits.
   return weightedAverage(
     [
-      100 - m.sleepQuality,
-      100 - m.sleepConsistency,
-      m.sustainedIntensity,
-      100 - m.recoveryBehaviorQuality,
-      m.exhaustionAccumulation,
+      100 - m.sleepQuality,            // direct sleep deficit
+      100 - m.recoveryBehaviorQuality, // energy + mental clarity deficit
+      m.exhaustionAccumulation,        // accumulated multi-day fatigue
     ],
-    [0.35, 0.15, 0.20, 0.15, 0.15],
+    [0.45, 0.35, 0.20],
   )
 }
 

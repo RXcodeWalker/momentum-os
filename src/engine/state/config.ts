@@ -23,7 +23,7 @@ export const EXPANSION_SUSTAINED_DAYS = 3
  */
 export const THRESHOLDS = {
   // RECOVERY gate — any single factor if sustained
-  recoveryDebtRecovery: 62,
+  recoveryDebtRecovery: 55,
 
   // STABILIZING gate
   recoveryDebtStabilizing: 42,
