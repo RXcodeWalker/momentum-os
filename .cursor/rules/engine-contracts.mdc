@@ -1,6 +1,6 @@
 ---
 description: Canonical behavioral type contracts — single source of truth in src/core
-globs: src/core/**,src/types/**
+globs: src/core/contracts/**,src/types/**
 alwaysApply: false
 ---
 
@@ -8,20 +8,22 @@ alwaysApply: false
 
 ## Purpose
 
-Define all shared behavioral types in `src/core/`. Engines consume these contracts; they never redefine shapes locally. Semantic behavior for each type lives in engine-specific rules.
+Define all shared behavioral types in `src/core/contracts/`. Engines consume these contracts; they never redefine shapes locally. Semantic behavior for each type lives in engine-specific rules.
 
 ## Non-Negotiable Constraints
 
-- **Single definition** — Each canonical type exists exactly once under `src/core/`. No duplicate `type Task` in `/engine/`, `/ui/`, or `/lib/`.
+- **Single definition** — Each canonical type exists exactly once under `src/core/contracts/`. No duplicate `type Task` in `/engine/`, `/ui/`, or `/lib/`.
 - **Import direction** — `engine → core` only. Core never imports from engine, ui, or orchestration.
-- **Primitives** (`src/core/primitives.ts`): `Scalar` (0–100), `Timestamp`, `TrendDirection`, `RiskLevel`, `ConfidenceBand`.
-- **State types** (`src/core/state/`): `UserState`, `UserMode`, `UserTrajectory`, `RecoveryDebtModel`, `CognitiveStrainModel`, `ExecutionStabilityModel`, `EmotionalFrictionModel`, `StateTransition`.
-- **Task types** (`src/core/tasks/`): `Task`, `TaskCategory`, `StateCompatibility`, `CompatibilityBand`, `TimeHorizon`.
-- **TaskScore family** (`src/core/tasks/`): `ExecutionWeight`, `ResistanceWeight`, `RecoveryBurden`.
-- **Intervention types** (`src/core/interventions/`): `Intervention`, `InterventionLevel`, `InterventionType`, `InterventionTrigger`, `BehavioralSignal`, `SuppressionRule`, `CooldownPolicy`.
-- **Adaptation types** (`src/core/adaptation/`): `AdaptationOutput`, `EnvironmentalAdaptation`, `ExecutionAdaptation`, `GuidanceAdaptation`, `PacingRecommendation`, `MessagingTone`.
-- **Daily I/O** (`src/core/flow/`): `DailyInputs`, `MorningCalibrationOutput`, `MiddayRegulationOutput`, `EveningReflectionOutput`.
-- **Pipeline types** (`src/core/pipeline/`): `BehavioralPipeline`, `SequencingDecision`, `ReentryProtocol`, `BehavioralInsight`.
+- **Primitives** (`src/core/contracts/primitives.ts`): `Scalar` (0–100), `Timestamp`, `TrendDirection`, `RiskLevel`, `ConfidenceBand`.
+- **State types** (`src/core/contracts/state/`): `UserState`, `UserMode`, `UserTrajectory`, `RecoveryDebtModel`, `CognitiveStrainModel`, `ExecutionStabilityModel`, `EmotionalFrictionModel`, `StateTransition`.
+- **Signals** (`src/core/contracts/signals/`): `BehavioralSignal`, `SessionEvidence`, `DailyInputs`, `SignalSnapshot`.
+- **Task types** (`src/core/contracts/tasks/`): `Task`, `TaskCategory`, `StateCompatibility`, `CompatibilityBand`, `TimeHorizon`.
+- **TaskScore family** (`src/core/contracts/tasks/`): `ExecutionWeight`, `ResistanceWeight`, `RecoveryBurden`, `TaskScore`, `SequencingDecision`.
+- **Intervention types** (`src/core/contracts/interventions/`): `Intervention`, `InterventionLevel`, `InterventionType`, `InterventionTrigger`, `SuppressionRule`, `CooldownPolicy`.
+- **Adaptation types** (`src/core/contracts/adaptation/`): `AdaptationDirective`, `AdaptationOutput`, `EnvironmentalAdaptation`, `ExecutionAdaptation`, `GuidanceAdaptation`, `PacingRecommendation`, `MessagingTone`.
+- **Daily I/O** (`src/core/contracts/flow/`): `MorningCalibrationOutput`, `MiddayRegulationOutput`, `EveningReflectionOutput`.
+- **Pipeline types** (`src/core/contracts/pipeline/`): `BehavioralPipeline`, `StateTransition` (as `pendingTransition?`), `BehavioralInsight`.
+- **Re-entry** (`src/core/contracts/reentry/`): `ReentryProtocol`, `ReentryStage`, `RestartFriction`.
 
 ### Key Enum Values (frozen)
 
@@ -33,13 +35,13 @@ Define all shared behavioral types in `src/core/`. Engines consume these contrac
 
 ## Implementation Guidance
 
-- Organize by domain subdirectory matching engine ownership: `core/state/`, `core/tasks/`, `core/interventions/`, `core/adaptation/`, `core/flow/`, `core/pipeline/`.
+- Organize by domain subdirectory matching engine ownership: `core/contracts/state/`, `core/contracts/signals/`, `core/contracts/tasks/`, `core/contracts/interventions/`, `core/contracts/adaptation/`, `core/contracts/flow/`, `core/contracts/pipeline/`, `core/contracts/reentry/`.
 - Export via barrel files (`index.ts`) per subdirectory.
 - Types are interfaces and type aliases only — no computation, no side effects, no framework imports.
 - When extending a contract, update `src/core/` first; then update engine behavior rules if semantics change.
 
 ```typescript
-// src/core/tasks/task.ts — canonical definition
+// src/core/contracts/tasks/task.ts — canonical definition
 export type Task = {
   id: string
   title: string
@@ -51,7 +53,7 @@ export type Task = {
 }
 
 // src/engine/tasks/scoring.ts — imports, never redefines
-import type { Task, ExecutionWeight } from '@/core/tasks'
+import type { Task, ExecutionWeight } from '@/core/contracts/tasks'
 ```
 
 ## Anti-Patterns
@@ -66,12 +68,12 @@ type Task = { id: string; title: string }
 interface TaskWithScore extends Task { burnoutRisk: number }
 
 // ✅ Single source
-import type { Task } from '@/core/tasks'
+import type { Task } from '@/core/contracts/tasks'
 ```
 
 ## Never Do This
 
-- Redefine `UserState`, `Task`, `Intervention`, or `AdaptationOutput` outside `src/core/`
+- Redefine `UserState`, `Task`, `Intervention`, or `AdaptationOutput` outside `src/core/contracts/`
 - Add behavioral fields to types without architectural review
 - Invent new behavioral constructs (focus score, discipline index) not in canonical contracts
 - Put computation or scoring logic in `src/core/`
