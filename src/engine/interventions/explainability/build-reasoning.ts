@@ -7,7 +7,8 @@ import type { PriorityResolution } from '../types/internal'
 // Stage 8 — Build user-facing triggerReasoning strings (observational, no scores)
 // ---------------------------------------------------------------------------
 
-const SIGNAL_OBSERVATIONS: Partial<Record<BehavioralSignal, string>> = {
+// Non-Partial: adding a new BehavioralSignal without an observation is a compile error.
+const SIGNAL_OBSERVATIONS: Record<BehavioralSignal, string> = {
   RISING_FRAGMENTATION: 'patterns suggest task switching has been increasing',
   DECLINING_EXECUTION_QUALITY: 'recent execution quality may be declining',
   RECOVERY_COLLAPSE: 'recovery patterns suggest significant depletion',
@@ -55,9 +56,7 @@ export function buildTriggerReasoning(
   candidate: InterventionCandidate,
   suppressedCandidates: PriorityResolution['suppressed'],
 ): string[] {
-  const signalObservations = candidate.matchedSignals
-    .map(sig => SIGNAL_OBSERVATIONS[sig])
-    .filter(Boolean) as string[]
+  const signalObservations = candidate.matchedSignals.map(sig => SIGNAL_OBSERVATIONS[sig])
 
   const durationNote =
     candidate.minSignalDuration >= 3

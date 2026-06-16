@@ -7,7 +7,9 @@ import {
   MIN_SIGNAL_DURATION_BY_LEVEL,
   RESTART_ASSISTANCE_MAX_LEVEL,
   DEEP_WORK_PROTECTION_MAX_LEVEL,
+  EV_GATE_EXEMPT,
 } from '../matrix/intervention-matrix-v1'
+import { sequencingIsSaturated } from '../shared/sequencing-saturation'
 
 // ---------------------------------------------------------------------------
 // Stage 2 — Five eligibility gates
@@ -40,28 +42,33 @@ function stateCorroboration(type: ActiveInterventionType, state: UserState): boo
   }
 }
 
-/** Gate 3: sequencing already achieved the behavioral objective → skip level ≥1. */
+/**
+ * Gate 3: sequencing already achieved the behavioral objective → skip level ≥1.
+ * Uses shared sequencingIsSaturated + additional high-recovery-impact check.
+ * Gate 3 has a stricter bar than the soft rule: it eliminates rather than downgrades,
+ * so it requires BOTH suppression ratio ≥50% AND high recovery impact.
+ */
 function sequencingNotSaturated(sequencing: SequencingDecision): boolean {
-  const suppressedRatio = sequencing.suppressedTaskIds.length /
-    Math.max(
-      sequencing.suppressedTaskIds.length + sequencing.compressedTaskIds.length + 1,
-      1,
-    )
-  // If ≥50% suppressed AND recovery impact already high → signal saturation
-  return !(suppressedRatio >= 0.5 && sequencing.expectedRecoveryImpact > 65)
+  if (!sequencingIsSaturated(sequencing)) return true
+  return sequencing.expectedRecoveryImpact <= 65
 }
 
-/** Gate 4: interruption EV > cost. Cost rises with emotionalFriction and recent count. */
+/**
+ * Gate 4: interruption EV > cost.
+ * T0 (BURNOUT_PREVENTION) and T1 (RECOVERY_ENFORCEMENT) are exempt — their EV
+ * model is collapse prevention, not a cost/benefit optimisation.
+ */
 function interruptionValuePositive(
   candidate: InterventionCandidate,
   state: UserState,
 ): boolean {
+  if (EV_GATE_EXEMPT.includes(candidate.type)) return true
   const benefit = candidate.evidenceScore
   const cost = state.emotionalFriction * 0.5 + (state.recoveryDebt > 70 ? 20 : 0)
   return benefit > cost
 }
 
-/** Constitutional patterns that must never appear in triggers. */
+/** Gate 5: constitutional filter. Add block types here as taxonomy evolves. */
 const CONSTITUTIONAL_BLOCK_TYPES: ActiveInterventionType[] = []
 
 function constitutionalFilter(type: ActiveInterventionType): boolean {

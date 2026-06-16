@@ -26,4 +26,8 @@ export type InterventionEvaluationResult = {
   evaluationNotes: string[]
   /** True when suppression or cooldown prevented a higher level from firing. */
   restraintApplied: boolean
+  /** Number of matrix trigger candidates that matched the signal snapshot. 0 = no evidence; >0 with empty interventions = deliberate restraint. */
+  candidatesFound: number
+  /** Matrix version that produced this result — for audit replay and debugging. */
+  engineVersion: string
 }

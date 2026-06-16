@@ -7,15 +7,14 @@ import {
   FRICTION_CEILING,
   LEVEL2_FATIGUE_THRESHOLD,
   LEVEL2_FATIGUE_WINDOW_HOURS,
+  HARD_SUPPRESSION_EXEMPT,
 } from '../matrix/intervention-matrix-v1'
 
 // ---------------------------------------------------------------------------
 // Hard suppression rules — candidate eliminated entirely
+// T0 (BURNOUT_PREVENTION) and T1 (RECOVERY_ENFORCEMENT) are exempt from
+// frictionCeiling and level2Fatigue — see HARD_SUPPRESSION_EXEMPT in matrix.
 // ---------------------------------------------------------------------------
-
-function hoursAgo(iso: string): number {
-  return (Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60)
-}
 
 function reentryLock(
   type: ActiveInterventionType,
@@ -32,25 +31,19 @@ function reentryLock(
   return null
 }
 
-function frictionCeiling(state: UserState): string | null {
+function frictionCeiling(type: ActiveInterventionType, state: UserState): string | null {
+  if (HARD_SUPPRESSION_EXEMPT.includes(type)) return null
   if (state.emotionalFriction > FRICTION_CEILING) return 'FRICTION_CEILING'
   return null
 }
 
-function level2Fatigue(recent: InterventionAuditRecord[]): string | null {
-  const windowStart = new Date(Date.now() - LEVEL2_FATIGUE_WINDOW_HOURS * 60 * 60 * 1000)
+function level2Fatigue(type: ActiveInterventionType, recent: InterventionAuditRecord[], nowMs: number): string | null {
+  if (HARD_SUPPRESSION_EXEMPT.includes(type)) return null
+  const windowStart = new Date(nowMs - LEVEL2_FATIGUE_WINDOW_HOURS * 60 * 60 * 1000)
   const highLevelCount = recent.filter(
     r => r.level >= 2 && new Date(r.firedAt) >= windowStart,
   ).length
   if (highLevelCount >= LEVEL2_FATIGUE_THRESHOLD) return 'RECENT_LEVEL2_FATIGUE'
-  return null
-}
-
-function expansionModeGuard(type: ActiveInterventionType, state: UserState): string | null {
-  const deprecatedTypes = ['MOMENTUM_EXPANSION', 'CAPABILITY_CONTRACTION']
-  if (state.currentMode === 'EXPANDING' && deprecatedTypes.includes(type)) {
-    return 'EXPANSION_MODE_GUARD'
-  }
   return null
 }
 
@@ -59,13 +52,13 @@ export function applyHardRules(
   state: UserState,
   recent: InterventionAuditRecord[],
   reentry: ReentryProtocol | undefined,
+  nowMs: number,
 ): SuppressionVerdict[] {
   return candidates.map(candidate => {
     const rule =
       reentryLock(candidate.type, reentry) ??
-      frictionCeiling(state) ??
-      level2Fatigue(recent) ??
-      expansionModeGuard(candidate.type, state)
+      frictionCeiling(candidate.type, state) ??
+      level2Fatigue(candidate.type, recent, nowMs)
 
     if (rule) {
       return { type: candidate.type, suppressed: true, rule, hard: true }

@@ -1,5 +1,6 @@
 import type { InterventionTrigger, CooldownPolicy } from '@/core/contracts/interventions/triggers'
 import type { ActiveInterventionType } from '@/core/contracts/interventions/types'
+import type { AdaptationDirective } from '@/core/contracts/adaptation/directives'
 
 // ---------------------------------------------------------------------------
 // Intervention Matrix v1
@@ -38,17 +39,9 @@ export const COOLDOWN_DEFAULTS: Record<ActiveInterventionType, number> = {
   RESTART_ASSISTANCE: 168,
 }
 
-const DEFAULT_COOLDOWN_POLICY: CooldownPolicy = {
-  defaultCooldownHours: 24,
-  perTypeOverrides: {},
-  escalationResetsCooldown: true,
-}
-
 function cooldownPolicy(type: ActiveInterventionType): CooldownPolicy {
   return {
     defaultCooldownHours: COOLDOWN_DEFAULTS[type],
-    perTypeOverrides: {},
-    escalationResetsCooldown: true,
   }
 }
 
@@ -57,61 +50,42 @@ export const INTERVENTION_TRIGGERS: InterventionTrigger[] = [
     triggerType: 'BURNOUT_PREVENTION',
     requiredSignals: ['RECOVERY_COLLAPSE'],
     minimumConfidence: 75,
-    escalationThreshold: 85,
-    suppressionRules: [
-      { whenSignal: 'RECOVERY_COLLAPSE', windowHours: 72 },
-    ],
     cooldownPolicy: cooldownPolicy('BURNOUT_PREVENTION'),
   },
   {
     triggerType: 'RECOVERY_ENFORCEMENT',
     requiredSignals: ['DECLINING_EXECUTION_QUALITY', 'AVOIDANCE_CLUSTERING'],
     minimumConfidence: 65,
-    escalationThreshold: 80,
-    suppressionRules: [],
     cooldownPolicy: cooldownPolicy('RECOVERY_ENFORCEMENT'),
   },
   {
     triggerType: 'OVERLOAD',
     requiredSignals: ['RISING_FRAGMENTATION', 'PACING_INSTABILITY'],
     minimumConfidence: 60,
-    escalationThreshold: 75,
-    suppressionRules: [
-      { whenRecentType: 'OVERLOAD', windowHours: 24 },
-    ],
     cooldownPolicy: cooldownPolicy('OVERLOAD'),
   },
   {
     triggerType: 'AVOIDANCE_INTERRUPTION',
     requiredSignals: ['AVOIDANCE_CLUSTERING', 'MEANINGFULNESS_DEFERRAL'],
     minimumConfidence: 65,
-    escalationThreshold: 80,
-    suppressionRules: [
-      { whenRecentType: 'AVOIDANCE_INTERRUPTION', windowHours: 36 },
-    ],
     cooldownPolicy: cooldownPolicy('AVOIDANCE_INTERRUPTION'),
   },
   {
     triggerType: 'FRAGMENTATION_REDUCTION',
     requiredSignals: ['RISING_FRAGMENTATION'],
     minimumConfidence: 55,
-    escalationThreshold: 70,
-    suppressionRules: [],
     cooldownPolicy: cooldownPolicy('FRAGMENTATION_REDUCTION'),
   },
   {
     triggerType: 'DEEP_WORK_PROTECTION',
     requiredSignals: ['DEEP_WORK_DEGRADATION'],
     minimumConfidence: 55,
-    escalationThreshold: 70,
-    suppressionRules: [],
     cooldownPolicy: cooldownPolicy('DEEP_WORK_PROTECTION'),
   },
   {
     triggerType: 'RESTART_ASSISTANCE',
     requiredSignals: ['DECLINING_EXECUTION_QUALITY'],
     minimumConfidence: 50,
-    suppressionRules: [],
     cooldownPolicy: cooldownPolicy('RESTART_ASSISTANCE'),
   },
 ]
@@ -130,12 +104,92 @@ export const RESTART_ASSISTANCE_MAX_LEVEL = 1
 /** Hard cap on DEEP_WORK_PROTECTION level. */
 export const DEEP_WORK_PROTECTION_MAX_LEVEL = 1
 
-/** emotionalFriction ceiling above which level ≥2 is hard-suppressed. */
+/** emotionalFriction ceiling above which level ≥2 is hard-suppressed for T2–T5 types. T0/T1 are exempt. */
 export const FRICTION_CEILING = 85
 
-/** Number of level-2+ interventions in 48h that blocks further level-2. */
+/** T0/T1 types are exempt from friction ceiling and level-2 fatigue hard blocks. */
+export const HARD_SUPPRESSION_EXEMPT: ActiveInterventionType[] = ['BURNOUT_PREVENTION', 'RECOVERY_ENFORCEMENT']
+
+/** Number of level-2+ interventions in 48h that blocks further level-2 (T2–T5 only). */
 export const LEVEL2_FATIGUE_THRESHOLD = 2
 export const LEVEL2_FATIGUE_WINDOW_HOURS = 48
 
-/** T0 BURNOUT_PREVENTION hard-suppress override window (once per 72h). */
-export const T0_HARD_OVERRIDE_WINDOW_HOURS = 72
+/** T0/T1 EV gate exemption — these types bypass interruptionValue cost/benefit check. */
+export const EV_GATE_EXEMPT: ActiveInterventionType[] = ['BURNOUT_PREVENTION', 'RECOVERY_ENFORCEMENT']
+
+/**
+ * Adaptation directive blueprints per type.
+ * evaluate.ts calls ADAPTATION_BLUEPRINTS[type](level) rather than a type-switch.
+ * Add new types here; evaluate.ts never changes.
+ */
+export const ADAPTATION_BLUEPRINTS: Record<ActiveInterventionType, (level: number) => AdaptationDirective[]> = {
+  BURNOUT_PREVENTION: (level) => [
+    {
+      field: 'execution.workloadCompressionRatio',
+      suggestedValue: level >= 2 ? 0.5 : 0.7,
+      reason: 'reduce visible load to match sustainable capacity',
+    },
+    {
+      field: 'environmental.interfaceDensity',
+      suggestedValue: level >= 2 ? 30 : 50,
+      reason: 'calm interface density during burnout risk',
+    },
+  ],
+  RECOVERY_ENFORCEMENT: (level) => [
+    {
+      field: 'execution.recoveryWeighting',
+      suggestedValue: 0.8,
+      reason: 'prioritize recovery-compatible tasks',
+    },
+    {
+      field: 'execution.workloadCompressionRatio',
+      suggestedValue: level >= 2 ? 0.5 : 0.65,
+      reason: 'reduce scope to support recovery',
+    },
+  ],
+  OVERLOAD: (level) => [
+    {
+      field: 'execution.workloadCompressionRatio',
+      suggestedValue: level >= 2 ? 0.5 : 0.7,
+      reason: 'reduce visible load to match sustainable capacity',
+    },
+    {
+      field: 'environmental.interfaceDensity',
+      suggestedValue: level >= 2 ? 30 : 50,
+      reason: 'calm interface density during overload',
+    },
+  ],
+  AVOIDANCE_INTERRUPTION: (_level) => [
+    {
+      field: 'guidance.emotionalPressureLevel',
+      suggestedValue: 10,
+      reason: 'reduce pressure — avoidance amplifies under pressure',
+    },
+    {
+      field: 'execution.visibleTaskLimit',
+      suggestedValue: 1,
+      reason: 'surface one task to reduce choice paralysis',
+    },
+  ],
+  FRAGMENTATION_REDUCTION: (_level) => [
+    {
+      field: 'execution.focusProtectionStrength',
+      suggestedValue: 80,
+      reason: 'protect continuity windows from fragmentation',
+    },
+  ],
+  DEEP_WORK_PROTECTION: (_level) => [
+    {
+      field: 'environmental.deepWorkProtectionEnabled',
+      suggestedValue: true,
+      reason: 'enable deep work protection mode',
+    },
+  ],
+  RESTART_ASSISTANCE: (_level) => [
+    {
+      field: 'execution.visibleTaskLimit',
+      suggestedValue: 1,
+      reason: 'surface minimal scope to make restarting achievable',
+    },
+  ],
+}

@@ -26,12 +26,13 @@ export function evaluateSuppression(
   sequencing: SequencingDecision,
   recent: InterventionAuditRecord[],
   reentry: ReentryProtocol | undefined,
+  nowMs: number,
 ): CombinedSuppression[] {
-  const hardVerdicts = applyHardRules(candidates, state, recent, reentry)
+  const hardVerdicts = applyHardRules(candidates, state, recent, reentry, nowMs)
   const surviving = candidates.filter(
     c => !hardVerdicts.find(v => v.type === c.type)?.suppressed,
   )
-  const softVerdicts = applySoftRules(surviving, assessments, state, snapshot, sequencing, recent)
+  const softVerdicts = applySoftRules(surviving, assessments, state, snapshot, sequencing, recent, nowMs)
 
   return candidates.map(candidate => {
     const hard = hardVerdicts.find(v => v.type === candidate.type)!
