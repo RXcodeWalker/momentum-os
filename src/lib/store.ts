@@ -13,6 +13,9 @@ import {
   syncCircleProof,
 } from "@/lib/sync";
 import { buildMigrationPayload } from "@/lib/migration";
+import type { BehavioralPipeline } from "@/core/contracts/pipeline/behavioral-pipeline";
+import { buildSessionEvidence } from "@/engine/orchestrator/evidence-bridge";
+import { runBehavioralPipeline } from "@/engine/orchestrator/pipeline-runner";
 import {
   buildDemoHistory,
   buildDemoInsights,
@@ -205,6 +208,8 @@ type State = {
   firstCheckInAt: string | null;
   consentedToAutoRecovery: boolean;
   recoverySuggestion: { reason: string; suggestedAt: string } | null;
+  /** Last behavioral pipeline result — updated on each saveCheckIn(). null until first check-in. */
+  lastPipelineResult: BehavioralPipeline | null;
 
   // Actions
   acceptTomorrowPlan: () => void;
@@ -276,6 +281,7 @@ export const useApp = create<State>()(
         firstCheckInAt: null,
         consentedToAutoRecovery: false,
         recoverySuggestion: null,
+        lastPipelineResult: null,
         setup: {
           step: 0,
           completed: false,
@@ -549,6 +555,26 @@ export const useApp = create<State>()(
             generatedAt: new Date().toISOString(),
           };
 
+          // Run behavioral pipeline on the updated evidence set.
+          // Non-fatal: a pipeline failure keeps the last known result.
+          const updatedCheckIns = [...s.checkIns, { ...data, date: todayStr() }]
+          const pipelineEvidence = buildSessionEvidence(history, updatedCheckIns)
+          const previousEngineMode = s.lastPipelineResult?.stateInterpretation.currentMode
+          let lastPipelineResult: BehavioralPipeline | null = s.lastPipelineResult
+          try {
+            lastPipelineResult = runBehavioralPipeline({
+              evidence: pipelineEvidence,
+              context: {
+                flowPhase: 'evening',
+                historicalSnapshots: [],
+                previousMode: previousEngineMode,
+              },
+              recentInterventions: [],
+            })
+          } catch {
+            // Pipeline failure is non-fatal — keep previous result
+          }
+
           // Recovery exit hysteresis: require 2 consecutive days >= 65, not a single spike > 70
           const wasRecovery = s.recoveryMode;
           let recoveryHighScoreDays = s.recoveryHighScoreDays ?? 0;
@@ -587,6 +613,7 @@ export const useApp = create<State>()(
             distractionLog,
             streaks,
             tomorrowPlan,
+            lastPipelineResult,
           }));
 
           const userId = get().currentUserId;
