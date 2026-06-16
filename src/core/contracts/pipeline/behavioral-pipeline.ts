@@ -23,6 +23,7 @@ export type BehavioralPipeline = {
   taskEvaluation: TaskEvaluation[]
   sequencingDecision: SequencingDecision
   interventionEvaluation: InterventionEvaluationResult
-  adaptationGeneration: AdaptationOutput
+  /** Optional until the Adaptation Engine is implemented. */
+  adaptationGeneration?: AdaptationOutput
 }
 
