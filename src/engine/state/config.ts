@@ -59,6 +59,21 @@ export const EXPANSION_READINESS_AMPLIFIER = 150
 /** Converts mean day-to-day behavioral variation into a 0–100 volatility scalar. */
 export const VOLATILITY_SCALE_FACTOR = 4
 
+/**
+ * Trajectory delta threshold separating CONTRACTING from FRAGILE.
+ * If recentMean - firstSegmentMean < this value, trajectory is CONTRACTING.
+ * More moderate declines classify as FRAGILE.
+ */
+export const TRAJECTORY_CONTRACTING_DELTA_THRESHOLD = -20
+
+/**
+ * Hysteresis band for RECOVERY mode exit.
+ * When previousMode === 'RECOVERY', the RECOVERY gate re-triggers only when
+ * recoveryDebt >= (recoveryDebtRecovery - RECOVERY_EXIT_HYSTERESIS_BAND).
+ * This prevents rapid RECOVERY↔STABILIZING oscillation on day-to-day debt swings.
+ */
+export const RECOVERY_EXIT_HYSTERESIS_BAND = 8
+
 /** State confidence band cutoffs (0–100 composite score). */
 export const CONFIDENCE_BAND_HIGH_THRESHOLD = 70
 export const CONFIDENCE_BAND_MEDIUM_THRESHOLD = 42

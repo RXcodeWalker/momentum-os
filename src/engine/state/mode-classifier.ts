@@ -6,6 +6,7 @@ import type { DimensionResult } from './state-dimensions'
 import {
   THRESHOLDS,
   RISK_THRESHOLDS,
+  RECOVERY_EXIT_HYSTERESIS_BAND,
   RECOVERY_SUSTAINED_DAYS,
   EXPANSION_SUSTAINED_DAYS,
 } from './config'
@@ -83,12 +84,22 @@ function checkRecovery(
   snapshot: SignalSnapshot | undefined,
   risks: RiskAssessment,
   evidenceDays: number,
+  previousMode: UserMode | undefined,
 ): string[] | null {
   const factors: string[] = []
   const hasSustainedEvidence = evidenceDays >= RECOVERY_SUSTAINED_DAYS
 
+  // When the prior mode was RECOVERY we apply hysteresis: the debt threshold is
+  // lowered by RECOVERY_EXIT_HYSTERESIS_BAND so the user must fall further below
+  // the entry threshold before the mode transitions away. This prevents rapid
+  // RECOVERY↔STABILIZING oscillation on day-to-day debt swings.
+  const recoveryDebtThreshold =
+    previousMode === 'RECOVERY'
+      ? THRESHOLDS.recoveryDebtRecovery - RECOVERY_EXIT_HYSTERESIS_BAND
+      : THRESHOLDS.recoveryDebtRecovery
+
   // Dimension trigger: recovery debt above threshold — requires sustained evidence window
-  if (hasSustainedEvidence && dimensions.recoveryDebt >= THRESHOLDS.recoveryDebtRecovery) {
+  if (hasSustainedEvidence && dimensions.recoveryDebt >= recoveryDebtThreshold) {
     factors.push(`Recovery debt elevated (${Math.round(dimensions.recoveryDebt)}/100)`)
   }
 
@@ -174,7 +185,7 @@ export function classifyMode(
 ): ModeClassification {
   const risks = assessRisks(dimensions, snapshot)
 
-  const recoveryFactors = checkRecovery(dimensions, snapshot, risks, evidenceDays)
+  const recoveryFactors = checkRecovery(dimensions, snapshot, risks, evidenceDays, previousMode)
   if (recoveryFactors) {
     return { mode: 'RECOVERY', supportingFactors: recoveryFactors, risks }
   }

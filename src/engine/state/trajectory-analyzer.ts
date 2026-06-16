@@ -1,6 +1,7 @@
 import type { UserTrajectory } from '@/core/contracts/state/modes'
 import type { SessionEvidence } from '@/core/contracts/signals/session-evidence'
 import { movingAverage, weightedAverage, calculateTrend } from '@/engine/shared'
+import { TRAJECTORY_CONTRACTING_DELTA_THRESHOLD } from './config'
 
 /**
  * Trajectory is computed over a longer window than mode (ideally 7–14 days)
@@ -79,7 +80,7 @@ export function analyzeTrajectory(evidence: SessionEvidence[]): UserTrajectory {
         .reduce((s, v) => s + v, 0) / Math.max(1, Math.floor(smoothed.length / 3))
     const delta = recentMean - firstSegMean
 
-    if (delta < -20) return 'CONTRACTING'
+    if (delta < TRAJECTORY_CONTRACTING_DELTA_THRESHOLD) return 'CONTRACTING'
     return 'FRAGILE'
   }
 

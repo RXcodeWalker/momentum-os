@@ -318,45 +318,63 @@ function collapseEmotionalFriction(m: EmotionalFrictionModel): number {
   )
 }
 
-function truncateSeries<T extends Record<string, number[]>>(series: T, length: number): T {
-  const truncated = {} as T
-  for (const key of Object.keys(series) as (keyof T)[]) {
-    truncated[key] = series[key].slice(0, length) as T[keyof T]
-  }
-  return truncated
-}
 
-function satisfiesExpandingGates(raw: RawSeries, smooth: SmoothedSeries): boolean {
-  const recent = getRecentValues(smooth)
-  const recoveryDebt = collapseRecoveryDebt(buildRecoveryDebtModel(recent, raw, smooth))
-  const cognitiveStrain = collapseCognitiveStrain(buildCognitiveStrainModel(recent, smooth))
-  const executionStability = collapseExecutionStability(
-    buildExecutionStabilityModel(recent, raw, smooth),
-  )
-  const emotionalFriction = collapseEmotionalFriction(buildEmotionalFrictionModel(recent))
+/**
+ * Checks whether all EXPANDING gate conditions are met using the smoothed value
+ * at position `i` as the "recent" anchor. The consistency and exhaustion sub-
+ * components still reference the full raw series — this is an intentional
+ * approximation: rhythm and accumulated fatigue are inherently longitudinal and
+ * don't need to be re-sliced per-day for a trailing count.
+ */
+function satisfiesExpandingGatesAtIndex(
+  i: number,
+  raw: RawSeries,
+  smooth: SmoothedSeries,
+): boolean {
+  // Build a RecentValues snapshot from position i in the pre-computed smooth series
+  const recentAtDay: RecentValues = {
+    sleepQuality:                 smooth.sleepQuality[i],
+    physicalEnergy:               smooth.physicalEnergy[i],
+    mentalClarity:                smooth.mentalClarity[i],
+    overwhelm:                    smooth.overwhelm[i],
+    emotionalResistance:          smooth.emotionalResistance[i],
+    stressPressure:               smooth.stressPressure[i],
+    meaningfulAdvancementQuality: smooth.meaningfulAdvancementQuality[i],
+    deepWorkContinuity:           smooth.deepWorkContinuity[i],
+    executionIntegrity:           smooth.executionIntegrity[i],
+    fragmentationLevel:           smooth.fragmentationLevel[i],
+    distractionPatterns:          smooth.distractionPatterns[i],
+    avoidancePressure:            smooth.avoidancePressure[i],
+    pacingQuality:                smooth.pacingQuality[i],
+  }
+
+  const recoveryDebt      = collapseRecoveryDebt(buildRecoveryDebtModel(recentAtDay, raw, smooth))
+  const cognitiveStrain   = collapseCognitiveStrain(buildCognitiveStrainModel(recentAtDay, smooth))
+  const executionStability = collapseExecutionStability(buildExecutionStabilityModel(recentAtDay, raw, smooth))
+  const emotionalFriction  = collapseEmotionalFriction(buildEmotionalFrictionModel(recentAtDay))
 
   return (
-    recoveryDebt <= THRESHOLDS.expandingRecoveryDebt &&
-    cognitiveStrain <= THRESHOLDS.expandingCognitiveStrain &&
+    recoveryDebt      <= THRESHOLDS.expandingRecoveryDebt &&
+    cognitiveStrain   <= THRESHOLDS.expandingCognitiveStrain &&
     executionStability >= THRESHOLDS.expandingExecutionStability &&
-    emotionalFriction <= THRESHOLDS.expandingEmotionalFriction
+    emotionalFriction  <= THRESHOLDS.expandingEmotionalFriction
   )
 }
 
+/**
+ * Counts consecutive trailing days on which all EXPANDING gate conditions were
+ * satisfied. O(n) — uses pre-computed smooth series, not per-day re-smoothing.
+ */
 function computeExpandingGateSustainedDays(raw: RawSeries, smooth: SmoothedSeries): number {
   const n = smooth.sleepQuality.length
   let count = 0
-
   for (let i = n - 1; i >= 0; i--) {
-    const truncatedRaw = truncateSeries(raw, i + 1)
-    const truncatedSmooth = truncateSeries(smooth, i + 1)
-    if (satisfiesExpandingGates(truncatedRaw, truncatedSmooth)) {
+    if (satisfiesExpandingGatesAtIndex(i, raw, smooth)) {
       count++
     } else {
       break
     }
   }
-
   return count
 }
 
@@ -365,12 +383,13 @@ function computeExpandingGateSustainedDays(raw: RawSeries, smooth: SmoothedSerie
 // ---------------------------------------------------------------------------
 
 function computeMomentumIntegrity(smooth: SmoothedSeries): number {
-  const execMean = smooth.executionIntegrity.reduce((s, v) => s + v, 0) / smooth.executionIntegrity.length
+  // Use last() for the execution and meaningfulness components so the scalar
+  // reflects recent performance, not an all-time mean anchored to old history.
+  // Consistency uses the full window — rhythm is inherently longitudinal.
+  const execRecent     = last(smooth.executionIntegrity)
   const execConsistency = consistency(smooth.executionIntegrity)
-  const meaningMean =
-    smooth.meaningfulAdvancementQuality.reduce((s, v) => s + v, 0) /
-    smooth.meaningfulAdvancementQuality.length
-  return weightedAverage([execMean, execConsistency, meaningMean], [0.40, 0.35, 0.25])
+  const meaningRecent  = last(smooth.meaningfulAdvancementQuality)
+  return weightedAverage([execRecent, execConsistency, meaningRecent], [0.40, 0.35, 0.25])
 }
 
 function computeResilienceCapacity(
@@ -387,50 +406,50 @@ function computeResilienceCapacity(
 // Default result (empty evidence)
 // ---------------------------------------------------------------------------
 
-function buildDefaultDimensions(): DimensionResult {
+/**
+ * Synthesise a single neutral SessionEvidence entry from EVIDENCE_DEFAULTS so
+ * that the default DimensionResult is always derived from the same collapse
+ * pipeline as real evidence. This prevents the defaults from drifting when
+ * weights or formulas change.
+ */
+function buildSyntheticDefaultEvidence(): SessionEvidence {
   const d = EVIDENCE_DEFAULTS
-  const recoveryDebt       = 35
-  const cognitiveStrain    = 22
-  const executionStability = 62
-  const emotionalFriction  = 26
-  const recoveryCapacity   = d.sleepQuality * 0.4 + d.physicalEnergy * 0.3 + d.mentalClarity * 0.3
-
   return {
-    core: {
-      recoveryDebt: {
-        sleepQuality: d.sleepQuality, sleepConsistency: 75, sustainedIntensity: 20,
-        recoveryBehaviorQuality: d.physicalEnergy, exhaustionAccumulation: 10,
+    sessionId:    'default-synthetic',
+    capturedAt:   new Date(0).toISOString(),
+    evidenceType: 'CHECK_IN',
+    completeness: 1,
+    inputs: {
+      capturedAt: new Date(0).toISOString(),
+      recoveryInputs: {
+        sleepQuality:    d.sleepQuality,
+        physicalEnergy:  d.physicalEnergy,
+        mentalClarity:   d.mentalClarity,
       },
-      cognitiveStrain: {
-        taskSwitchingRate: d.fragmentationLevel, ambiguityExposure: 22,
-        interruptionDensity: d.distractionPatterns, activeCommitmentLoad: 28, deepWorkDegradation: 18,
+      emotionalInputs: {
+        overwhelm:            d.overwhelm,
+        emotionalResistance:  d.emotionalResistance,
+        stressPressure:       d.stressPressure,
       },
-      executionStability: {
-        meaningfulCompletionIntegrity: d.meaningfulAdvancementQuality, rhythmConsistency: 72,
-        followThroughReliability: d.executionIntegrity, pacingStability: d.pacingQuality,
-        volatilityResistance: 78,
+      executionInputs: {
+        meaningfulAdvancementQuality: d.meaningfulAdvancementQuality,
+        deepWorkContinuity:           d.deepWorkContinuity,
+        executionIntegrity:           d.executionIntegrity,
       },
-      emotionalFriction: {
-        initiationResistance: d.avoidancePressure, avoidancePressure: d.avoidancePressure,
-        perfectionismPressure: 22, overwhelmWeight: d.overwhelm, uncertaintyResistance: 28,
+      behavioralInputs: {
+        fragmentationLevel:  d.fragmentationLevel,
+        distractionPatterns: d.distractionPatterns,
+        avoidancePressure:   d.avoidancePressure,
+        pacingQuality:       d.pacingQuality,
       },
     },
-    recoveryDebt, cognitiveStrain, executionStability, emotionalFriction,
-    momentumIntegrity:   62,
-    resilienceCapacity:  computeResilienceCapacity(recoveryCapacity, emotionalFriction, cognitiveStrain),
-    overwhelmLevel:      d.overwhelm,
-    fragmentationLevel:  d.fragmentationLevel,
-    recoveryCapacity,
-    meaningfulEngagement: d.meaningfulAdvancementQuality,
-    deepWorkContinuity:   d.deepWorkContinuity,
-    behavioralVolatility: 5,
-    adaptationReadiness:  Math.min(100, (recoveryCapacity / 100) * (1 - emotionalFriction / 100) * 100),
-    expansionReadiness:   35,
-    consistencyTrend: 'STABLE',
-    recoveryTrend:    'STABLE',
-    engagementTrend:  'STABLE',
-    expandingGateSustainedDays: 0,
   }
+}
+
+function buildDefaultDimensions(): DimensionResult {
+  // Run the real pipeline on one synthetic neutral evidence point so defaults
+  // automatically stay consistent with whatever the collapse functions produce.
+  return computeDimensions([buildSyntheticDefaultEvidence()])
 }
 
 // ---------------------------------------------------------------------------
