@@ -3,4 +3,8 @@ export * from './dimensions'
 export * from './confidence'
 export * from './transitions'
 export * from './user-state'
+export * from './snapshot'
+export * from './historical'
+export * from './explanation'
+export * from './evaluation'
 

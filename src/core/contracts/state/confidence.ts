@@ -11,5 +11,15 @@ export type StateConfidence = {
   signalConsistency: Percentage
   /** Human-readable factors reducing confidence. */
   uncertaintyFactors: string[]
+  /**
+   * Per-dimension confidence bands — reserved for future population.
+   * Downstream engines may optionally use these when they need to express
+   * uncertainty about a specific scalar rather than the global band.
+   * Initially undefined; the global `band` applies to all variables.
+   */
+  variableConfidence?: Partial<Record<
+    'recoveryDebt' | 'cognitiveStrain' | 'executionStability' | 'emotionalFriction',
+    ConfidenceBand
+  >>
 }
 
