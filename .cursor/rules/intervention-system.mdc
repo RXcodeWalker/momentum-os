@@ -8,46 +8,57 @@ alwaysApply: false
 
 ## Purpose
 
-Evaluate when behavioral interruption is warranted. Return `Intervention` contracts — never render UI or persist as current truth. Type shapes owned by `engine-contracts.mdc`; trust language owned by `product-philosophy.mdc`.
+Evaluate when behavioral interruption is warranted. Return `InterventionEvaluationResult` — never render UI or persist as current truth. Type shapes owned by `src/core/contracts/interventions/`; trust language owned by `product-philosophy.mdc`.
 
 ## Non-Negotiable Constraints
 
-- Import `Intervention`, `InterventionLevel`, `InterventionType`, `BehavioralSignal` from `src/core/interventions/`.
-- **Default to level 0** — Silent adaptation first. Escalate only when sustained evidence demands it.
+- Import all public types from `@/core/contracts/interventions/` or `@/core/contracts/`.
+- **Default to empty output** — Silent adaptation first. Escalate only when sustained evidence demands it. Empty `interventions[]` is the preferred default.
 - **InterventionLevel semantics**:
-  - 0: silent adaptation (interface/execution changes only)
+  - 0: silent adaptation (adaptation directives only, no message)
   - 1: soft guidance (calm messaging)
   - 2: active interruption (modal/banner)
   - 3: structural intervention (scope/workflow change)
-- **Required evidence** — Every trigger must cite `BehavioralSignal[]` meeting `minimumConfidence`. No firing on single weak signals.
-- **InterventionType catalog** — OVERLOAD, BURNOUT_PREVENTION, AVOIDANCE_INTERRUPTION, MOMENTUM_EXPANSION, DEEP_WORK_PROTECTION, RECOVERY_ENFORCEMENT, RESTART_ASSISTANCE, FRAGMENTATION_REDUCTION, CAPABILITY_CONTRACTION.
-- **Suppression** — Respect `suppressionRules` and `cooldownPolicy`. Prevent intervention inflation.
+- **Required evidence** — Every trigger must cite `BehavioralSignal[]` from `SignalSnapshot` meeting `minimumConfidence` and `signalDurations` thresholds. No firing on single-day weak signals.
+- **Active InterventionType catalog** (v1 matrix): BURNOUT_PREVENTION, RECOVERY_ENFORCEMENT, OVERLOAD, AVOIDANCE_INTERRUPTION, FRAGMENTATION_REDUCTION, DEEP_WORK_PROTECTION, RESTART_ASSISTANCE (level 0–1 only).
+- **Deprecated types** — MOMENTUM_EXPANSION and CAPABILITY_CONTRACTION are excluded from trigger evaluation. Route to Adaptation Engine.
+- **Suppression** — Respect `suppressionRules` and `CooldownPolicy`. Prevent intervention inflation.
 - **Escalation** — Level increases require sustained signal duration and `escalationThreshold` confirmation.
-- **Return contract only** — Engine returns `Intervention`; UI layer decides rendering. No modals, navigation, or notifications from engine code.
-- **Restraint** — Deterministic, interpretable, emotionally paced. Include `triggerReasoning` on every intervention.
+- **Return contract only** — Engine returns `InterventionEvaluationResult`; UI layer decides rendering. No modals, navigation, or notifications from engine code.
+- **Restraint** — Deterministic, interpretable, emotionally paced. Include `triggerReasoning` on every intervention; populate `evaluationNotes` and `restraintApplied` on result.
 
-## Implementation Guidance
-
-- Input: `UserState`, `SequencingDecision`, recent behavioral events.
-- Output: `Intervention[]` (may be empty — empty is valid and preferred).
-- Each intervention includes `emotionalGoal`, `behavioralObjective`, optional `interventionMessage`, `uiAdaptations`, `executionAdaptations`, `cooldownDurationHours`.
-- Version tag: Intervention Matrix v1.
+## Input Signature
 
 ```typescript
-import type { Intervention, InterventionLevel, BehavioralSignal } from '@/core/interventions'
+import type {
+  InterventionEvaluationInput,
+  InterventionEvaluationResult,
+} from '@/core/contracts/interventions'
 
-function evaluateInterventions(state: UserState, signals: BehavioralSignal[]): Intervention[] {
-  // prefer level 0 adaptations via AdaptationOutput
-  // escalate only with sustained, high-confidence evidence
-  return []
+function evaluateInterventions(input: InterventionEvaluationInput): InterventionEvaluationResult {
+  // input.state — UserState (stable snapshot, no pendingTransition)
+  // input.signalSnapshot — primary evidence authority (BehavioralSignal[], signalDurations, confidence)
+  // input.sequencing — SequencingDecision (taskId refs, expectedRecoveryImpact, suppressedTaskIds)
+  // input.context.flowPhase — 'morning' | 'midday' | 'evening'
+  // input.context.recentInterventions — InterventionAuditRecord[] from persistence (cooldown reads)
+  // input.context.activeReentryProtocol? — blocks level ≥2 during ASSESSMENT/MINIMUM_VIABLE_RESTART
+  return { interventions: [], evaluationNotes: [], restraintApplied: false }
 }
 ```
+
+## Rejected Inputs (do not consume)
+
+- `TaskEvaluation[]` — redundant with `SequencingDecision`; violates Fix-5 task boundary.
+- `ReasoningTrace` — task-domain explainability; creates cross-engine coupling.
+- `SessionEvidence[]` / `DailyInputs[]` — raw evidence; bypasses Signal Engine.
+- `pendingTransition` — orchestration/audit event; engines receive stable `UserState` only.
+- `UserTrajectory` separately — already in `UserState.currentTrajectory`.
 
 ## Anti-Patterns
 
 ```typescript
 // ❌ Engagement-driven interruption
-if (daysSinceLastOpen > 2) return { level: 2, type: 'RESTART_ASSISTANCE' }
+if (daysSinceLastOpen > 2) return { interventions: [{ level: 2, type: 'RESTART_ASSISTANCE' }], ... }
 
 // ❌ Engine opens UI
 if (overload) showModal('Take a break!')
@@ -55,9 +66,23 @@ if (overload) showModal('Take a break!')
 // ❌ Shame-based messaging
 return { interventionMessage: 'You are procrastinating again.' }
 
-// ✅ Evidence-based, restrained
-if (signalDuration('AVOIDANCE_CLUSTERING') >= 3 && confidence >= 0.75)
-  return { level: 1, type: 'AVOIDANCE_INTERRUPTION', triggerReasoning: [...] }
+// ❌ Bare BehavioralSignal[] input — use SignalSnapshot instead
+function evaluateInterventions(state: UserState, signals: BehavioralSignal[]): Intervention[]
+
+// ❌ Deprecated types in matrix
+trigger({ type: 'MOMENTUM_EXPANSION', ... })
+
+// ✅ Evidence-based, restrained, correct input
+if (
+  input.signalSnapshot.signalDurations['AVOIDANCE_CLUSTERING'] >= 3 &&
+  input.signalSnapshot.confidence !== 'LOW' &&
+  input.state.avoidanceRisk === 'HIGH'
+)
+  return {
+    interventions: [{ level: 1, type: 'AVOIDANCE_INTERRUPTION', triggerReasoning: [...] }],
+    evaluationNotes: [],
+    restraintApplied: false,
+  }
 ```
 
 ## Never Do This
@@ -68,4 +93,7 @@ if (signalDuration('AVOIDANCE_CLUSTERING') >= 3 && confidence >= 0.75)
 - Persist intervention output as authoritative behavioral state
 - Skip cooldown/suppression checks
 - Use guilt, shame, or urgency in `interventionMessage`
-- Compute environmental adaptation values (that is `/engine/adaptation`)
+- Compute environmental/execution/guidance adaptation values (that belongs to `engine/adaptation`)
+- Include `TaskEvaluation[]`, `ReasoningTrace`, or raw `BehavioralSignal[]` in input
+- Use `MOMENTUM_EXPANSION` or `CAPABILITY_CONTRACTION` in any trigger rule
+- Fire `RESTART_ASSISTANCE` above level 1

@@ -131,8 +131,16 @@ adaptationReadiness: Scalar
 consistencyTrend: TrendDirection
   recoveryTrend: TrendDirection
   engagementTrend: TrendDirection
-stateConfidence: number
+confidence: StateConfidence  // structured — replaces bare stateConfidence number
 lastUpdatedAt: Timestamp
+}
+
+type StateConfidence = {
+  score: Scalar         // 0-100 overall confidence
+  band: ConfidenceBand
+  evidenceCoverage: Percentage   // 0-1 fraction of expected fields present
+  signalConsistency: Percentage  // 0-1 cross-signal agreement
+  uncertaintyFactors: string[]
 }
 
 5. PRIMITIVE ENGINE TYPES
@@ -293,16 +301,18 @@ This directly influences:
 	• intervention sensitivity
 
 9. TASK SEQUENCING CONTRACTS
+// Task objects replaced with taskId references (Fix-5 — prevents task intelligence leaking downstream)
 type SequencingDecision = {
-  recommendedPrimaryTask?: Task
-  recommendedSecondaryTask?: Task
-suppressedTasks: Task[]
-  compressedTasks: Task[]
+  recommendedPrimaryTaskId?: string
+  recommendedSecondaryTaskId?: string
+suppressedTaskIds: string[]
+  compressedTaskIds: string[]
 sequencingReasoning: string[]
 expectedRecoveryImpact: number
   expectedMomentumImpact: number
 recommendedFocusWindow?: number
 sequencingConfidence: number
+  netPriority: Scalar  // net priority after sustainability weighting
 }
 The sequencing engine prioritizes:
 	• behavioral sustainability
@@ -321,24 +331,49 @@ triggerReasoning: string[]
 emotionalGoal: string
   behavioralObjective: string
 interventionMessage?: string
-uiAdaptations: UIAdaptation[]
-  executionAdaptations: ExecutionAdaptation[]
+adaptationDirectives: AdaptationDirective[]
 suppressionEligible: boolean
 cooldownDurationHours: number
 generatedAt: Timestamp
 }
 
-Intervention Types
-type InterventionType =
-  | "OVERLOAD"
+type AdaptationDirective = {
+  field: string
+  suggestedValue: number | boolean | string
+  reason: string
+}
+
+type InterventionEvaluationResult = {
+  interventions: Intervention[]
+  evaluationNotes: string[]
+  restraintApplied: boolean
+}
+
+type InterventionAuditRecord = {
+  interventionId: string
+  type: InterventionType
+  level: InterventionLevel
+  firedAt: Timestamp
+  flowPhase: 'morning' | 'midday' | 'evening'
+  cooldownDurationHours: number
+}
+
+Intervention Types (v1 taxonomy)
+// Active types — eligible for matrix trigger evaluation
+type ActiveInterventionType =
   | "BURNOUT_PREVENTION"
-  | "AVOIDANCE_INTERRUPTION"
-  | "MOMENTUM_EXPANSION"
-  | "DEEP_WORK_PROTECTION"
   | "RECOVERY_ENFORCEMENT"
-  | "RESTART_ASSISTANCE"
+  | "OVERLOAD"
+  | "AVOIDANCE_INTERRUPTION"
   | "FRAGMENTATION_REDUCTION"
-  | "CAPABILITY_CONTRACTION"
+  | "DEEP_WORK_PROTECTION"
+  | "RESTART_ASSISTANCE"  // level 0-1 orientation only; structural restart → Re-entry Engine
+
+// Deprecated — route to Adaptation Engine; excluded from matrix v1
+// | "MOMENTUM_EXPANSION"
+// | "CAPABILITY_CONTRACTION"
+
+type InterventionType = ActiveInterventionType | "MOMENTUM_EXPANSION" | "CAPABILITY_CONTRACTION"
 
 11. INTERVENTION TRIGGER CONTRACTS
 type InterventionTrigger = {
@@ -542,13 +577,14 @@ interventionRestraintRequired: boolean
 This is the actual operational flow.
 type BehavioralPipeline = {
   inputCollection: DailyInputs
+  signalSnapshot: SignalSnapshot
 stateInterpretation: UserState
+  pendingTransition?: StateTransition  // pipeline-level event; not on UserState (Fix-2)
 trajectoryAnalysis: UserTrajectory
 taskEvaluation: TaskEvaluation[]
 sequencingDecision: SequencingDecision
-interventionEvaluation: Intervention[]
+interventionEvaluation: InterventionEvaluationResult  // replaces bare Intervention[]
 adaptationGeneration: AdaptationOutput
-uiProjection: UIProjection
 }
 
 22. DAILY INPUT CONTRACTS

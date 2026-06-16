@@ -44,14 +44,15 @@ describe('computeRecoveryBurden', () => {
 })
 
 describe('scoreTask', () => {
-  it('produces TaskScore without netPriority', () => {
+  it('produces TaskScore with netPriority', () => {
     const task = makeTask({ title: 'Score test', meaningfulness: 80 })
     const score = scoreTask(task, TS)
     expect(score.taskId).toBe(task.id)
     expect(score.execution.finalExecutionWeight).toBeGreaterThan(0)
     expect(score.resistance.finalResistanceWeight).toBeGreaterThanOrEqual(0)
     expect(score.burden.totalBurdenScore).toBeGreaterThanOrEqual(0)
-    expect('netPriority' in score).toBe(false)
+    expect(score.netPriority).toBeGreaterThanOrEqual(0)
+    expect(score.netPriority).toBeLessThanOrEqual(100)
   })
 
   it('uses deferral proxy when initiationDelay is absent', () => {

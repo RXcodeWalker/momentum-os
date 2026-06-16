@@ -95,11 +95,13 @@ export function computeResistanceWeight(task: Task): ResistanceWeight {
 }
 
 export function scoreTask(task: Task, evaluatedAt: Timestamp): TaskScore {
-  return {
-    taskId: task.id,
-    execution: computeExecutionWeight(task),
-    resistance: computeResistanceWeight(task),
-    burden: computeRecoveryBurden(task),
-    evaluatedAt,
-  }
+  const execution = computeExecutionWeight(task)
+  const resistance = computeResistanceWeight(task)
+  const burden = computeRecoveryBurden(task)
+  const netPriority = clampScalar(
+    execution.finalExecutionWeight -
+      resistance.finalResistanceWeight * 0.4 -
+      burden.totalBurdenScore * 0.25,
+  )
+  return { taskId: task.id, execution, resistance, burden, netPriority, evaluatedAt }
 }

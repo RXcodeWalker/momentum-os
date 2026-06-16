@@ -8,7 +8,7 @@ import type { UserState } from '../state/user-state'
 import type { UserTrajectory } from '../state/modes'
 import type { StateTransition } from '../state/transitions'
 import type { TaskEvaluation, SequencingDecision } from '../tasks'
-import type { Intervention } from '../interventions/intervention'
+import type { InterventionEvaluationResult } from '../interventions/evaluation'
 import type { AdaptationOutput } from '../adaptation/output'
 import type { SignalSnapshot } from '../signals/signal-snapshot'
 
@@ -22,7 +22,7 @@ export type BehavioralPipeline = {
   trajectoryAnalysis: UserTrajectory
   taskEvaluation: TaskEvaluation[]
   sequencingDecision: SequencingDecision
-  interventionEvaluation: Intervention[]
+  interventionEvaluation: InterventionEvaluationResult
   adaptationGeneration: AdaptationOutput
 }
 
