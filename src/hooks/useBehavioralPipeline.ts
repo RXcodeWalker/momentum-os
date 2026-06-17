@@ -11,7 +11,7 @@ import { useApp } from '@/lib/store'
 import { useBehavioralState } from './internal/useBehavioralState'
 import { useBehavioralTasks } from './internal/useBehavioralTasks'
 import { useBehavioralInterventions } from './internal/useBehavioralInterventions'
-import { densityBandToSurfaceLevel } from './internal/map'
+import { densityBandToSurfaceLevel, toneToHeroTheme } from './internal/map'
 import type { BehavioralView } from './internal/contracts'
 
 export function useBehavioralPipeline(): BehavioralView {
@@ -27,22 +27,19 @@ export function useBehavioralPipeline(): BehavioralView {
       ?? pipeline?.inputCollection.capturedAt
       ?? null
 
-    // focusMode: deep work protection is active OR pacing calls for continuity
-    const focusMode =
-      state.environment.deepWorkProtection ||
-      state.execution.pacing === 'PROTECT_CONTINUITY'
-
-    // surfaceLevel: derived from interface density — one verdict for layout shells
-    const surfaceLevel = densityBandToSurfaceLevel(state.environment.density)
-
     return {
       ready,
       generatedAt,
       state,
       tasks,
       interventions,
-      focusMode,
-      surfaceLevel,
+      shell: {
+        surfaceLevel: densityBandToSurfaceLevel(state.environment.density),
+        focusMode:
+          state.environment.deepWorkProtection ||
+          state.execution.pacing === 'PROTECT_CONTINUITY',
+      },
+      heroTheme: toneToHeroTheme(state.guidance.tone),
     }
   }, [pipeline, state, tasks, interventions])
 }

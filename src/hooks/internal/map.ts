@@ -131,6 +131,23 @@ export function densityBandToSurfaceLevel(density: Band): 'full' | 'reduced' | '
 }
 
 // ---------------------------------------------------------------------------
+// Tone → hero gradient class
+// ---------------------------------------------------------------------------
+
+const TONE_HERO_GRADIENTS: Record<Tone, string> = {
+  calm:          'from-orange-950/30 via-stone-900',
+  steady:        'from-stone-800/50 via-stone-900',
+  focused:       'from-indigo-950/30 via-stone-900',
+  challenging:   'from-emerald-950/30 via-stone-900',
+  stabilizing:   'from-amber-950/30 via-stone-900',
+  observational: 'from-stone-950/40 via-stone-900',
+}
+
+export function toneToHeroTheme(tone: Tone): string {
+  return TONE_HERO_GRADIENTS[tone]
+}
+
+// ---------------------------------------------------------------------------
 // Clamped max helper
 // ---------------------------------------------------------------------------
 

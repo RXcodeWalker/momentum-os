@@ -152,8 +152,11 @@ export type BehavioralView = {
   tasks: BehavioralTasksView
   interventions: BehavioralInterventionsView
 
-  /** true when deep work protection or pacing calls for continuity protection. */
-  focusMode: boolean
-  /** Single density verdict for layout shells. */
-  surfaceLevel: 'full' | 'reduced' | 'minimal'
+  shell: {
+    surfaceLevel: 'full' | 'reduced' | 'minimal'
+    focusMode: boolean
+  }
+
+  /** Tailwind gradient class computed from guidance.tone — apply directly to hero card. */
+  heroTheme: string
 }

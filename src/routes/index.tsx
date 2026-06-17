@@ -23,7 +23,6 @@ import {
   useConsistency,
   useExecutionScore,
   useMomentum,
-  useUserState,
   useLatestInsight,
   usePredictiveRecoveryAlert,
   useTomorrowBriefing,
@@ -35,6 +34,9 @@ import {
 import { useState, useEffect } from "react";
 import { Stagger, StaggerItem, TapCard, FadeUp } from "@/lib/motion";
 import { BehavioralNote } from "@/components/cards/BehavioralNote";
+import { InterventionSurface } from "@/components/cards/InterventionSurface";
+import { useBehavioralPipeline } from "@/hooks/useBehavioralPipeline";
+import type { BehavioralView } from "@/hooks/internal/contracts";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { MetricSurface } from "@/components/MetricSurface";
@@ -63,14 +65,13 @@ function Home() {
     if (!onboarded) navigate({ to: "/onboarding" });
   }, [onboarded, navigate]);
 
+  const behavioral = useBehavioralPipeline();
+  const { shell, heroTheme } = behavioral;
+
   const user = useApp((s) => s.user);
   const score = useExecutionScore();
   const { delta } = useMomentum();
   const consistency = useConsistency(TREND_DAYS);
-  const { state, label: stateLabel, tone: stateTone } = useUserState();
-  const checkInCount = useApp((s) => s.checkIns.length);
-  const dataIsSeeded = useApp((s) => s.dataIsSeeded);
-  const showUserStatePill = dataIsSeeded || checkInCount >= 5;
   const tasks = useApp((s) => s.tasks);
   const toggleTask = useApp((s) => s.toggleTask);
   const dismissInsight = useApp((s) => s.dismissInsight);
@@ -89,17 +90,13 @@ function Home() {
     hour < 11 ? "morning" : hour < 17 ? "midday" : "evening";
 
   const subtitle = (() => {
-    if (!showUserStatePill) {
+    if (!behavioral.ready) {
       return "Cadence learns from what you do. Today is a clean page.";
     }
-    if (state === "burnout")
-      return "Burnout signals detected. Cut the surface area in half — sleep is the lever today.";
-    if (state === "recovery")
+    if (behavioral.state.mode === "RECOVERY")
       return "You're in recovery. Smaller surface, faster reps. Three things, then rest.";
-    if (state === "peak")
+    if (behavioral.state.mode === "EXPANDING")
       return "You're in a peak window. Stretch into deeper work — protect sleep at all costs.";
-    if (state === "inconsistent")
-      return "Variance is high. Anchor one keystone behavior before adding anything else.";
     return "Steady hand today. Don't over-plan — execute three things well.";
   })();
 
@@ -150,9 +147,11 @@ function Home() {
         subtitle={subtitle}
         right={
           <div className="flex items-center gap-2">
-            {showUserStatePill && (
+            {behavioral.ready && (
               <div className="hidden lg:flex items-center gap-2">
-                <Pill tone={stateTone}>{stateLabel}</Pill>
+                <Pill tone={trajectoryTone(behavioral.state.trajectory)}>
+                  {trajectoryLabel(behavioral.state.trajectory)}
+                </Pill>
               </div>
             )}
             <Link
@@ -178,78 +177,94 @@ function Home() {
       <Stagger className="grid grid-cols-1 gap-4 px-5 lg:px-0 lg:grid-cols-12 lg:gap-6" gap={0.07}>
         <StaggerItem className="lg:col-span-12">
           {/* Enhanced Focus Engine */}
-          <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-surface p-8 hairline shadow-elegant lg:p-12">
+          <div className={`relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br ${heroTheme} p-8 hairline shadow-elegant lg:p-12`}>
             <div className="bg-glow absolute inset-0 animate-pulse-glow" />
-            <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-10">
-              <div className="flex-1 space-y-6">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`h-2.5 w-2.5 rounded-full bg-accent animate-pulse shadow-[0_0_8px_var(--accent)]`}
-                  />
-                  <StatLabel className="text-accent font-bold tracking-[0.2em] uppercase text-[11px]">
-                    Active Phase: {phase}
-                  </StatLabel>
-                </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${behavioral.state.guidance.tone}::${behavioral.state.interpretation.headline}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.35 }}
+                className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-10"
+              >
+                <div className="flex-1 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`h-2.5 w-2.5 rounded-full bg-accent animate-pulse shadow-[0_0_8px_var(--accent)]`}
+                    />
+                    <StatLabel className="text-accent font-bold tracking-[0.2em] uppercase text-[11px]">
+                      Active Phase: {phase}
+                    </StatLabel>
+                  </div>
 
-                <div>
-                  <h1 className="text-4xl lg:text-5xl font-display font-semibold text-foreground tracking-tight leading-tight">
-                    {phase === "morning"
-                      ? "Calibrate Your Day."
-                      : phase === "midday"
-                        ? "Deep Execution."
-                        : "Reflect and Reset."}
-                  </h1>
-                  <p className="mt-4 text-muted-foreground text-base lg:text-lg max-w-[45ch] leading-relaxed">
-                    {subtitle}
-                  </p>
-                </div>
+                  <div>
+                    <h1 className="text-4xl lg:text-5xl font-display font-semibold text-foreground tracking-tight leading-tight">
+                      {behavioral.ready && behavioral.state.interpretation.headline
+                        ? behavioral.state.interpretation.headline
+                        : phase === "morning"
+                          ? "Calibrate Your Day."
+                          : phase === "midday"
+                            ? "Deep Execution."
+                            : "Reflect and Reset."}
+                    </h1>
+                    <p className="mt-4 text-muted-foreground text-base lg:text-lg max-w-[45ch] leading-relaxed">
+                      {behavioral.ready && behavioral.state.interpretation.supporting.length > 0
+                        ? behavioral.state.interpretation.supporting[0]
+                        : subtitle}
+                    </p>
+                  </div>
 
-                <div className="flex flex-wrap gap-2.5 pt-2">
-                  {showUserStatePill && (
-                    <Pill tone={stateTone} className="px-4 py-1.5 text-xs font-bold">
-                      {stateLabel}
-                    </Pill>
-                  )}
-                  {consistencyReadiness.hasMinimum && (
-                    <Pill tone="accent" className="px-4 py-1.5 text-xs font-bold">
-                      {consistency}% Consistency
-                    </Pill>
-                  )}
-                  {recoveryMode && (
-                    <Pill tone="warning" className="px-4 py-1.5 text-xs font-bold">
-                      Recovery Active
-                    </Pill>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center lg:items-end">
-                {todayScoreReadiness.hasMinimum ? (
-                  <div className="relative">
-                    <Ring value={score} size={200} stroke={16} label="Score" sub="Today" />
-                    {delta !== 0 && momentumReadiness.hasMinimum && (
-                      <motion.div
-                        initial={{ scale: 0, rotate: -20 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        className={`absolute -right-3 -top-3 flex h-14 w-14 items-center justify-center rounded-full hairline bg-card text-xs font-black shadow-2xl ${delta > 0 ? "text-success" : "text-danger"}`}
+                  <div className="flex flex-wrap gap-2.5 pt-2">
+                    {behavioral.ready && (
+                      <Pill
+                        tone={trajectoryTone(behavioral.state.trajectory)}
+                        className="px-4 py-1.5 text-xs font-bold"
                       >
-                        {delta > 0 ? "+" : ""}
-                        {delta}
-                      </motion.div>
+                        {trajectoryLabel(behavioral.state.trajectory)}
+                      </Pill>
+                    )}
+                    {consistencyReadiness.hasMinimum && (
+                      <Pill tone="accent" className="px-4 py-1.5 text-xs font-bold">
+                        {consistency}% Consistency
+                      </Pill>
+                    )}
+                    {behavioral.shell.focusMode && (
+                      <Pill tone="accent" className="px-4 py-1.5 text-xs font-bold">
+                        Deep Work Active
+                      </Pill>
                     )}
                   </div>
-                ) : (
-                  <div className="hairline rounded-3xl px-6 py-8 text-center max-w-[260px]">
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                      Today's score
-                    </p>
-                    <p className="mt-3 text-sm text-foreground leading-relaxed">
-                      Appears after tonight's reflection.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+                </div>
+
+                <div className="flex flex-col items-center lg:items-end">
+                  {todayScoreReadiness.hasMinimum ? (
+                    <div className="relative">
+                      <Ring value={score} size={200} stroke={16} label="Score" sub="Today" />
+                      {delta !== 0 && momentumReadiness.hasMinimum && (
+                        <motion.div
+                          initial={{ scale: 0, rotate: -20 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          className={`absolute -right-3 -top-3 flex h-14 w-14 items-center justify-center rounded-full hairline bg-card text-xs font-black shadow-2xl ${delta > 0 ? "text-success" : "text-danger"}`}
+                        >
+                          {delta > 0 ? "+" : ""}
+                          {delta}
+                        </motion.div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="hairline rounded-3xl px-6 py-8 text-center max-w-[260px]">
+                      <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                        Today's score
+                      </p>
+                      <p className="mt-3 text-sm text-foreground leading-relaxed">
+                        Appears after tonight's reflection.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </AnimatePresence>
 
             {momentumReadiness.hasMinimum && (
               <div className="mt-12 pt-8 border-t border-border relative">
@@ -307,7 +322,7 @@ function Home() {
           </div>
         </StaggerItem>
 
-        {tasks.length > 0 && (
+        {tasks.length > 0 && shell.surfaceLevel !== "minimal" && (
           <StaggerItem className="lg:col-span-12">
             <Card className="hairline bg-card/50 backdrop-blur-md">
               <div className="flex items-center justify-between">
@@ -362,8 +377,15 @@ function Home() {
         )}
       </Stagger>
 
+      <section className="px-5 lg:px-0">
+        <InterventionSurface
+          surface={behavioral.interventions.ui.surface}
+          active={behavioral.interventions.active}
+        />
+      </section>
+
       {/* Score velocity warning — pre-burnout alert shown before score hits 45 */}
-      {velocity.declining && !recoveryMode && (
+      {velocity.declining && behavioral.tasks.workload.guidance === "reduce" && shell.surfaceLevel !== "minimal" && (
         <section className="px-5 lg:px-0">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -391,7 +413,7 @@ function Home() {
         </section>
       )}
 
-      {phase === "morning" && tomorrowBriefing.hasPlan && (
+      {shell.surfaceLevel !== "minimal" && phase === "morning" && tomorrowBriefing.hasPlan && (
         <section className="px-5 lg:px-0">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -444,7 +466,8 @@ function Home() {
       )}
 
       {/* Morning continuity — echo yesterday's reflection and north star */}
-      {phase === "morning" &&
+      {shell.surfaceLevel !== "minimal" &&
+        phase === "morning" &&
         yesterdayCheckIn &&
         (yesterdayCheckIn.reflection || yesterdayCheckIn.tomorrowFocus) && (
           <section className="px-5 lg:px-0">
@@ -484,7 +507,7 @@ function Home() {
         )}
 
       {/* Committed insight tracking card */}
-      {committedInsightData && committedInsightCard && (
+      {shell.surfaceLevel !== "minimal" && committedInsightData && committedInsightCard && (
         <section className="px-5 lg:px-0">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -526,7 +549,7 @@ function Home() {
       )}
 
       {/* Blocker pattern nudge */}
-      {blockerPattern.streak && blockerPattern.streak.days >= 3 && (
+      {shell.surfaceLevel === "full" && blockerPattern.streak && blockerPattern.streak.days >= 3 && (
         <section className="px-5 lg:px-0">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -559,11 +582,11 @@ function Home() {
           tasks={tasks}
           toggleTask={toggleTask}
           completed={completed}
-          recoveryMode={recoveryMode}
+          behavioral={behavioral}
         />
       </section>
 
-      {latestInsight && (
+      {shell.surfaceLevel !== "minimal" && latestInsight && (
         <div className="px-5 lg:px-0">
           <BehavioralNote
             title={latestInsight.title}
@@ -574,7 +597,7 @@ function Home() {
       )}
 
       <AnimatePresence>
-        {recoveryMode && (
+        {shell.surfaceLevel !== "minimal" && recoveryMode && (
           <motion.section
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -622,7 +645,7 @@ function Home() {
         )}
       </AnimatePresence>
 
-      <Stagger className="px-5 lg:px-0 grid grid-cols-2 gap-2.5 lg:grid-cols-4" gap={0.05}>
+      {shell.surfaceLevel === "full" && <Stagger className="px-5 lg:px-0 grid grid-cols-2 gap-2.5 lg:grid-cols-4" gap={0.05}>
         {[
           { to: "/dashboard", label: "Command center", desc: "Deep analytics", icon: Sparkles },
           { to: "/weekly", label: "Weekly report", desc: "Patterns this week", icon: Sparkles },
@@ -644,7 +667,7 @@ function Home() {
             </StaggerItem>
           );
         })}
-      </Stagger>
+      </Stagger>}
 
       <section className="px-5 lg:px-0">
         <Link to="/check-in">
@@ -711,12 +734,12 @@ function TasksSection({
   tasks,
   toggleTask,
   completed,
-  recoveryMode,
+  behavioral,
 }: {
   tasks: ReturnType<typeof useApp.getState>["tasks"];
   toggleTask: (id: string) => void;
   completed: number;
-  recoveryMode?: boolean;
+  behavioral: BehavioralView;
 }) {
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
@@ -726,18 +749,34 @@ function TasksSection({
   const resetDemo = useApp((s) => s.resetDemo);
   const taskIntel = useTaskIntelligence();
 
-  // In recovery mode, cap visible incomplete tasks to 3
-  const RECOVERY_CAP = 3;
+  const surfaceLevel = behavioral.shell.surfaceLevel;
+  const pipelineReady = behavioral.ready;
+  const { visibleTaskIds: pipelineVisibleIds, suppressedTaskIds } = behavioral.tasks.visibility;
+  const { visibleTaskLimit, overCapacity, guidance: workloadGuidance } = behavioral.tasks.workload;
+  const primaryTask = behavioral.tasks.primaryTask;
+
   const incompleteTasks = tasks.filter((t) => !t.done);
-  const visibleIncompleteTasks =
-    recoveryMode && incompleteTasks.length > RECOVERY_CAP
-      ? incompleteTasks.slice(0, RECOVERY_CAP)
-      : incompleteTasks;
-  const hiddenCount =
-    recoveryMode && incompleteTasks.length > RECOVERY_CAP
-      ? incompleteTasks.length - RECOVERY_CAP
-      : 0;
-  const visibleTaskIds = new Set([
+
+  // In minimal mode show only the primary task; otherwise use pipeline visibility/cap
+  const visibleIncompleteTasks = (() => {
+    if (surfaceLevel === "minimal") {
+      return primaryTask
+        ? incompleteTasks.filter((t) => t.id === primaryTask.id)
+        : [];
+    }
+    if (pipelineReady) {
+      const allowedSet = new Set(pipelineVisibleIds);
+      const filtered = allowedSet.size > 0
+        ? incompleteTasks.filter((t) => allowedSet.has(t.id))
+        : incompleteTasks;
+      return filtered.slice(0, visibleTaskLimit);
+    }
+    return incompleteTasks;
+  })();
+
+  const hiddenCount = Math.max(0, incompleteTasks.length - visibleIncompleteTasks.length);
+
+  const visibleTaskIdSet = new Set([
     ...visibleIncompleteTasks.map((t) => t.id),
     ...tasks.filter((t) => t.done).map((t) => t.id),
   ]);
@@ -796,7 +835,7 @@ function TasksSection({
         )}
       </AnimatePresence>
 
-      <div>
+      {surfaceLevel !== "minimal" && <div>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold tracking-tight text-foreground uppercase opacity-60">
             Remaining Priorities
@@ -806,17 +845,18 @@ function TasksSection({
           </span>
         </div>
 
-        {recoveryMode && (
+        {overCapacity && workloadGuidance !== "expand" && (
           <div className="mb-3 flex items-start gap-2 rounded-xl bg-warning/8 border border-warning/20 px-3 py-2.5">
             <Shield className="h-3.5 w-3.5 text-warning mt-0.5 flex-none" />
             <span className="text-warning text-[11px] font-semibold leading-relaxed">
-              Recovery mode — system is protecting your capacity. Max 3 tasks visible today.
-              {hiddenCount > 0 ? ` (${hiddenCount} more hidden)` : ""}
+              {workloadGuidance === "reduce"
+                ? `System protecting your capacity.${hiddenCount > 0 ? ` (${hiddenCount} more hidden)` : ""}`
+                : `Holding current load — protect your depth window.${hiddenCount > 0 ? ` (${hiddenCount} more hidden)` : ""}`}
             </span>
           </div>
         )}
 
-        {!recoveryMode &&
+        {!overCapacity &&
           taskIntel.todayLoadRisk === "overloaded" &&
           taskIntel.typeBalanceWarning && (
             <div className="mb-3 flex items-start gap-2 rounded-xl bg-warning/8 border border-warning/20 px-3 py-2.5">
@@ -831,7 +871,7 @@ function TasksSection({
             const done = t.done;
             const isActive = nextTask?.id === t.id;
             if (isActive && !done) return null; // Already shown in focus mode
-            if (!visibleTaskIds.has(t.id)) return null; // Hidden by recovery cap
+            if (!visibleTaskIdSet.has(t.id)) return null; // Hidden by pipeline cap
 
             return (
               <div key={t.id} className="group relative">
@@ -966,7 +1006,27 @@ function TasksSection({
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
+}
+
+function trajectoryTone(
+  trajectory: "EXPANDING" | "STABLE" | "FRAGILE" | "CONTRACTING",
+): "success" | "neutral" | "warning" | "danger" {
+  switch (trajectory) {
+    case "EXPANDING":   return "success";
+    case "STABLE":      return "neutral";
+    case "FRAGILE":     return "warning";
+    case "CONTRACTING": return "danger";
+  }
+}
+
+function trajectoryLabel(trajectory: "EXPANDING" | "STABLE" | "FRAGILE" | "CONTRACTING"): string {
+  switch (trajectory) {
+    case "EXPANDING":   return "Expanding";
+    case "STABLE":      return "Stable";
+    case "FRAGILE":     return "Fragile";
+    case "CONTRACTING": return "Contracting";
+  }
 }
