@@ -26,6 +26,7 @@ import type { StateEvaluationContext } from '@/core/contracts/state/evaluation'
 import { generateSignalSnapshot } from '@/engine/signals/snapshot'
 import { evaluate as evaluateState } from '@/engine/state/state-engine'
 import { evaluateInterventions } from '@/engine/interventions/evaluate'
+import { buildStateExplanation } from '@/engine/state/explainability/build-state-explanation'
 
 // ---------------------------------------------------------------------------
 // Neutral sequencing decision — used when no Task Engine result is available
@@ -106,7 +107,15 @@ export function runBehavioralPipeline(input: PipelineRunnerInput): BehavioralPip
     },
   })
 
-  // ── 5. Assemble BehavioralPipeline ────────────────────────────────────────
+  // ── 5. State Explanation ──────────────────────────────────────────────────
+  // Engine-authored interpretation copy — the hook layer passes these strings
+  // through verbatim; no user-facing copy is authored outside the engine.
+  const stateExplanation = buildStateExplanation(
+    state,
+    transition ? context.previousMode : undefined,
+  )
+
+  // ── 6. Assemble BehavioralPipeline ────────────────────────────────────────
   const pipeline: BehavioralPipeline = {
     inputCollection:         dailyInputs[dailyInputs.length - 1] ?? emptyDailyInputs(),
     signalSnapshot,
@@ -116,6 +125,7 @@ export function runBehavioralPipeline(input: PipelineRunnerInput): BehavioralPip
     taskEvaluation:          [],              // populated externally when Task Engine runs
     sequencingDecision:      resolvedSequencing,
     interventionEvaluation:  interventionResult,
+    stateExplanation,
     // adaptationGeneration is omitted — Adaptation Engine not yet implemented
   }
 

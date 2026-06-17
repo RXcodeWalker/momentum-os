@@ -11,6 +11,7 @@ import type { TaskEvaluation, SequencingDecision } from '../tasks'
 import type { InterventionEvaluationResult } from '../interventions/evaluation'
 import type { AdaptationOutput } from '../adaptation/output'
 import type { SignalSnapshot } from '../signals/signal-snapshot'
+import type { StateExplanationResult } from '../state/explanation'
 
 /** Full pipeline wire type — orchestration assembles, engines produce fields. */
 export type BehavioralPipeline = {
@@ -25,5 +26,7 @@ export type BehavioralPipeline = {
   interventionEvaluation: InterventionEvaluationResult
   /** Optional until the Adaptation Engine is implemented. */
   adaptationGeneration?: AdaptationOutput
+  /** Engine-authored explanation of current state — source of all user-facing interpretation copy. */
+  stateExplanation?: StateExplanationResult
 }
 
