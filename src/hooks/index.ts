@@ -8,6 +8,8 @@
  */
 
 export { useBehavioralPipeline } from './useBehavioralPipeline'
+export { useMorningCalibration } from './useMorningCalibration'
+export type { MorningCalibrationHook } from './useMorningCalibration'
 
 export type {
   BehavioralView,

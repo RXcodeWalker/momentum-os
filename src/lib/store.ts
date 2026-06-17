@@ -137,6 +137,21 @@ export type StreakState = {
   quickRecoveries: number;
 };
 
+export type MorningCalibrationInput = {
+  sleepQuality: 'rough' | 'decent' | 'good'
+  bodyEnergy: 1 | 2 | 3 | 4 | 5
+  resistance: 'ready' | 'friction' | 'resistant'
+}
+
+export type MorningCalibration = {
+  date: string
+  inputs: MorningCalibrationInput
+  skipped: boolean
+  committedTaskId: string | null
+  intentionText: string | null
+  completedAt: string
+}
+
 export type TomorrowPlan = {
   northStar: string;
   suggestedTasks: {
@@ -210,6 +225,8 @@ type State = {
   recoverySuggestion: { reason: string; suggestedAt: string } | null;
   /** Last behavioral pipeline result — updated on each saveCheckIn(). null until first check-in. */
   lastPipelineResult: BehavioralPipeline | null;
+  /** Morning calibration record for today — null until first morning calibration. */
+  lastMorningCalibration: MorningCalibration | null;
 
   // Actions
   acceptTomorrowPlan: () => void;
@@ -245,6 +262,8 @@ type State = {
   addPrinciple: (p: string) => void;
   removePrinciple: (p: string) => void;
   refreshInsights: () => void;
+  saveMorningCalibration: (data: MorningCalibrationInput, committedTaskId: string | null, intentionText: string | null) => void;
+  skipMorningCalibration: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -282,6 +301,7 @@ export const useApp = create<State>()(
         consentedToAutoRecovery: false,
         recoverySuggestion: null,
         lastPipelineResult: null,
+        lastMorningCalibration: null,
         setup: {
           step: 0,
           completed: false,
@@ -980,6 +1000,80 @@ export const useApp = create<State>()(
             dataIsSeeded: true,
           });
         },
+        saveMorningCalibration: (data, committedTaskId, intentionText) => {
+          const s = get()
+          const SLEEP_QUALITY_MAP = { rough: 25, decent: 60, good: 90 } as const
+          const ENERGY_MAP = [20, 40, 60, 80, 100] as const
+          const RESISTANCE_MAP = { ready: 15, friction: 50, resistant: 85 } as const
+
+          const morningInputs = {
+            capturedAt: `${todayStr()}T07:00:00.000Z`,
+            sessionId: `morning-${todayStr()}`,
+            recoveryInputs: {
+              sleepQuality: SLEEP_QUALITY_MAP[data.sleepQuality],
+              physicalEnergy: ENERGY_MAP[data.bodyEnergy - 1],
+              mentalClarity: 65,
+            },
+            emotionalInputs: {
+              emotionalResistance: RESISTANCE_MAP[data.resistance],
+              overwhelm: 40,
+              stressPressure: 30,
+            },
+            executionInputs: { meaningfulAdvancementQuality: 65, deepWorkContinuity: 65, executionIntegrity: 65 },
+            behavioralInputs: { fragmentationLevel: 25, distractionPatterns: 25, avoidancePressure: 25, pacingQuality: 70 },
+          }
+
+          const morningEvidence = {
+            sessionId: `morning-${todayStr()}`,
+            capturedAt: `${todayStr()}T07:00:00.000Z`,
+            evidenceType: 'MANUAL_CALIBRATION' as const,
+            inputs: morningInputs,
+            completeness: 0.4,
+          }
+
+          const mergedEvidence = [morningEvidence, ...buildSessionEvidence(s.history, s.checkIns)]
+          const previousMode = s.lastPipelineResult?.stateInterpretation.currentMode
+          let lastPipelineResult = s.lastPipelineResult
+
+          try {
+            lastPipelineResult = runBehavioralPipeline({
+              evidence: mergedEvidence,
+              context: {
+                flowPhase: 'morning',
+                historicalSnapshots: [],
+                previousMode,
+              },
+              recentInterventions: [],
+            })
+          } catch {
+            // Pipeline failure is non-fatal — interpretation step will use previous result
+          }
+
+          const calibration: MorningCalibration = {
+            date: todayStr(),
+            inputs: data,
+            skipped: false,
+            committedTaskId,
+            intentionText,
+            completedAt: new Date().toISOString(),
+          }
+
+          set({ lastMorningCalibration: calibration, lastPipelineResult })
+        },
+
+        skipMorningCalibration: () => {
+          set({
+            lastMorningCalibration: {
+              date: todayStr(),
+              inputs: { sleepQuality: 'decent', bodyEnergy: 3, resistance: 'friction' },
+              skipped: true,
+              committedTaskId: null,
+              intentionText: null,
+              completedAt: new Date().toISOString(),
+            },
+          })
+        },
+
         dismissRecoverySuggestion: () => set({ recoverySuggestion: null }),
         acceptRecoverySuggestion: () => {
           const s = get();
@@ -994,7 +1088,7 @@ export const useApp = create<State>()(
     },
     {
       name: "cadence-store-v1",
-      version: 3,
+      version: 4,
       migrate: (persistedState, version) => {
         let s = persistedState as Partial<State>;
         if (version < 2) {
@@ -1034,6 +1128,9 @@ export const useApp = create<State>()(
             consentedToAutoRecovery: s.consentedToAutoRecovery ?? false,
             recoverySuggestion: s.recoverySuggestion ?? null,
           };
+        }
+        if (version < 4) {
+          s = { ...s, lastMorningCalibration: s.lastMorningCalibration ?? null }
         }
         return s as State;
       },

@@ -1,4 +1,4 @@
-import type { ConfidenceBand, Timestamp } from '../primitives'
+import type { ConfidenceBand, Timestamp } from "../primitives";
 
 /**
  * Semantic codes for state-level observations.
@@ -6,15 +6,19 @@ import type { ConfidenceBand, Timestamp } from '../primitives'
  * be updated for tone without breaking downstream switch logic on the code.
  */
 export type StateExplanationCode =
-  | 'RECOVERY_DEMAND_ELEVATED'
-  | 'COGNITIVE_LOAD_ACCUMULATING'
-  | 'EXECUTION_RHYTHM_BUILDING'
-  | 'EXPANSION_CONDITIONS_PRESENT'
-  | 'TRAJECTORY_IMPROVING'
-  | 'TRAJECTORY_DECLINING'
-  | 'TRAJECTORY_STABLE'
-  | 'EVIDENCE_SPARSE'
-  | 'TRANSITION_DETECTED'
+  | "RECOVERY_DEMAND_ELEVATED"
+  | "COGNITIVE_LOAD_ACCUMULATING"
+  | "EXECUTION_RHYTHM_BUILDING"
+  | "EXPANSION_CONDITIONS_PRESENT"
+  | "TRAJECTORY_IMPROVING"
+  | "TRAJECTORY_DECLINING"
+  | "TRAJECTORY_STABLE"
+  | "EVIDENCE_SPARSE"
+  | "TRANSITION_DETECTED"
+  | "MORNING_CONDITIONS_SUPPORTIVE"
+  | "MORNING_RECOVERY_INDICATED"
+  | "MORNING_FRICTION_ACKNOWLEDGED"
+  | "MORNING_CAPACITY_OBSERVED";
 
 /**
  * A single observational statement about current behavioral state.
@@ -25,10 +29,10 @@ export type StateExplanationCode =
  *   - formula-free (no weights, scores, or coefficients)
  */
 export type StateExplanation = {
-  code:        StateExplanationCode
-  observation: string
-  confidence:  ConfidenceBand
-}
+  code: StateExplanationCode;
+  observation: string;
+  confidence: ConfidenceBand;
+};
 
 /**
  * Full explainability output for a single pipeline evaluation.
@@ -38,9 +42,9 @@ export type StateExplanation = {
  * developer/debug transparency, not direct UI display.
  */
 export type StateExplanationResult = {
-  primary:              StateExplanation
-  supporting:           StateExplanation[]
-  modeRationale:        string
-  trajectoryRationale:  string
-  generatedAt:          Timestamp
-}
+  primary: StateExplanation;
+  supporting: StateExplanation[];
+  modeRationale: string;
+  trajectoryRationale: string;
+  generatedAt: Timestamp;
+};

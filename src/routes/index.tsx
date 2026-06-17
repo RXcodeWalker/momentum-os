@@ -36,6 +36,8 @@ import { Stagger, StaggerItem, TapCard, FadeUp } from "@/lib/motion";
 import { BehavioralNote } from "@/components/cards/BehavioralNote";
 import { InterventionSurface } from "@/components/cards/InterventionSurface";
 import { useBehavioralPipeline } from "@/hooks/useBehavioralPipeline";
+import { useMorningCalibration } from "@/hooks/useMorningCalibration";
+import { MorningCalibrationSheet } from "@/components/morning/MorningCalibrationSheet";
 import type { BehavioralView } from "@/hooks/internal/contracts";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -108,6 +110,10 @@ function Home() {
         ? "Slipping"
         : "Steady";
 
+  const saveMorningCalibration = useApp((s) => s.saveMorningCalibration);
+  const skipMorningCalibration = useApp((s) => s.skipMorningCalibration);
+  const morningCal = useMorningCalibration();
+
   const latestInsight = useLatestInsight();
   const tomorrowBriefing = useTomorrowBriefing();
   const acceptTomorrowPlan = useApp((s) => s.acceptTomorrowPlan);
@@ -137,6 +143,18 @@ function Home() {
 
   return (
     <div className="flex flex-col gap-5 pb-8 lg:gap-8 lg:pb-12">
+      {/* Morning calibration sheet */}
+      <AnimatePresence>
+        {morningCal.shouldShow && (
+          <MorningCalibrationSheet
+            onComplete={(inputs, committedTaskId, intentionText) => {
+              saveMorningCalibration(inputs, committedTaskId, intentionText);
+            }}
+            onSkip={skipMorningCalibration}
+          />
+        )}
+      </AnimatePresence>
+
       <ScreenHeader
         eyebrow={new Date().toLocaleDateString("en-US", {
           weekday: "long",
@@ -147,6 +165,12 @@ function Home() {
         subtitle={subtitle}
         right={
           <div className="flex items-center gap-2">
+            {morningCal.isComplete && (
+              <div className="flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-[11px] font-medium text-success">
+                <Sunrise className="h-3 w-3" />
+                Calibrated
+              </div>
+            )}
             {behavioral.ready && (
               <div className="hidden lg:flex items-center gap-2">
                 <Pill tone={trajectoryTone(behavioral.state.trajectory)}>
@@ -413,7 +437,39 @@ function Home() {
         </section>
       )}
 
-      {shell.surfaceLevel !== "minimal" && phase === "morning" && tomorrowBriefing.hasPlan && (
+      {/* Committed morning task pin */}
+      {morningCal.isComplete && morningCal.committedTask && (
+        <section className="px-5 lg:px-0">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <Card className="border-accent/20 bg-accent/5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/20 text-accent flex-none">
+                  <Zap className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-widest text-accent font-bold">
+                    Committed start
+                  </p>
+                  <p className="text-sm font-semibold text-foreground truncate mt-0.5">
+                    {morningCal.committedTask.label}
+                  </p>
+                </div>
+              </div>
+              {morningCal.calibration?.intentionText && (
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed pl-11 italic">
+                  "{morningCal.calibration.intentionText}"
+                </p>
+              )}
+            </Card>
+          </motion.div>
+        </section>
+      )}
+
+      {shell.surfaceLevel !== "minimal" && phase === "morning" && tomorrowBriefing.hasPlan && !morningCal.isComplete && (
         <section className="px-5 lg:px-0">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -468,6 +524,7 @@ function Home() {
       {/* Morning continuity — echo yesterday's reflection and north star */}
       {shell.surfaceLevel !== "minimal" &&
         phase === "morning" &&
+        !morningCal.isComplete &&
         yesterdayCheckIn &&
         (yesterdayCheckIn.reflection || yesterdayCheckIn.tomorrowFocus) && (
           <section className="px-5 lg:px-0">
