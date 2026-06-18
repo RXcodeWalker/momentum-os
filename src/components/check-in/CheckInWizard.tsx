@@ -47,6 +47,9 @@ export function CheckInWizard({
   const [blockers, setBlockers] = useState<Record<string, "time" | "energy" | "focus" | "other">>(
     {},
   );
+  const [meaningfulProgress, setMeaningfulProgress] = useState<
+    "yes" | "partial" | "no" | null
+  >(null);
 
   const completed = tasks.filter((t) => t.done).length;
 
@@ -68,6 +71,7 @@ export function CheckInWizard({
       planned,
       blockers,
       tomorrowFocus,
+      ...(meaningfulProgress != null ? { meaningfulProgress } : {}),
     });
   };
 
@@ -231,6 +235,26 @@ export function CheckInWizard({
       subtitle: "What stole your attention today?",
       content: (
         <div className="space-y-6">
+          <div className="space-y-3">
+            <p className="text-sm text-foreground">
+              Did the most important work get closer today?
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {(["yes", "partial", "no"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setMeaningfulProgress(v === meaningfulProgress ? null : v)}
+                  className={`rounded-2xl py-3 text-sm font-medium capitalize transition ${
+                    meaningfulProgress === v
+                      ? "bg-accent text-accent-foreground shadow-md shadow-accent/20"
+                      : "bg-card hairline text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {v === "yes" ? "Yes" : v === "partial" ? "Partially" : "Not today"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             {DISTRACTIONS.slice(0, 6).map((d) => {
               const Icon = d.icon;

@@ -14,8 +14,14 @@ import {
 } from "@/lib/sync";
 import { buildMigrationPayload } from "@/lib/migration";
 import type { BehavioralPipeline } from "@/core/contracts/pipeline/behavioral-pipeline";
+import type { EveningReflectionRecord } from "@/core/contracts/flow/reflection";
 import { buildSessionEvidence } from "@/engine/orchestrator/evidence-bridge";
 import { runBehavioralPipeline } from "@/engine/orchestrator/pipeline-runner";
+import {
+  evaluateReflection,
+  evaluatePatterns,
+  buildReflectionInputBundle,
+} from "@/engine/reflection";
 import {
   buildDemoHistory,
   buildDemoInsights,
@@ -85,6 +91,7 @@ export type CheckIn = {
   blockers: Record<string, string>;
   tomorrowFocus?: string;
   reflection?: string;
+  meaningfulProgress?: 'yes' | 'partial' | 'no';
 };
 
 export type OnboardingProfile = {
@@ -227,6 +234,10 @@ type State = {
   lastPipelineResult: BehavioralPipeline | null;
   /** Morning calibration record for today — null until first morning calibration. */
   lastMorningCalibration: MorningCalibration | null;
+  /** Last evening reflection result — updated on each saveCheckIn(). null until first check-in. */
+  lastReflectionResult: EveningReflectionRecord | null;
+  /** Rolling history of evening reflection records, pruned to 28 entries. */
+  reflectionHistory: EveningReflectionRecord[];
 
   // Actions
   acceptTomorrowPlan: () => void;
@@ -302,6 +313,8 @@ export const useApp = create<State>()(
         recoverySuggestion: null,
         lastPipelineResult: null,
         lastMorningCalibration: null,
+        lastReflectionResult: null,
+        reflectionHistory: [],
         setup: {
           step: 0,
           completed: false,
@@ -595,6 +608,68 @@ export const useApp = create<State>()(
             // Pipeline failure is non-fatal — keep previous result
           }
 
+          // Run reflection engine. Non-fatal: falls back to existing result.
+          let lastReflectionResult: EveningReflectionRecord | null = s.lastReflectionResult
+          let reflectionHistory: EveningReflectionRecord[] = s.reflectionHistory
+          try {
+            const reflBundle = buildReflectionInputBundle(data, s.tasks, history)
+            const reflOutput = evaluateReflection(reflBundle, history, s.checkIns.slice(-7))
+
+            const pipelineMode = lastPipelineResult?.stateInterpretation.currentMode ?? 'FOCUSED'
+            const pipelineTraj = lastPipelineResult?.stateInterpretation.currentTrajectory ?? 'STABLE'
+            const overloadRisk = lastPipelineResult?.stateInterpretation.overloadRisk ?? 'LOW'
+
+            const workloadGuidance: EveningReflectionRecord['workloadGuidance'] =
+              pipelineMode === 'RECOVERY'
+                ? 'REDUCE'
+                : overloadRisk === 'HIGH' || overloadRisk === 'CRITICAL'
+                  ? 'REDUCE'
+                  : pipelineMode === 'EXPANDING' && overloadRisk === 'LOW'
+                    ? 'EXPAND'
+                    : 'HOLD'
+
+            if (lastPipelineResult) {
+              const patternResult = evaluatePatterns(
+                reflOutput,
+                lastPipelineResult,
+                reflectionHistory,
+              )
+
+              const band: EveningReflectionRecord['confidenceContext']['band'] =
+                reflOutput.historyDays >= 7 &&
+                reflOutput.evidenceCompleteness >= 0.8
+                  ? 'HIGH'
+                  : reflOutput.historyDays >= 3
+                    ? 'MEDIUM'
+                    : 'LOW'
+
+              const record: EveningReflectionRecord = {
+                date: todayStr(),
+                reflectionScalars: reflOutput.scalars,
+                observations: patternResult.observations,
+                suppressionApplied: patternResult.suppressionApplied,
+                suppressedCodes: patternResult.suppressedCodes,
+                workloadGuidance,
+                confidenceContext: {
+                  band,
+                  historyDays: reflOutput.historyDays,
+                  reflectionCompleteness: reflOutput.evidenceCompleteness,
+                },
+                generatedAt: new Date().toISOString(),
+                pipelineSnapshotMode: pipelineMode,
+                pipelineSnapshotTrajectory: pipelineTraj,
+              }
+
+              lastReflectionResult = record
+              reflectionHistory = [
+                ...reflectionHistory.filter((r) => r.date !== todayStr()),
+                record,
+              ].slice(-28)
+            }
+          } catch {
+            // Reflection failure is non-fatal — keep previous result
+          }
+
           // Recovery exit hysteresis: require 2 consecutive days >= 65, not a single spike > 70
           const wasRecovery = s.recoveryMode;
           let recoveryHighScoreDays = s.recoveryHighScoreDays ?? 0;
@@ -634,6 +709,8 @@ export const useApp = create<State>()(
             streaks,
             tomorrowPlan,
             lastPipelineResult,
+            lastReflectionResult,
+            reflectionHistory,
           }));
 
           const userId = get().currentUserId;
@@ -1088,7 +1165,7 @@ export const useApp = create<State>()(
     },
     {
       name: "cadence-store-v1",
-      version: 4,
+      version: 5,
       migrate: (persistedState, version) => {
         let s = persistedState as Partial<State>;
         if (version < 2) {
@@ -1131,6 +1208,13 @@ export const useApp = create<State>()(
         }
         if (version < 4) {
           s = { ...s, lastMorningCalibration: s.lastMorningCalibration ?? null }
+        }
+        if (version < 5) {
+          s = {
+            ...s,
+            lastReflectionResult: (s as Partial<State>).lastReflectionResult ?? null,
+            reflectionHistory: (s as Partial<State>).reflectionHistory ?? [],
+          }
         }
         return s as State;
       },

@@ -11,3 +11,11 @@ export type EveningReflectionOutput = {
   updatedTrajectory: UserTrajectory
 }
 
+export type {
+  ReflectionScalars,
+  ReflectionOutput,
+  EveningObservationCode,
+  SurfaceableObservation,
+  EveningReflectionRecord,
+} from './reflection'
+
