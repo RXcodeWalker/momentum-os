@@ -31,10 +31,9 @@ export function useFocusEnvironment(): FocusEnvironmentView {
     let entryAllowed: boolean
     if (hasBurnoutBlock || hasOverloadBlock || hasRestartBlock) {
       entryAllowed = false
-    } else if (mode === 'RECOVERY') {
-      entryAllowed = primaryTask !== null
     } else {
-      entryAllowed = true
+      // A primary task must exist in all modes — focus without a task to anchor is structurally empty
+      entryAllowed = primaryTask !== null
     }
 
     // --- entryAutoSuggested ---

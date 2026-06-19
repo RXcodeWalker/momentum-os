@@ -1,7 +1,9 @@
-import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, StatLabel } from '@/components/ui-bits'
+import { useApp } from '@/lib/store'
 import type { BehavioralInterventionsView } from '@/hooks/internal/contracts'
+
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
 
 type Props = {
   surface: BehavioralInterventionsView['ui']['surface']
@@ -9,9 +11,17 @@ type Props = {
 }
 
 export function InterventionSurface({ surface, active }: Props) {
-  const [acknowledged, setAcknowledged] = useState(false)
+  const acknowledgedInterventions = useApp((s) => s.acknowledgedInterventions)
+  const acknowledgeIntervention = useApp((s) => s.acknowledgeIntervention)
 
   const primary = active[0]
+  const isAcknowledged = primary
+    ? acknowledgedInterventions.some(
+        (a) =>
+          a.type === primary.type &&
+          Date.now() - new Date(a.acknowledgedAt).getTime() < TWENTY_FOUR_HOURS_MS,
+      )
+    : false
 
   return (
     <AnimatePresence mode="wait">
@@ -45,7 +55,7 @@ export function InterventionSurface({ surface, active }: Props) {
         </motion.div>
       )}
 
-      {surface === 'modal' && primary && !acknowledged && (
+      {surface === 'modal' && primary && !isAcknowledged && (
         <motion.div
           key="modal"
           initial={{ opacity: 0 }}
@@ -70,7 +80,7 @@ export function InterventionSurface({ surface, active }: Props) {
                 </p>
               )}
               <button
-                onClick={() => setAcknowledged(true)}
+                onClick={() => acknowledgeIntervention(primary.type)}
                 className="w-full rounded-2xl bg-foreground py-3 text-sm font-bold text-background"
               >
                 Got it

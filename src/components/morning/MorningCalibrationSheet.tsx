@@ -226,7 +226,6 @@ function CommitmentStep({
   resistance: MorningCalibrationInput["resistance"];
   onCommit: (choice: CommitChoice, intentionText: string) => void;
 }) {
-  const tasks = useApp((s) => s.tasks);
   const tomorrowPlan = useApp((s) => s.tomorrowPlan);
   const behavioral = useBehavioralPipeline();
   const [newTaskLabel, setNewTaskLabel] = useState("");
@@ -235,59 +234,29 @@ function CommitmentStep({
 
   const mode = behavioral.ready ? behavioral.state.mode : "FOCUSED";
 
-  // selectMorningTaskRecommendation — temporary orchestration logic.
-  // TODO: Once the Sequencing Engine owns morning recommendation, this will be
-  // replaced by SequencingDecision output from runBehavioralPipeline().
-  const { primary: primaryTask, secondary: secondaryTask } = (() => {
-    const incompleteTasks = tasks.filter((t) => !t.done);
-    const planTasks = tomorrowPlan?.suggestedTasks ?? [];
+  // Route task recommendations through the behavioral pipeline (Task Engine authority).
+  // resistance-aware display: if 'resistant', offer secondary as the lighter start option.
+  const pipelinePrimary = behavioral.tasks.primaryTask;
+  const pipelineSecondary = behavioral.tasks.secondaryTask;
 
-    const preferMovement = resistance === "resistant" || mode === "RECOVERY";
-    const preferDeep = resistance === "ready" && (mode === "FOCUSED" || mode === "EXPANDING");
+  // Fall back to tomorrowPlan if pipeline has no task recommendation yet
+  const fallbackPrimary = tomorrowPlan?.suggestedTasks[0]
+    ? { taskId: tomorrowPlan.suggestedTasks[0].originalTaskId ?? null, taskLabel: tomorrowPlan.suggestedTasks[0].label }
+    : null;
+  const fallbackSecondary = tomorrowPlan?.suggestedTasks[1]
+    ? { taskId: tomorrowPlan.suggestedTasks[1].originalTaskId ?? null, taskLabel: tomorrowPlan.suggestedTasks[1].label }
+    : null;
 
-    function scoreTask(type: string): number {
-      if (preferMovement && (type === "movement" || type === "wind-down")) return 3;
-      if (preferDeep && type === "deep") return 3;
-      if (!preferMovement && !preferDeep && (type === "shallow" || type === "admin")) return 2;
-      if (type === "movement") return 1;
-      return 0;
-    }
+  const resolvedPrimary = pipelinePrimary
+    ? { taskId: pipelinePrimary.id, taskLabel: pipelinePrimary.label }
+    : fallbackPrimary;
+  const resolvedSecondary = pipelineSecondary
+    ? { taskId: pipelineSecondary.id, taskLabel: pipelineSecondary.label }
+    : fallbackSecondary;
 
-    // Try tomorrowPlan tasks first
-    if (planTasks.length > 0) {
-      const sorted = [...planTasks].sort((a, b) => scoreTask(b.type) - scoreTask(a.type));
-      const topPlan = sorted[0];
-      const secondPlan = sorted[1] ?? null;
-
-      const primaryId =
-        topPlan.source === "rescheduled" && topPlan.originalTaskId ? topPlan.originalTaskId : null;
-      const secondaryId =
-        secondPlan?.source === "rescheduled" && secondPlan.originalTaskId
-          ? secondPlan.originalTaskId
-          : null;
-
-      return {
-        primary: { taskId: primaryId, taskLabel: topPlan.label },
-        secondary: secondPlan ? { taskId: secondaryId, taskLabel: secondPlan.label } : null,
-      };
-    }
-
-    // Fall back to store tasks
-    if (incompleteTasks.length > 0) {
-      const sorted = [...incompleteTasks]
-        .filter((t) => (t.rescheduled ?? 0) < 2)
-        .sort((a, b) => scoreTask(b.type) - scoreTask(a.type));
-      const top = sorted[0] ?? incompleteTasks[0];
-      const second = sorted[1] ?? incompleteTasks[1] ?? null;
-
-      return {
-        primary: top ? { taskId: top.id, taskLabel: top.label } : null,
-        secondary: second ? { taskId: second.id, taskLabel: second.label } : null,
-      };
-    }
-
-    return { primary: null, secondary: null };
-  })();
+  // Resistance-aware display swap: 'resistant' users see the lighter task first
+  const primaryTask = resistance === "resistant" && resolvedSecondary ? resolvedSecondary : resolvedPrimary;
+  const secondaryTask = resistance === "resistant" && resolvedSecondary ? resolvedPrimary : resolvedSecondary;
 
   const showIntentionField = mode !== "RECOVERY";
   const showSecondary = mode !== "RECOVERY" && secondaryTask !== null;
@@ -389,14 +358,13 @@ function CommitmentStep({
 // ---------------------------------------------------------------------------
 
 export function MorningCalibrationSheet({
+  onInputsApplied,
   onComplete,
   onSkip,
 }: {
-  onComplete: (
-    inputs: MorningCalibrationInput,
-    committedTaskId: string | null,
-    intentionText: string | null,
-  ) => void;
+  /** Called at end of step 1 — triggers pipeline run before InterpretationStep renders. */
+  onInputsApplied: (inputs: MorningCalibrationInput) => void;
+  onComplete: (committedTaskId: string | null, intentionText: string | null) => void;
   onSkip: () => void;
 }) {
   const [step, setStep] = useState<Step>("inputs");
@@ -471,6 +439,7 @@ export function MorningCalibrationSheet({
                 <InputsStep
                   onNext={(calibrationInputs) => {
                     setInputs(calibrationInputs);
+                    onInputsApplied(calibrationInputs); // runs pipeline before interpretation renders
                     setStep("interpretation");
                   }}
                 />
@@ -500,7 +469,7 @@ export function MorningCalibrationSheet({
                 <CommitmentStep
                   resistance={inputs.resistance}
                   onCommit={(choice, intentionText) => {
-                    onComplete(inputs, choice.taskId, intentionText || null);
+                    onComplete(choice.taskId, intentionText || null);
                   }}
                 />
               </motion.div>

@@ -113,7 +113,8 @@ function Home() {
         ? "Slipping"
         : "Steady";
 
-  const saveMorningCalibration = useApp((s) => s.saveMorningCalibration);
+  const applyMorningInputs = useApp((s) => s.applyMorningInputs);
+  const commitMorningTask = useApp((s) => s.commitMorningTask);
   const skipMorningCalibration = useApp((s) => s.skipMorningCalibration);
   const morningCal = useMorningCalibration();
 
@@ -186,8 +187,9 @@ function Home() {
       <AnimatePresence>
         {morningCal.shouldShow && (
           <MorningCalibrationSheet
-            onComplete={(inputs, committedTaskId, intentionText) => {
-              saveMorningCalibration(inputs, committedTaskId, intentionText);
+            onInputsApplied={applyMorningInputs}
+            onComplete={(committedTaskId, intentionText) => {
+              commitMorningTask(committedTaskId, intentionText);
             }}
             onSkip={skipMorningCalibration}
           />

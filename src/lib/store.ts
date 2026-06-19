@@ -18,6 +18,7 @@ import type { EveningReflectionRecord } from "@/core/contracts/flow/reflection";
 import type { FocusEnvironmentState, FocusEntrySource, FocusExitReason } from "@/core/contracts/focus/environment";
 import { buildSessionEvidence } from "@/engine/orchestrator/evidence-bridge";
 import { runBehavioralPipeline } from "@/engine/orchestrator/pipeline-runner";
+import { readRecentAuditRecords, writeAuditRecord } from "@/persistence/intervention-audit";
 import {
   evaluateReflection,
   evaluatePatterns,
@@ -241,6 +242,8 @@ type State = {
   reflectionHistory: EveningReflectionRecord[];
   /** Focus Environment state — persisted so it survives page refresh. */
   focusEnvironment: FocusEnvironmentState;
+  /** Persisted acknowledgements for level-3 intervention modals — cleared after 24h. */
+  acknowledgedInterventions: { type: string; acknowledgedAt: string }[];
 
   // Actions
   acceptTomorrowPlan: () => void;
@@ -276,7 +279,9 @@ type State = {
   addPrinciple: (p: string) => void;
   removePrinciple: (p: string) => void;
   refreshInsights: () => void;
-  saveMorningCalibration: (data: MorningCalibrationInput, committedTaskId: string | null, intentionText: string | null) => void;
+  applyMorningInputs: (data: MorningCalibrationInput) => void;
+  commitMorningTask: (committedTaskId: string | null, intentionText: string | null) => void;
+  acknowledgeIntervention: (type: string) => void;
   skipMorningCalibration: () => void;
   enterFocusEnvironment: (source: FocusEntrySource) => void;
   exitFocusEnvironment: (reason: FocusExitReason) => void;
@@ -326,6 +331,7 @@ export const useApp = create<State>()(
           entrySource: null,
           lastManualDismissAt: null,
         },
+        acknowledgedInterventions: [],
         setup: {
           step: 0,
           completed: false,
@@ -600,10 +606,21 @@ export const useApp = create<State>()(
           };
 
           // Run behavioral pipeline on the updated evidence set.
-          // Non-fatal: a pipeline failure keeps the last known result.
-          const updatedCheckIns = [...s.checkIns, { ...data, date: todayStr() }]
+          // Non-fatal: a pipeline failure sets lastPipelineResult to null so downstream
+          // hooks degrade to their null/calibrating paths rather than using stale data.
+          const updatedCheckIns = [
+            ...s.checkIns.filter((c) => c.date !== todayStr()),
+            { ...data, date: todayStr() },
+          ]
           const pipelineEvidence = buildSessionEvidence(history, updatedCheckIns)
-          const previousEngineMode = s.lastPipelineResult?.stateInterpretation.currentMode
+          // F-11: guard against stale previousMode from a session weeks ago
+          const lastResultAge = s.lastPipelineResult
+            ? Date.now() - new Date(s.lastPipelineResult.inputCollection.capturedAt).getTime()
+            : Infinity
+          const previousEngineMode =
+            lastResultAge < 5 * 86400 * 1000
+              ? s.lastPipelineResult?.stateInterpretation.currentMode
+              : undefined
           let lastPipelineResult: BehavioralPipeline | null = s.lastPipelineResult
           try {
             lastPipelineResult = runBehavioralPipeline({
@@ -613,10 +630,24 @@ export const useApp = create<State>()(
                 historicalSnapshots: [],
                 previousMode: previousEngineMode,
               },
-              recentInterventions: [],
+              recentInterventions: readRecentAuditRecords(),
             })
-          } catch {
-            // Pipeline failure is non-fatal — keep previous result
+            // F-04: persist fired interventions so future pipeline runs enforce cooldowns
+            lastPipelineResult.interventionEvaluation.interventions
+              .filter((i) => i.level >= 1)
+              .forEach((i) =>
+                writeAuditRecord({
+                  interventionId: i.id,
+                  type: i.type,
+                  level: i.level,
+                  firedAt: new Date().toISOString(),
+                  flowPhase: 'evening',
+                  cooldownDurationHours: i.cooldownDurationHours,
+                }),
+              )
+          } catch (err) {
+            console.error('[pipeline] runBehavioralPipeline failed (saveCheckIn):', err)
+            lastPipelineResult = null
           }
 
           // Run reflection engine. Non-fatal: falls back to existing result.
@@ -624,7 +655,7 @@ export const useApp = create<State>()(
           let reflectionHistory: EveningReflectionRecord[] = s.reflectionHistory
           try {
             const reflBundle = buildReflectionInputBundle(data, s.tasks, history)
-            const reflOutput = evaluateReflection(reflBundle, history, s.checkIns.slice(-7))
+            const reflOutput = evaluateReflection(reflBundle, history, updatedCheckIns.slice(-7))
 
             const pipelineMode = lastPipelineResult?.stateInterpretation.currentMode ?? 'FOCUSED'
             const pipelineTraj = lastPipelineResult?.stateInterpretation.currentTrajectory ?? 'STABLE'
@@ -709,7 +740,7 @@ export const useApp = create<State>()(
 
           set((state) => ({
             history,
-            checkIns: [...state.checkIns, { ...data, date: todayStr() }],
+            checkIns: updatedCheckIns,
             recoveryMode: nextRecoveryMode,
             recoveryHighScoreDays,
             recoverySuggestion: nextSuggestion,
@@ -768,14 +799,28 @@ export const useApp = create<State>()(
         acceptTomorrowPlan: () => {
           const plan = get().tomorrowPlan;
           if (!plan) return;
-          const newTasks: Task[] = plan.suggestedTasks.map((t, i) => ({
-            id: `tp-${Date.now()}-${i}`,
-            label: t.label,
-            estMin: t.estMin,
-            done: false,
-            type: t.type,
-          }));
-          set({ tasks: newTasks, tomorrowPlan: null });
+          const existing = get().tasks;
+          let updated = [...existing];
+          for (const pt of plan.suggestedTasks) {
+            if (pt.source === 'rescheduled' && pt.originalTaskId) {
+              // Update original task in-place — preserves rescheduled counter
+              updated = updated.map((t) =>
+                t.id === pt.originalTaskId ? { ...t, label: pt.label, estMin: pt.estMin } : t,
+              );
+            } else {
+              // Add generated task only when no existing task has the same label
+              if (!updated.some((t) => t.label === pt.label)) {
+                updated.push({
+                  id: `tp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                  label: pt.label,
+                  estMin: pt.estMin,
+                  done: false,
+                  type: pt.type,
+                });
+              }
+            }
+          }
+          set({ tasks: updated, tomorrowPlan: null });
         },
         setPremium: (v) => set({ premium: v }),
         setCheckInStyle: (style) => set({ checkInStyle: style }),
@@ -1088,7 +1133,7 @@ export const useApp = create<State>()(
             dataIsSeeded: true,
           });
         },
-        saveMorningCalibration: (data, committedTaskId, intentionText) => {
+        applyMorningInputs: (data) => {
           const s = get()
           const SLEEP_QUALITY_MAP = { rough: 25, decent: 60, good: 90 } as const
           const ENERGY_MAP = [20, 40, 60, 80, 100] as const
@@ -1120,8 +1165,15 @@ export const useApp = create<State>()(
           }
 
           const mergedEvidence = [morningEvidence, ...buildSessionEvidence(s.history, s.checkIns)]
-          const previousMode = s.lastPipelineResult?.stateInterpretation.currentMode
-          let lastPipelineResult = s.lastPipelineResult
+          // F-11: guard against stale previousMode from a session weeks ago
+          const lastResultAge = s.lastPipelineResult
+            ? Date.now() - new Date(s.lastPipelineResult.inputCollection.capturedAt).getTime()
+            : Infinity
+          const previousMode =
+            lastResultAge < 5 * 86400 * 1000
+              ? s.lastPipelineResult?.stateInterpretation.currentMode
+              : undefined
+          let lastPipelineResult: BehavioralPipeline | null = s.lastPipelineResult
 
           try {
             lastPipelineResult = runBehavioralPipeline({
@@ -1131,22 +1183,60 @@ export const useApp = create<State>()(
                 historicalSnapshots: [],
                 previousMode,
               },
-              recentInterventions: [],
+              recentInterventions: readRecentAuditRecords(),
             })
-          } catch {
-            // Pipeline failure is non-fatal — interpretation step will use previous result
+            // F-04: persist fired interventions so future pipeline runs enforce cooldowns
+            lastPipelineResult.interventionEvaluation.interventions
+              .filter((i) => i.level >= 1)
+              .forEach((i) =>
+                writeAuditRecord({
+                  interventionId: i.id,
+                  type: i.type,
+                  level: i.level,
+                  firedAt: new Date().toISOString(),
+                  flowPhase: 'morning',
+                  cooldownDurationHours: i.cooldownDurationHours,
+                }),
+              )
+          } catch (err) {
+            console.error('[pipeline] runBehavioralPipeline failed (applyMorningInputs):', err)
+            lastPipelineResult = null
           }
 
           const calibration: MorningCalibration = {
             date: todayStr(),
             inputs: data,
             skipped: false,
-            committedTaskId,
-            intentionText,
+            committedTaskId: null,
+            intentionText: null,
             completedAt: new Date().toISOString(),
           }
 
           set({ lastMorningCalibration: calibration, lastPipelineResult })
+        },
+
+        commitMorningTask: (committedTaskId, intentionText) => {
+          const s = get()
+          if (!s.lastMorningCalibration) return
+          set({
+            lastMorningCalibration: {
+              ...s.lastMorningCalibration,
+              committedTaskId,
+              intentionText,
+            },
+          })
+        },
+
+        acknowledgeIntervention: (type: string) => {
+          const cutoff = Date.now() - 24 * 60 * 60 * 1000
+          set((s) => ({
+            acknowledgedInterventions: [
+              ...s.acknowledgedInterventions.filter(
+                (a) => new Date(a.acknowledgedAt).getTime() > cutoff,
+              ),
+              { type, acknowledgedAt: new Date().toISOString() },
+            ],
+          }))
         },
 
         skipMorningCalibration: () => {
@@ -1200,7 +1290,7 @@ export const useApp = create<State>()(
     },
     {
       name: "cadence-store-v1",
-      version: 6,
+      version: 7,
       migrate: (persistedState, version) => {
         let s = persistedState as Partial<State>;
         if (version < 2) {
@@ -1260,6 +1350,12 @@ export const useApp = create<State>()(
               entrySource: null,
               lastManualDismissAt: null,
             },
+          }
+        }
+        if (version < 7) {
+          s = {
+            ...s,
+            acknowledgedInterventions: (s as Partial<State>).acknowledgedInterventions ?? [],
           }
         }
         return s as State;
