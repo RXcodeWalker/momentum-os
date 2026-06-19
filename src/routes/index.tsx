@@ -31,7 +31,7 @@ import {
   useInsightEffectiveness,
   useScoreVelocity,
 } from "@/lib/store";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Stagger, StaggerItem, TapCard, FadeUp } from "@/lib/motion";
 import { BehavioralNote } from "@/components/cards/BehavioralNote";
 import { InterventionSurface } from "@/components/cards/InterventionSurface";
@@ -39,6 +39,9 @@ import { useBehavioralPipeline } from "@/hooks/useBehavioralPipeline";
 import { useMorningCalibration } from "@/hooks/useMorningCalibration";
 import { MorningCalibrationSheet } from "@/components/morning/MorningCalibrationSheet";
 import type { BehavioralView } from "@/hooks/internal/contracts";
+import { useFocusEnvironment } from "@/hooks/internal/useFocusEnvironment";
+import type { FocusEnvironmentView } from "@/core/contracts/focus/environment";
+import { useFocusInactivityTimer } from "@/hooks/useFocusInactivityTimer";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { MetricSurface } from "@/components/MetricSurface";
@@ -114,6 +117,25 @@ function Home() {
   const skipMorningCalibration = useApp((s) => s.skipMorningCalibration);
   const morningCal = useMorningCalibration();
 
+  const focusEnv = useFocusEnvironment();
+  const enterFocusEnvironment = useApp((s) => s.enterFocusEnvironment);
+  const exitFocusEnvironment = useApp((s) => s.exitFocusEnvironment);
+  useFocusInactivityTimer();
+
+  // Track held level-2 interventions so they surface after focus exits
+  const heldInterventionsRef = useRef<typeof focusEnv.heldInterventions>([]);
+  const [postFocusInterventions, setPostFocusInterventions] = useState<typeof focusEnv.heldInterventions>([]);
+  // Update the ref whenever focus is active and there are held interventions
+  useEffect(() => {
+    if (focusEnv.active && focusEnv.heldInterventions.length > 0) {
+      heldInterventionsRef.current = focusEnv.heldInterventions;
+    }
+    if (!focusEnv.active && heldInterventionsRef.current.length > 0) {
+      setPostFocusInterventions(heldInterventionsRef.current);
+      heldInterventionsRef.current = [];
+    }
+  }, [focusEnv.active, focusEnv.heldInterventions]);
+
   const latestInsight = useLatestInsight();
   const tomorrowBriefing = useTomorrowBriefing();
   const acceptTomorrowPlan = useApp((s) => s.acceptTomorrowPlan);
@@ -140,6 +162,23 @@ function Home() {
   const recoveryDay = recoveryPlan?.startedAt
     ? Math.floor((Date.now() - new Date(recoveryPlan.startedAt).getTime()) / 86400000) + 1
     : 1;
+
+  // Auto-exit focus environment when mode transitions to RECOVERY (§3.4)
+  useEffect(() => {
+    if (focusEnv.active && behavioral.state.mode === "RECOVERY" && focusEnv.primaryTask === null) {
+      exitFocusEnvironment("state-transition");
+    }
+  }, [focusEnv.active, behavioral.state.mode, focusEnv.primaryTask, exitFocusEnvironment]);
+
+  // Auto-exit focus environment when OVERLOAD fires while active (§9.2)
+  useEffect(() => {
+    if (focusEnv.active) {
+      const hasOverload = behavioral.interventions.active.some(
+        (i) => i.type === "OVERLOAD" && i.level >= 1,
+      );
+      if (hasOverload) exitFocusEnvironment("state-transition");
+    }
+  }, [focusEnv.active, behavioral.interventions.active, exitFocusEnvironment]);
 
   return (
     <div className="flex flex-col gap-5 pb-8 lg:gap-8 lg:pb-12">
@@ -188,7 +227,7 @@ function Home() {
         }
       />
 
-      {aiAlert.detected && (
+      {aiAlert.detected && !focusEnv.active && (
         <div className="px-5 lg:px-0">
           <BehavioralNote
             title={aiAlert.title || ""}
@@ -200,153 +239,171 @@ function Home() {
 
       <Stagger className="grid grid-cols-1 gap-4 px-5 lg:px-0 lg:grid-cols-12 lg:gap-6" gap={0.07}>
         <StaggerItem className="lg:col-span-12">
-          {/* Enhanced Focus Engine */}
-          <div className={`relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br ${heroTheme} p-8 hairline shadow-elegant lg:p-12`}>
-            <div className="bg-glow absolute inset-0 animate-pulse-glow" />
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`${behavioral.state.guidance.tone}::${behavioral.state.interpretation.headline}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.35 }}
-                className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-10"
+          {/* Hero card — full / compressed / absent based on focus environment state */}
+          {focusEnv.active && !focusEnv.heroCompressed ? null : focusEnv.heroCompressed ? (
+            /* Compressed hero bar: headline only, no ring, no sparkline */
+            <div className="relative overflow-hidden rounded-2xl bg-secondary/60 px-5 py-3 hairline flex items-center justify-between">
+              <p className="text-sm font-semibold text-foreground truncate">
+                {behavioral.ready && behavioral.state.interpretation.headline
+                  ? behavioral.state.interpretation.headline
+                  : "Execution in progress."}
+              </p>
+              <button
+                onClick={() => exitFocusEnvironment("interruption")}
+                className="ml-4 flex-none text-[11px] text-muted-foreground hover:text-foreground transition-colors"
               >
-                <div className="flex-1 space-y-6">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`h-2.5 w-2.5 rounded-full bg-accent animate-pulse shadow-[0_0_8px_var(--accent)]`}
-                    />
-                    <StatLabel className="text-accent font-bold tracking-[0.2em] uppercase text-[11px]">
-                      Active Phase: {phase}
-                    </StatLabel>
-                  </div>
+                Return to full view
+              </button>
+            </div>
+          ) : (
+            /* Full hero */
+            <div className={`relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br ${heroTheme} p-8 hairline shadow-elegant lg:p-12`}>
+              <div className="bg-glow absolute inset-0 animate-pulse-glow" />
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`${behavioral.state.guidance.tone}::${behavioral.state.interpretation.headline}`}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.35 }}
+                  className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-10"
+                >
+                  <div className="flex-1 space-y-6">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`h-2.5 w-2.5 rounded-full bg-accent animate-pulse shadow-[0_0_8px_var(--accent)]`}
+                      />
+                      <StatLabel className="text-accent font-bold tracking-[0.2em] uppercase text-[11px]">
+                        Active Phase: {phase}
+                      </StatLabel>
+                    </div>
 
-                  <div>
-                    <h1 className="text-4xl lg:text-5xl font-display font-semibold text-foreground tracking-tight leading-tight">
-                      {behavioral.ready && behavioral.state.interpretation.headline
-                        ? behavioral.state.interpretation.headline
-                        : phase === "morning"
-                          ? "Calibrate Your Day."
-                          : phase === "midday"
-                            ? "Deep Execution."
-                            : "Reflect and Reset."}
-                    </h1>
-                    <p className="mt-4 text-muted-foreground text-base lg:text-lg max-w-[45ch] leading-relaxed">
-                      {behavioral.ready && behavioral.state.interpretation.supporting.length > 0
-                        ? behavioral.state.interpretation.supporting[0]
-                        : subtitle}
-                    </p>
-                  </div>
+                    <div>
+                      <h1 className="text-4xl lg:text-5xl font-display font-semibold text-foreground tracking-tight leading-tight">
+                        {behavioral.ready && behavioral.state.interpretation.headline
+                          ? behavioral.state.interpretation.headline
+                          : phase === "morning"
+                            ? "Calibrate Your Day."
+                            : phase === "midday"
+                              ? "Deep Execution."
+                              : "Reflect and Reset."}
+                      </h1>
+                      <p className="mt-4 text-muted-foreground text-base lg:text-lg max-w-[45ch] leading-relaxed">
+                        {behavioral.ready && behavioral.state.interpretation.supporting.length > 0
+                          ? behavioral.state.interpretation.supporting[0]
+                          : subtitle}
+                      </p>
+                    </div>
 
-                  <div className="flex flex-wrap gap-2.5 pt-2">
-                    {behavioral.ready && (
-                      <Pill
-                        tone={trajectoryTone(behavioral.state.trajectory)}
-                        className="px-4 py-1.5 text-xs font-bold"
-                      >
-                        {trajectoryLabel(behavioral.state.trajectory)}
-                      </Pill>
-                    )}
-                    {consistencyReadiness.hasMinimum && (
-                      <Pill tone="accent" className="px-4 py-1.5 text-xs font-bold">
-                        {consistency}% Consistency
-                      </Pill>
-                    )}
-                    {behavioral.shell.focusMode && (
-                      <Pill tone="accent" className="px-4 py-1.5 text-xs font-bold">
-                        Deep Work Active
-                      </Pill>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-center lg:items-end">
-                  {todayScoreReadiness.hasMinimum ? (
-                    <div className="relative">
-                      <Ring value={score} size={200} stroke={16} label="Score" sub="Today" />
-                      {delta !== 0 && momentumReadiness.hasMinimum && (
-                        <motion.div
-                          initial={{ scale: 0, rotate: -20 }}
-                          animate={{ scale: 1, rotate: 0 }}
-                          className={`absolute -right-3 -top-3 flex h-14 w-14 items-center justify-center rounded-full hairline bg-card text-xs font-black shadow-2xl ${delta > 0 ? "text-success" : "text-danger"}`}
+                    <div className="flex flex-wrap gap-2.5 pt-2">
+                      {behavioral.ready && (
+                        <Pill
+                          tone={trajectoryTone(behavioral.state.trajectory)}
+                          className="px-4 py-1.5 text-xs font-bold"
                         >
-                          {delta > 0 ? "+" : ""}
-                          {delta}
-                        </motion.div>
+                          {trajectoryLabel(behavioral.state.trajectory)}
+                        </Pill>
+                      )}
+                      {consistencyReadiness.hasMinimum && (
+                        <Pill tone="accent" className="px-4 py-1.5 text-xs font-bold">
+                          {consistency}% Consistency
+                        </Pill>
+                      )}
+                      {behavioral.shell.focusMode && (
+                        <Pill tone="accent" className="px-4 py-1.5 text-xs font-bold">
+                          Deep Work Active
+                        </Pill>
                       )}
                     </div>
-                  ) : (
-                    <div className="hairline rounded-3xl px-6 py-8 text-center max-w-[260px]">
-                      <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                        Today's score
-                      </p>
-                      <p className="mt-3 text-sm text-foreground leading-relaxed">
-                        Appears after tonight's reflection.
-                      </p>
+                  </div>
+
+                  <div className="flex flex-col items-center lg:items-end">
+                    {todayScoreReadiness.hasMinimum ? (
+                      <div className="relative">
+                        <Ring value={score} size={200} stroke={16} label="Score" sub="Today" />
+                        {delta !== 0 && momentumReadiness.hasMinimum && (
+                          <motion.div
+                            initial={{ scale: 0, rotate: -20 }}
+                            animate={{ scale: 1, rotate: 0 }}
+                            className={`absolute -right-3 -top-3 flex h-14 w-14 items-center justify-center rounded-full hairline bg-card text-xs font-black shadow-2xl ${delta > 0 ? "text-success" : "text-danger"}`}
+                          >
+                            {delta > 0 ? "+" : ""}
+                            {delta}
+                          </motion.div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="hairline rounded-3xl px-6 py-8 text-center max-w-[260px]">
+                        <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                          Today's score
+                        </p>
+                        <p className="mt-3 text-sm text-foreground leading-relaxed">
+                          Appears after tonight's reflection.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              {momentumReadiness.hasMinimum && (
+                <div className="mt-12 pt-8 border-t border-border relative">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-bold">
+                      Execution Trend · {TREND_DAYS}d
+                    </span>
+                    <span className="text-[10px] font-bold text-accent uppercase tracking-[0.2em]">
+                      {Math.round((completed / Math.max(1, tasks.length)) * 100)}% Today
+                    </span>
+                  </div>
+
+                  <div className="flex items-end justify-between gap-1.5 h-12">
+                    {history.slice(-TREND_DAYS).map((d, i) => {
+                      const v = d.executionScore;
+                      const isToday = i === TREND_DAYS - 1;
+                      const tone =
+                        v >= 70
+                          ? "var(--accent)"
+                          : v >= 50
+                            ? "color-mix(in oklab, var(--accent) 45%, transparent)"
+                            : "color-mix(in oklab, var(--danger) 55%, transparent)";
+                      return (
+                        <motion.div
+                          key={d.date}
+                          initial={{ height: 4, opacity: 0 }}
+                          animate={{ height: `${4 + (v / 100) * 36}px`, opacity: 1 }}
+                          transition={{
+                            duration: 0.6,
+                            delay: 0.2 + i * 0.03,
+                            ease: [0.22, 1, 0.36, 1],
+                          }}
+                          className={`flex-1 rounded-full ${isToday ? "shadow-glow" : ""}`}
+                          style={{
+                            background: tone,
+                            border: isToday ? "1.5px solid var(--accent)" : "none",
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {tasks.length > 0 && (
+                    <div className="mt-8 h-2.5 w-full rounded-full bg-secondary overflow-hidden hairline">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(completed / Math.max(1, tasks.length)) * 100}%` }}
+                        transition={{ type: "spring", stiffness: 80, damping: 20 }}
+                        className="h-full bg-gradient-accent shadow-glow"
+                      />
                     </div>
                   )}
                 </div>
-              </motion.div>
-            </AnimatePresence>
-
-            {momentumReadiness.hasMinimum && (
-              <div className="mt-12 pt-8 border-t border-border relative">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-bold">
-                    Execution Trend · {TREND_DAYS}d
-                  </span>
-                  <span className="text-[10px] font-bold text-accent uppercase tracking-[0.2em]">
-                    {Math.round((completed / Math.max(1, tasks.length)) * 100)}% Today
-                  </span>
-                </div>
-
-                <div className="flex items-end justify-between gap-1.5 h-12">
-                  {history.slice(-TREND_DAYS).map((d, i) => {
-                    const v = d.executionScore;
-                    const isToday = i === TREND_DAYS - 1;
-                    const tone =
-                      v >= 70
-                        ? "var(--accent)"
-                        : v >= 50
-                          ? "color-mix(in oklab, var(--accent) 45%, transparent)"
-                          : "color-mix(in oklab, var(--danger) 55%, transparent)";
-                    return (
-                      <motion.div
-                        key={d.date}
-                        initial={{ height: 4, opacity: 0 }}
-                        animate={{ height: `${4 + (v / 100) * 36}px`, opacity: 1 }}
-                        transition={{
-                          duration: 0.6,
-                          delay: 0.2 + i * 0.03,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                        className={`flex-1 rounded-full ${isToday ? "shadow-glow" : ""}`}
-                        style={{
-                          background: tone,
-                          border: isToday ? "1.5px solid var(--accent)" : "none",
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-
-                {tasks.length > 0 && (
-                  <div className="mt-8 h-2.5 w-full rounded-full bg-secondary overflow-hidden hairline">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(completed / Math.max(1, tasks.length)) * 100}%` }}
-                      transition={{ type: "spring", stiffness: 80, damping: 20 }}
-                      className="h-full bg-gradient-accent shadow-glow"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </StaggerItem>
 
-        {tasks.length > 0 && shell.surfaceLevel !== "minimal" && (
+        {tasks.length > 0 && shell.surfaceLevel !== "minimal" && !focusEnv.active && (
           <StaggerItem className="lg:col-span-12">
             <Card className="hairline bg-card/50 backdrop-blur-md">
               <div className="flex items-center justify-between">
@@ -402,14 +459,25 @@ function Home() {
       </Stagger>
 
       <section className="px-5 lg:px-0">
+        {/* During focus: suppress level 0-1 (silent), hold level 2, still show level 3 modal */}
         <InterventionSurface
-          surface={behavioral.interventions.ui.surface}
-          active={behavioral.interventions.active}
+          surface={
+            focusEnv.active
+              ? behavioral.interventions.highestLevel >= 3
+                ? "modal"
+                : "none"
+              : behavioral.interventions.ui.surface
+          }
+          active={
+            focusEnv.active
+              ? behavioral.interventions.active.filter((i) => i.level === 3)
+              : behavioral.interventions.active
+          }
         />
       </section>
 
       {/* Score velocity warning — pre-burnout alert shown before score hits 45 */}
-      {velocity.declining && behavioral.tasks.workload.guidance === "reduce" && shell.surfaceLevel !== "minimal" && (
+      {velocity.declining && behavioral.tasks.workload.guidance === "reduce" && shell.surfaceLevel !== "minimal" && !focusEnv.active && (
         <section className="px-5 lg:px-0">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -469,7 +537,7 @@ function Home() {
         </section>
       )}
 
-      {shell.surfaceLevel !== "minimal" && phase === "morning" && tomorrowBriefing.hasPlan && !morningCal.isComplete && (
+      {shell.surfaceLevel !== "minimal" && phase === "morning" && tomorrowBriefing.hasPlan && !morningCal.isComplete && !focusEnv.active && (
         <section className="px-5 lg:px-0">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -525,6 +593,7 @@ function Home() {
       {shell.surfaceLevel !== "minimal" &&
         phase === "morning" &&
         !morningCal.isComplete &&
+        !focusEnv.active &&
         yesterdayCheckIn &&
         (yesterdayCheckIn.reflection || yesterdayCheckIn.tomorrowFocus) && (
           <section className="px-5 lg:px-0">
@@ -564,7 +633,7 @@ function Home() {
         )}
 
       {/* Committed insight tracking card */}
-      {shell.surfaceLevel !== "minimal" && committedInsightData && committedInsightCard && (
+      {shell.surfaceLevel !== "minimal" && committedInsightData && committedInsightCard && !focusEnv.active && (
         <section className="px-5 lg:px-0">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -606,7 +675,7 @@ function Home() {
       )}
 
       {/* Blocker pattern nudge */}
-      {shell.surfaceLevel === "full" && blockerPattern.streak && blockerPattern.streak.days >= 3 && (
+      {shell.surfaceLevel === "full" && blockerPattern.streak && blockerPattern.streak.days >= 3 && !focusEnv.active && (
         <section className="px-5 lg:px-0">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -634,16 +703,29 @@ function Home() {
         </section>
       )}
 
+      {/* Level-2 interventions held during focus — surfaced on exit */}
+      {postFocusInterventions.length > 0 && (
+        <section className="px-5 lg:px-0">
+          <InterventionSurface
+            surface="banner"
+            active={postFocusInterventions}
+          />
+        </section>
+      )}
+
       <section className="px-5 lg:px-0">
         <TasksSection
           tasks={tasks}
           toggleTask={toggleTask}
           completed={completed}
           behavioral={behavioral}
+          focusEnv={focusEnv}
+          onEnterFocus={() => enterFocusEnvironment("manual")}
+          onExitFocus={() => exitFocusEnvironment("interruption")}
         />
       </section>
 
-      {shell.surfaceLevel !== "minimal" && latestInsight && (
+      {shell.surfaceLevel !== "minimal" && latestInsight && !focusEnv.active && (
         <div className="px-5 lg:px-0">
           <BehavioralNote
             title={latestInsight.title}
@@ -654,7 +736,7 @@ function Home() {
       )}
 
       <AnimatePresence>
-        {shell.surfaceLevel !== "minimal" && recoveryMode && (
+        {shell.surfaceLevel !== "minimal" && recoveryMode && !focusEnv.active && (
           <motion.section
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -702,7 +784,7 @@ function Home() {
         )}
       </AnimatePresence>
 
-      {shell.surfaceLevel === "full" && <Stagger className="px-5 lg:px-0 grid grid-cols-2 gap-2.5 lg:grid-cols-4" gap={0.05}>
+      {shell.surfaceLevel === "full" && !focusEnv.active && <Stagger className="px-5 lg:px-0 grid grid-cols-2 gap-2.5 lg:grid-cols-4" gap={0.05}>
         {[
           { to: "/dashboard", label: "Command center", desc: "Deep analytics", icon: Sparkles },
           { to: "/weekly", label: "Weekly report", desc: "Patterns this week", icon: Sparkles },
@@ -792,11 +874,17 @@ function TasksSection({
   toggleTask,
   completed,
   behavioral,
+  focusEnv,
+  onEnterFocus,
+  onExitFocus,
 }: {
   tasks: ReturnType<typeof useApp.getState>["tasks"];
   toggleTask: (id: string) => void;
   completed: number;
   behavioral: BehavioralView;
+  focusEnv: FocusEnvironmentView;
+  onEnterFocus: () => void;
+  onExitFocus: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
@@ -808,18 +896,24 @@ function TasksSection({
 
   const surfaceLevel = behavioral.shell.surfaceLevel;
   const pipelineReady = behavioral.ready;
-  const { visibleTaskIds: pipelineVisibleIds, suppressedTaskIds } = behavioral.tasks.visibility;
+  const { visibleTaskIds: pipelineVisibleIds } = behavioral.tasks.visibility;
   const { visibleTaskLimit, overCapacity, guidance: workloadGuidance } = behavioral.tasks.workload;
-  const primaryTask = behavioral.tasks.primaryTask;
 
   const incompleteTasks = tasks.filter((t) => !t.done);
 
-  // In minimal mode show only the primary task; otherwise use pipeline visibility/cap
+  // Focus environment overrides task visibility
   const visibleIncompleteTasks = (() => {
+    if (focusEnv.active) {
+      const ids = [focusEnv.primaryTask?.id, focusEnv.secondaryTask?.id].filter(Boolean) as string[];
+      return ids.length > 0
+        ? incompleteTasks.filter((t) => ids.includes(t.id))
+        : focusEnv.primaryTask
+          ? incompleteTasks.filter((t) => t.id === focusEnv.primaryTask!.id)
+          : [];
+    }
     if (surfaceLevel === "minimal") {
-      return primaryTask
-        ? incompleteTasks.filter((t) => t.id === primaryTask.id)
-        : [];
+      const pt = behavioral.tasks.primaryTask;
+      return pt ? incompleteTasks.filter((t) => t.id === pt.id) : [];
     }
     if (pipelineReady) {
       const allowedSet = new Set(pipelineVisibleIds);
@@ -831,17 +925,40 @@ function TasksSection({
     return incompleteTasks;
   })();
 
-  const hiddenCount = Math.max(0, incompleteTasks.length - visibleIncompleteTasks.length);
+  const hiddenCount = focusEnv.active
+    ? focusEnv.hiddenCount
+    : Math.max(0, incompleteTasks.length - visibleIncompleteTasks.length);
 
   const visibleTaskIdSet = new Set([
     ...visibleIncompleteTasks.map((t) => t.id),
-    ...tasks.filter((t) => t.done).map((t) => t.id),
+    // Done tasks always visible in standard view; hidden during focus
+    ...(focusEnv.active ? [] : tasks.filter((t) => t.done).map((t) => t.id)),
   ]);
 
   const nextTask = visibleIncompleteTasks[0] ?? null;
 
+  // Auto-exit focus when primary task is completed (§3.1)
+  useEffect(() => {
+    if (focusEnv.active && focusEnv.primaryTask && tasks.find((t) => t.id === focusEnv.primaryTask!.id)?.done) {
+      onExitFocus();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, focusEnv.active, focusEnv.primaryTask]);
+
   return (
     <div className="space-y-6">
+      {/* Focus environment entry affordance — appears above primary task card */}
+      {focusEnv.entryAllowed && !focusEnv.active && (
+        <div className="flex items-center justify-end">
+          <button
+            onClick={onEnterFocus}
+            className={`text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors ${focusEnv.entryAutoSuggested ? "text-muted-foreground" : ""}`}
+          >
+            {focusEnv.entryAutoSuggested ? "Clear the surface" : "Begin"}
+          </button>
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         {nextTask && (
           <motion.div
@@ -877,22 +994,45 @@ function TasksSection({
                 >
                   Mark Complete
                 </button>
-                <button
-                  onClick={() => {
-                    rescheduleTask(nextTask.id);
-                    toast("Task Rescheduled", { description: "Momentum penalty applied." });
-                  }}
-                  className="px-4 py-3.5 rounded-2xl hairline text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Calendar className="h-5 w-5" />
-                </button>
+                {/* Reschedule hidden during focus — only complete action remains */}
+                {!focusEnv.active && (
+                  <button
+                    onClick={() => {
+                      rescheduleTask(nextTask.id);
+                      toast("Task Rescheduled", { description: "Momentum penalty applied." });
+                    }}
+                    className="px-4 py-3.5 rounded-2xl hairline text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Calendar className="h-5 w-5" />
+                  </button>
+                )}
               </div>
             </Card>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {surfaceLevel !== "minimal" && <div>
+      {/* Secondary task compressed line — shown during focus in FOCUSED / EXPANDING modes */}
+      {focusEnv.active && focusEnv.secondaryTask && (
+        <div className="flex items-center gap-3 px-1 py-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 flex-none" />
+          <p className="text-sm text-muted-foreground truncate flex-1">
+            {focusEnv.secondaryTask.label}
+          </p>
+          <span className="text-[10px] text-muted-foreground/50 flex-none">
+            {focusEnv.secondaryTask.estMin}m
+          </span>
+        </div>
+      )}
+
+      {/* Hidden task count during focus — static, no expansion */}
+      {focusEnv.active && focusEnv.hiddenCount > 0 && (
+        <p className="text-[11px] text-muted-foreground/40 text-center">
+          +{focusEnv.hiddenCount} more
+        </p>
+      )}
+
+      {surfaceLevel !== "minimal" && !focusEnv.active && <div>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold tracking-tight text-foreground uppercase opacity-60">
             Remaining Priorities

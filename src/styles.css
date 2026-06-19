@@ -905,4 +905,12 @@
       animation: none !important;
     }
   }
+
+  /* Focus environment: suppress entrance animations, remove hover lift */
+  html[data-focus-env="active"] * {
+    transition-duration: 100ms !important;
+  }
+  html[data-focus-env="active"] [data-framer-hover] {
+    transform: none !important;
+  }
 }

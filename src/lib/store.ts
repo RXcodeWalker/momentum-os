@@ -15,6 +15,7 @@ import {
 import { buildMigrationPayload } from "@/lib/migration";
 import type { BehavioralPipeline } from "@/core/contracts/pipeline/behavioral-pipeline";
 import type { EveningReflectionRecord } from "@/core/contracts/flow/reflection";
+import type { FocusEnvironmentState, FocusEntrySource, FocusExitReason } from "@/core/contracts/focus/environment";
 import { buildSessionEvidence } from "@/engine/orchestrator/evidence-bridge";
 import { runBehavioralPipeline } from "@/engine/orchestrator/pipeline-runner";
 import {
@@ -238,6 +239,8 @@ type State = {
   lastReflectionResult: EveningReflectionRecord | null;
   /** Rolling history of evening reflection records, pruned to 28 entries. */
   reflectionHistory: EveningReflectionRecord[];
+  /** Focus Environment state — persisted so it survives page refresh. */
+  focusEnvironment: FocusEnvironmentState;
 
   // Actions
   acceptTomorrowPlan: () => void;
@@ -275,6 +278,8 @@ type State = {
   refreshInsights: () => void;
   saveMorningCalibration: (data: MorningCalibrationInput, committedTaskId: string | null, intentionText: string | null) => void;
   skipMorningCalibration: () => void;
+  enterFocusEnvironment: (source: FocusEntrySource) => void;
+  exitFocusEnvironment: (reason: FocusExitReason) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -315,6 +320,12 @@ export const useApp = create<State>()(
         lastMorningCalibration: null,
         lastReflectionResult: null,
         reflectionHistory: [],
+        focusEnvironment: {
+          active: false,
+          enteredAt: null,
+          entrySource: null,
+          lastManualDismissAt: null,
+        },
         setup: {
           step: 0,
           completed: false,
@@ -1151,6 +1162,30 @@ export const useApp = create<State>()(
           })
         },
 
+        enterFocusEnvironment: (source) =>
+          set({
+            focusEnvironment: {
+              active: true,
+              enteredAt: new Date().toISOString(),
+              entrySource: source,
+              lastManualDismissAt: get().focusEnvironment.lastManualDismissAt,
+            },
+          }),
+
+        exitFocusEnvironment: (reason) =>
+          set((s) => ({
+            focusEnvironment: {
+              ...s.focusEnvironment,
+              active: false,
+              enteredAt: null,
+              entrySource: null,
+              lastManualDismissAt:
+                reason === 'interruption'
+                  ? new Date().toISOString()
+                  : s.focusEnvironment.lastManualDismissAt,
+            },
+          })),
+
         dismissRecoverySuggestion: () => set({ recoverySuggestion: null }),
         acceptRecoverySuggestion: () => {
           const s = get();
@@ -1165,7 +1200,7 @@ export const useApp = create<State>()(
     },
     {
       name: "cadence-store-v1",
-      version: 5,
+      version: 6,
       migrate: (persistedState, version) => {
         let s = persistedState as Partial<State>;
         if (version < 2) {
@@ -1214,6 +1249,17 @@ export const useApp = create<State>()(
             ...s,
             lastReflectionResult: (s as Partial<State>).lastReflectionResult ?? null,
             reflectionHistory: (s as Partial<State>).reflectionHistory ?? [],
+          }
+        }
+        if (version < 6) {
+          s = {
+            ...s,
+            focusEnvironment: (s as Partial<State>).focusEnvironment ?? {
+              active: false,
+              enteredAt: null,
+              entrySource: null,
+              lastManualDismissAt: null,
+            },
           }
         }
         return s as State;

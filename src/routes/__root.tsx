@@ -22,6 +22,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useApp, useUserState } from "@/lib/store";
+import { useFocusEnvironment } from "@/hooks/internal/useFocusEnvironment";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { hydrateFromDB } from "@/lib/sync";
@@ -183,7 +184,12 @@ function isActive(pathname: string, to: string, exact?: boolean) {
 function BottomNav() {
   const loc = useLocation();
   const visible = useVisibleRoutes();
-  const items = filterByVisibility(mobileNav, visible);
+  const focusActive = useApp((s) => s.focusEnvironment.active);
+  const allItems = filterByVisibility(mobileNav, visible);
+  // During focus: reduce to Today + Check-in only
+  const items = focusActive
+    ? allItems.filter((i) => i.to === "/" || i.to === "/check-in")
+    : allItems;
   const hide = loc.pathname === "/onboarding" || loc.pathname === "/sign-in";
   if (hide) return null;
   return (
@@ -233,6 +239,7 @@ function Sidebar() {
   const sidebarItems = filterByVisibility(primaryNav, visible);
   const checkInCount = useApp((s) => s.checkIns.length);
   const dataIsSeeded = useApp((s) => s.dataIsSeeded);
+  const focusActive = useApp((s) => s.focusEnvironment.active);
   const showStatePanel = dataIsSeeded || checkInCount >= 5;
   const toneClass: Record<string, string> = {
     success: "bg-success/15 text-success border-success/20",
@@ -273,7 +280,9 @@ function Sidebar() {
                 className={`group relative flex items-center gap-3 rounded-xl px-3 py-1.5 text-sm transition-colors ${
                   active
                     ? "text-foreground"
-                    : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+                    : focusActive && item.to !== "/" && item.to !== "/check-in"
+                      ? "text-muted-foreground/40 pointer-events-none"
+                      : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
                 }`}
               >
                 {active && (
@@ -318,10 +327,17 @@ function Sidebar() {
 
 function AdaptiveStateBinding() {
   const { state } = useUserState();
+  const focusActive = useApp((s) => s.focusEnvironment.active);
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.mode = state;
-  }, [state]);
+    // Focus environment: suppress entrance animations via CSS data attribute
+    if (focusActive) {
+      root.dataset.focusEnv = "active";
+    } else {
+      delete root.dataset.focusEnv;
+    }
+  }, [state, focusActive]);
   return null;
 }
 
@@ -333,6 +349,16 @@ function RootComponent() {
   const hideNav = isOnboarding || isSignIn;
   const { theme } = useTheme();
   const [helpOpen, setHelpOpen] = useState(false);
+  const exitFocusEnvironment = useApp((s) => s.exitFocusEnvironment);
+  const focusActive = useApp((s) => s.focusEnvironment.active);
+
+  // Exit focus environment on navigation away from Today (§3.2)
+  useEffect(() => {
+    if (focusActive && loc.pathname !== "/") {
+      exitFocusEnvironment("interruption");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loc.pathname]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
