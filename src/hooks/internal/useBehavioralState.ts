@@ -21,8 +21,15 @@ const NEUTRAL_PACING: PacingRecommendation = 'MAINTAIN_RHYTHM'
 
 function neutralEnvironment(mode: UserMode): BehavioralStateView['environment'] {
   const deepWorkProtection = mode === 'FOCUSED' || mode === 'EXPANDING'
+  // F-06: mode-appropriate density so EXPANDING reaches surfaceLevel 'full'
+  const densityMap: Record<UserMode, BehavioralStateView['environment']['density']> = {
+    RECOVERY:    'low',
+    STABILIZING: 'moderate',
+    FOCUSED:     'elevated',
+    EXPANDING:   'high',
+  }
   return {
-    density:              'moderate',
+    density:              densityMap[mode],
     visualCalm:           'moderate',
     motion:               'moderate',
     deepWorkProtection,

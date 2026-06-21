@@ -31,7 +31,7 @@ import {
   useInsightEffectiveness,
   useScoreVelocity,
 } from "@/lib/store";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Stagger, StaggerItem, TapCard, FadeUp } from "@/lib/motion";
 import { BehavioralNote } from "@/components/cards/BehavioralNote";
 import { InterventionSurface } from "@/components/cards/InterventionSurface";
@@ -123,19 +123,9 @@ function Home() {
   const exitFocusEnvironment = useApp((s) => s.exitFocusEnvironment);
   useFocusInactivityTimer();
 
-  // Track held level-2 interventions so they surface after focus exits
-  const heldInterventionsRef = useRef<typeof focusEnv.heldInterventions>([]);
-  const [postFocusInterventions, setPostFocusInterventions] = useState<typeof focusEnv.heldInterventions>([]);
-  // Update the ref whenever focus is active and there are held interventions
-  useEffect(() => {
-    if (focusEnv.active && focusEnv.heldInterventions.length > 0) {
-      heldInterventionsRef.current = focusEnv.heldInterventions;
-    }
-    if (!focusEnv.active && heldInterventionsRef.current.length > 0) {
-      setPostFocusInterventions(heldInterventionsRef.current);
-      heldInterventionsRef.current = [];
-    }
-  }, [focusEnv.active, focusEnv.heldInterventions]);
+  // Held level-2 interventions surface after focus exits — persisted in store so they survive navigation
+  const pendingPostFocusInterventions = useApp((s) => s.focusEnvironment.pendingPostFocusInterventions);
+  const clearPostFocusInterventions = useApp((s) => s.clearPostFocusInterventions);
 
   const latestInsight = useLatestInsight();
   const tomorrowBriefing = useTomorrowBriefing();
@@ -167,9 +157,9 @@ function Home() {
   // Auto-exit focus environment when mode transitions to RECOVERY (§3.4)
   useEffect(() => {
     if (focusEnv.active && behavioral.state.mode === "RECOVERY" && focusEnv.primaryTask === null) {
-      exitFocusEnvironment("state-transition");
+      exitFocusEnvironment("state-transition", focusEnv.heldInterventions);
     }
-  }, [focusEnv.active, behavioral.state.mode, focusEnv.primaryTask, exitFocusEnvironment]);
+  }, [focusEnv.active, behavioral.state.mode, focusEnv.primaryTask, focusEnv.heldInterventions, exitFocusEnvironment]);
 
   // Auto-exit focus environment when OVERLOAD fires while active (§9.2)
   useEffect(() => {
@@ -177,9 +167,9 @@ function Home() {
       const hasOverload = behavioral.interventions.active.some(
         (i) => i.type === "OVERLOAD" && i.level >= 1,
       );
-      if (hasOverload) exitFocusEnvironment("state-transition");
+      if (hasOverload) exitFocusEnvironment("state-transition", focusEnv.heldInterventions);
     }
-  }, [focusEnv.active, behavioral.interventions.active, exitFocusEnvironment]);
+  }, [focusEnv.active, behavioral.interventions.active, focusEnv.heldInterventions, exitFocusEnvironment]);
 
   return (
     <div className="flex flex-col gap-5 pb-8 lg:gap-8 lg:pb-12">
@@ -251,7 +241,7 @@ function Home() {
                   : "Execution in progress."}
               </p>
               <button
-                onClick={() => exitFocusEnvironment("interruption")}
+                onClick={() => exitFocusEnvironment("interruption", focusEnv.heldInterventions)}
                 className="ml-4 flex-none text-[11px] text-muted-foreground hover:text-foreground transition-colors"
               >
                 Return to full view
@@ -705,13 +695,19 @@ function Home() {
         </section>
       )}
 
-      {/* Level-2 interventions held during focus — surfaced on exit */}
-      {postFocusInterventions.length > 0 && (
+      {/* Level-2 interventions held during focus — surfaced on exit, persisted across navigation */}
+      {pendingPostFocusInterventions.length > 0 && (
         <section className="px-5 lg:px-0">
           <InterventionSurface
             surface="banner"
-            active={postFocusInterventions}
+            active={pendingPostFocusInterventions}
           />
+          <button
+            onClick={clearPostFocusInterventions}
+            className="mt-2 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            Dismiss
+          </button>
         </section>
       )}
 
@@ -723,7 +719,7 @@ function Home() {
           behavioral={behavioral}
           focusEnv={focusEnv}
           onEnterFocus={() => enterFocusEnvironment("manual")}
-          onExitFocus={() => exitFocusEnvironment("interruption")}
+          onExitFocus={() => exitFocusEnvironment("interruption", focusEnv.heldInterventions)}
         />
       </section>
 

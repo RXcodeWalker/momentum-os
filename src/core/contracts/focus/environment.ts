@@ -10,6 +10,8 @@ export type FocusEnvironmentState = {
   enteredAt: string | null
   entrySource: FocusEntrySource | null
   lastManualDismissAt: string | null
+  /** Level-2 interventions held during focus, surfaced on exit. Cleared on dismiss or re-entry. */
+  pendingPostFocusInterventions: ActiveInterventionView[]
 }
 
 export type FocusEnvironmentView = {

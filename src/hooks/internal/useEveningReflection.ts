@@ -5,7 +5,6 @@ import {
   useScoreAttribution,
   useStreakContext,
 } from '@/lib/store'
-import { MODE_OBSERVATIONS } from '@/engine/state/explainability/explanation-templates'
 import type { UserMode } from '@/core/contracts/state/modes'
 import type { RiskLevel } from '@/core/contracts/primitives'
 
@@ -20,7 +19,7 @@ export type EveningReflectionView = {
   attribution: { label: string; value: string; baseline: string; direction: 'drag' | 'boost' | 'neutral' }[]
   northStar: string | null
   workloadGuidance: 'reduce' | 'hold' | 'expand'
-  workloadMessage: string
+  workloadMessage: string | null
   suggestedTasks: { label: string; type: string }[]
   recoveryMessage: string | null
   streakContext: { current: number; milestone: string | null } | null
@@ -96,10 +95,9 @@ export function useEveningReflection(): EveningReflectionView {
     const overloadRisk = lastPipelineResult?.stateInterpretation.overloadRisk ?? 'LOW'
     const workloadGuidance = deriveWorkloadGuidance(pipelineMode, overloadRisk)
 
-    // workloadMessage: pipeline's primary observation or mode-keyed fallback
+    // workloadMessage: pipeline's primary observation; null when engine has no output yet
     const workloadMessage =
-      lastPipelineResult?.stateExplanation?.primary?.observation ??
-      MODE_OBSERVATIONS[pipelineMode]('MEDIUM').observation
+      lastPipelineResult?.stateExplanation?.primary?.observation ?? null
 
     // Suggested tasks capped by mode
     const cap = taskCapForMode(pipelineMode)

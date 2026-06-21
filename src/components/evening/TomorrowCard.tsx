@@ -3,7 +3,7 @@ import { Card, StatLabel } from '@/components/ui-bits'
 import { TapCard } from '@/lib/motion'
 
 interface TomorrowCardProps {
-  workloadMessage: string
+  workloadMessage: string | null
   workloadGuidance: 'reduce' | 'hold' | 'expand'
   northStar: string | null
   suggestedTasks: { label: string; type: string }[]
@@ -59,7 +59,9 @@ export function TomorrowCard({
           </div>
         </div>
 
-        <p className="text-sm leading-relaxed text-foreground">{workloadMessage}</p>
+        <p className="text-sm leading-relaxed text-foreground">
+          {workloadMessage ?? "Tomorrow's plan will become clearer with more data."}
+        </p>
 
         {northStar && (
           <div className="mt-3 flex items-start gap-2">
