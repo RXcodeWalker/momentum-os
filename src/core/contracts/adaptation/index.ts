@@ -3,4 +3,5 @@ export * from './environmental'
 export * from './execution'
 export * from './guidance'
 export * from './output'
+export * from './trace'
 

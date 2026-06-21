@@ -4,6 +4,7 @@ import type { StateConfidence } from '../state/confidence'
 import type { EnvironmentalAdaptation } from './environmental'
 import type { ExecutionAdaptation } from './execution'
 import type { GuidanceAdaptation } from './guidance'
+import type { AdaptationTrace } from './trace'
 
 export type AdaptationOutput = {
   environmental: EnvironmentalAdaptation
@@ -15,5 +16,7 @@ export type AdaptationOutput = {
   stateMode: UserMode
   stateConfidence: StateConfidence
   generatedAt: Timestamp
+  /** Populated only in dev builds — undefined in production. */
+  adaptationTrace?: AdaptationTrace
 }
 

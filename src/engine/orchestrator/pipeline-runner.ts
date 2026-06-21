@@ -27,6 +27,7 @@ import { generateSignalSnapshot } from "@/engine/signals/snapshot";
 import { evaluate as evaluateState } from "@/engine/state/state-engine";
 import { evaluateInterventions } from "@/engine/interventions/evaluate";
 import { buildStateExplanation } from "@/engine/state/explainability/build-state-explanation";
+import { generateAdaptation } from "@/engine/adaptation";
 
 // ---------------------------------------------------------------------------
 // Neutral sequencing decision — used when no Task Engine result is available
@@ -116,7 +117,14 @@ export function runBehavioralPipeline(input: PipelineRunnerInput): BehavioralPip
     context.flowPhase,
   );
 
-  // ── 6. Assemble BehavioralPipeline ────────────────────────────────────────
+  // ── 6. Adaptation Engine ──────────────────────────────────────────────────
+  const adaptationGeneration = generateAdaptation({
+    stateInterpretation: state,
+    signalSnapshot,
+    interventionEvaluation: interventionResult,
+  });
+
+  // ── 7. Assemble BehavioralPipeline ────────────────────────────────────────
   const pipeline: BehavioralPipeline = {
     inputCollection: dailyInputs[dailyInputs.length - 1] ?? emptyDailyInputs(),
     signalSnapshot,
@@ -127,7 +135,7 @@ export function runBehavioralPipeline(input: PipelineRunnerInput): BehavioralPip
     sequencingDecision: resolvedSequencing,
     interventionEvaluation: interventionResult,
     stateExplanation,
-    // adaptationGeneration is omitted — Adaptation Engine not yet implemented
+    adaptationGeneration,
   };
 
   return pipeline;
