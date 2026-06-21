@@ -451,7 +451,8 @@ function Home() {
       </Stagger>
 
       <section className="px-5 lg:px-0">
-        {/* During focus: suppress level 0-1 (silent), hold level 2, still show level 3 modal */}
+        {/* During focus: suppress level 0-1 (silent), hold level 2, still show level 3 modal.
+            Priority-tier resolution has already occurred upstream; we display [0]. */}
         <InterventionSurface
           surface={
             focusEnv.active
@@ -460,10 +461,10 @@ function Home() {
                 : "none"
               : behavioral.interventions.ui.surface
           }
-          active={
+          intervention={
             focusEnv.active
-              ? behavioral.interventions.active.filter((i) => i.level === 3)
-              : behavioral.interventions.active
+              ? behavioral.interventions.active.find((i) => i.level === 3)
+              : behavioral.interventions.active[0]
           }
         />
       </section>
@@ -486,9 +487,7 @@ function Home() {
                     Momentum at risk
                   </p>
                   <p className="text-sm text-foreground leading-relaxed">
-                    Your score has dropped {velocity.dropPts} pts over {velocity.dayCount} days.
-                    This is the pattern that precedes burnout.{" "}
-                    <span className="font-semibold">Recovery window is now.</span>
+                    Score has declined {velocity.dropPts} pts over {velocity.dayCount} days — a pattern worth watching.
                   </p>
                 </div>
               </div>
@@ -700,7 +699,7 @@ function Home() {
         <section className="px-5 lg:px-0">
           <InterventionSurface
             surface="banner"
-            active={pendingPostFocusInterventions}
+            intervention={pendingPostFocusInterventions[0]}
           />
           <button
             onClick={clearPostFocusInterventions}
@@ -986,7 +985,7 @@ function TasksSection({
                 <button
                   onClick={() => {
                     toggleTask(nextTask.id);
-                    toast.success("Execution +", { description: nextTask.label });
+                    toast.success(nextTask.label, { duration: 1800 });
                   }}
                   className="flex-1 bg-foreground text-background font-bold py-3.5 rounded-2xl text-sm transition-transform active:scale-95 shadow-xl shadow-foreground/10"
                 >

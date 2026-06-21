@@ -7,19 +7,18 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
 
 type Props = {
   surface: BehavioralInterventionsView['ui']['surface']
-  active: BehavioralInterventionsView['active']
+  // Priority-tier resolution must happen at the call site; component displays exactly one intervention.
+  intervention: BehavioralInterventionsView['active'][number] | undefined
 }
 
-export function InterventionSurface({ surface, active }: Props) {
+export function InterventionSurface({ surface, intervention: primary }: Props) {
   const acknowledgedInterventions = useApp((s) => s.acknowledgedInterventions)
   const acknowledgeIntervention = useApp((s) => s.acknowledgeIntervention)
-
-  const primary = active[0]
   const isAcknowledged = primary
     ? acknowledgedInterventions.some(
-        (a) =>
-          a.type === primary.type &&
-          Date.now() - new Date(a.acknowledgedAt).getTime() < TWENTY_FOUR_HOURS_MS,
+        (r) =>
+          r.type === primary.type &&
+          Date.now() - new Date(r.acknowledgedAt).getTime() < TWENTY_FOUR_HOURS_MS,
       )
     : false
 

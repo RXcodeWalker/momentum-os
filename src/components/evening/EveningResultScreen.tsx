@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Users, Zap, Lightbulb, Flame } from 'lucide-react'
-import { Card, Pill, ScreenHeader, StatLabel } from '@/components/ui-bits'
+import { Users, Zap, Lightbulb } from 'lucide-react'
+import { Card, Pill, ScreenHeader } from '@/components/ui-bits'
 import { Stagger, StaggerItem } from '@/lib/motion'
 import { useApp } from '@/lib/store'
 import { useEveningReflection } from '@/hooks/internal/useEveningReflection'
@@ -42,7 +42,7 @@ export function EveningResultScreen({ unlockedInsight }: EveningResultScreenProp
 
   const { displayMode, score, delta, observations, hasObservations, stateHeadline,
     attribution, northStar, workloadGuidance, workloadMessage, suggestedTasks,
-    recoveryMessage, streakContext } = view
+    recoveryMessage } = view
 
   const header = DISPLAY_HEADERS[displayMode]
 
@@ -168,42 +168,23 @@ export function EveningResultScreen({ unlockedInsight }: EveningResultScreenProp
           />
         </StaggerItem>
 
-        {/* 5. Streak milestone (FOCUSED and EXPANDING) */}
-        {streakContext && streakContext.milestone && displayMode !== 'stabilizing' && (
-          <StaggerItem>
-            <Card className="border-success/20 bg-success/5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-success/15 text-success">
-                  <Flame className="h-4 w-4" />
-                </div>
-                <div>
-                  <StatLabel className="text-success">Streak</StatLabel>
-                  <p className="text-sm font-medium text-foreground mt-0.5">
-                    {streakContext.milestone}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </StaggerItem>
-        )}
-
         {/* Actions */}
         <StaggerItem>
           <div className="space-y-2">
-            {!sharedProof && (
-              <button
-                onClick={handleShareProof}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-4 text-sm font-semibold text-background transition-opacity hover:opacity-90"
-              >
-                <Users className="h-4 w-4" /> Share proof to Circle
-              </button>
-            )}
             <button
               onClick={() => nav({ to: '/' })}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-foreground py-4 text-sm font-semibold text-background"
             >
               <Zap className="h-4 w-4" /> Done for today
             </button>
+            {!sharedProof && (
+              <button
+                onClick={handleShareProof}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border py-4 text-sm font-medium text-foreground transition-opacity hover:opacity-70"
+              >
+                <Users className="h-4 w-4" /> Share proof to Circle
+              </button>
+            )}
           </div>
         </StaggerItem>
       </Stagger>
