@@ -35,20 +35,38 @@ File-based routing via TanStack Router in `src/routes/`. The root layout (`__roo
 | `/identity`   | User profile, streak history, operating protocols with effectiveness ratings                                                 |
 | `/premium`    | Cadence Pro subscription page                                                                                                |
 | `/onboarding` | New user onboarding flow                                                                                                     |
+| `/sign-in`    | Auth page — email/password + Google OAuth; `?mode=upgrade` variant for guest-to-account migration                            |
+| `/demo`       | Read-only demo mode — loads seeded history via `loadDemoData()`, sets `dataIsSeeded: true`                                   |
+
+### Auth & Backend
+
+The app uses **Supabase** for auth and cloud persistence. Required env vars (create a `.env.local`):
+
+```
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+```
+
+The app is **guest-first**: users can use it without an account. Local state is persisted to localStorage. When a user signs up/in, `hydrateFromDB()` (`src/lib/sync.ts`) loads their cloud state and `buildMigrationPayload()` (`src/lib/migration.ts`) merges local guest state with cloud data (history: higher score wins; cloud wins on check-in conflicts; insights: most advanced state wins; dismissed is sticky).
+
+Supabase tables: `profiles`, `day_logs`, `check_ins`, `tasks`, `insights`, `personal_proofs`, `circle_proofs`.
+
+Auth actions on the store: `signIn(email, pw)`, `signUp(email, pw)`, `signInWithGoogle()`. All three trigger hydration + migration on success. The `SaveProgressBanner` component surfaces the upgrade prompt to guest users with existing data.
 
 ### State Management
 
-All app state lives in a **single Zustand store** (`src/lib/store.ts`) persisted to localStorage under the key `"cadence-store-v1"`. There is no backend or API — all data is client-side, seeded with 28 days of synthetic history on first load.
+All app state lives in a **single Zustand store** (`src/lib/store.ts`) persisted to localStorage under the key `"cadence-store-v1"`. On first load (no Supabase account), the store seeds 28 days of synthetic history via `src/lib/demo-data.ts`.
 
 Key state shape:
 
 - **User setup**: `onboarded`, `goals`, `struggles`, `profile` (OnboardingProfile)
+- **Auth**: `currentUserId` (string | null — null = guest), `dataIsSeeded` (boolean — true when demo data is loaded)
 - **Daily data**: `tasks` (Task[]), `checkIns` (CheckIn[]), `history` (DayData[] — 28d+)
 - **Intelligence data**: `blockerHistory` (BlockerRecord[]), `distractionLog` (DistractionLogEntry[])
 - **Streaks**: `streaks` (StreakState — exec streak, resilience streak, quick recoveries)
 - **Cross-day planning**: `tomorrowPlan` (TomorrowPlan | null — generated at end of each check-in)
 - **Recovery system**: `recoveryMode`, `recoveryReason`, `recoveryPlan`
-- **Engagement**: `premium`, `insights` (BehavioralInsight[]), `daysOnApp`, `proofs` (ExecutionProof[])
+- **Engagement**: `premium`, `insights` (BehavioralInsight[]), `daysOnApp`, `proofs` (ExecutionProof[]), `personalProofs` (personal proof-of-work entries)
 
 **Core derived selector hooks** (computed real-time, not persisted):
 
@@ -91,15 +109,43 @@ Understanding how new data flows through the system:
 4. **Check-in → tomorrowPlan**: day-of-week profile + rescheduled tasks → capacity-aware suggested task list, stored as `tomorrowPlan`
 5. **commitToInsight → preCommitAvgScore**: 7d avg score is snapshotted at commit time, enabling future `useInsightEffectiveness()` comparisons
 
+### Core Contracts Layer
+
+`src/core/contracts/` is a pure TypeScript type system (no runtime logic) that defines the behavioral engine's domain model. It is re-exported from `src/core/index.ts`. Sub-domains:
+
+- `state/` — `UserState` machine modes, dimensions, transitions, snapshots, historical, evaluation, confidence, explanation
+- `signals/` — `BehavioralSignals`, `DailyInputs`, `SessionEvidence`, `SignalSnapshot`
+- `tasks/` — task type, sequencing, reasoning, scores, compatibility
+- `interventions/` — intervention types, triggers, evaluation, audit
+- `adaptation/` — directives, environmental, execution, guidance, output, trace
+- `flow/` — morning, midday, evening, reflection check-in flow contracts
+- `reentry/` — protocol contracts for returning after breaks
+- `pipeline/` — `BehavioralPipeline`, insight pipeline contracts
+
+Import from `@/core` (not the sub-paths) to get all contracts. Do not add runtime code here — this layer is types only.
+
+### Progressive Disclosure (Maturity System)
+
+`src/lib/maturity.ts` gates features by check-in count to avoid overwhelming new users:
+
+- `useDataReadiness(metric)` — returns `{hasMinimum, evidenceCount, confidence}` per metric. Each `MetricKey` has a minimum check-in threshold before it shows real data.
+- `useUserStage()` → `"fresh" | "exploring" | "establishing" | "established"` based on check-in count (0 / <7 / <21 / 21+). `dataIsSeeded` always returns `"established"`.
+- `useVisibleRoutes()` — returns the subset of nav routes available at the user's stage. Always-visible: `today`, `reflect`, `identity`. Unlocked progressively: `this-week` (7+), `patterns` (10+), `circles` (7+). Recovery is always reachable.
+
+When adding a new analytics feature, check `useDataReadiness()` and gate behind `hasMinimum` to avoid showing empty/misleading charts to new users.
+
 ### Component Layers
 
 1. **`src/components/ui/`** — shadcn/ui components (radix-ui primitives). Treat as a library; don't modify unless adding a new primitive.
 2. **`src/components/ui-bits.tsx`** — Custom composed primitives used across the app: `ScreenHeader`, `Card`, `StatLabel`, `Pill`, `Ring` (SVG circular progress), `Sparkline`, `BarRow`. Use these before reaching for raw shadcn/ui.
-3. **`src/components/cards/`** — Domain cards: `StateRibbon`, `BehavioralNote`.
+3. **`src/components/cards/`** — Domain cards: `StateRibbon`, `BehavioralNote`, `FocusWindow`.
 4. **`src/components/atmosphere/`** — `AuroraBackground` decorative animated background.
 5. **`src/components/command/`** — `CommandPalette` (cmd+k).
 6. **`src/components/heatmap.tsx`** — Execution heatmap visualization.
 7. **`src/components/check-in/CheckInWizard.tsx`** — 5-step wizard. Uses `useSmartCheckInDefaults()` for personalized slider starting values.
+8. **`src/components/MetricSurface.tsx`** — Wrapper that handles data-readiness gating for analytics surfaces.
+9. **`src/components/SaveProgressBanner.tsx`** — Prompt shown to guests with data to create an account (links to `/sign-in?mode=upgrade`).
+10. **`src/components/help/`** — `HelpButton` + `HelpModal` + `help-content.ts` static help copy.
 
 ### Motion & Animation
 

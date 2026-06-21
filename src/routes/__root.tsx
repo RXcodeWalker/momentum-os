@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useApp, useUserState } from "@/lib/store";
 import { useFocusEnvironment } from "@/hooks/internal/useFocusEnvironment";
+import { EnvironmentRenderer } from "@/components/environment/EnvironmentRenderer";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { hydrateFromDB } from "@/lib/sync";
@@ -331,21 +332,6 @@ function Sidebar() {
   );
 }
 
-function AdaptiveStateBinding() {
-  const { state } = useUserState();
-  const focusActive = useApp((s) => s.focusEnvironment.active);
-  useEffect(() => {
-    const root = document.documentElement;
-    root.dataset.mode = state;
-    // Focus environment: suppress entrance animations via CSS data attribute
-    if (focusActive) {
-      root.dataset.focusEnv = "active";
-    } else {
-      delete root.dataset.focusEnv;
-    }
-  }, [state, focusActive]);
-  return null;
-}
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -413,7 +399,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AdaptiveStateBinding />
+      <EnvironmentRenderer />
       <AuroraBackground />
       <CommandPalette />
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />

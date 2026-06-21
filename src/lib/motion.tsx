@@ -3,24 +3,31 @@ import { motion, useMotionValue, useTransform, animate, AnimatePresence } from "
 import { useEffect, useRef, useState, ReactNode } from "react";
 import { useLocation } from "@tanstack/react-router";
 
-const spring = { type: "spring" as const, stiffness: 260, damping: 28, mass: 0.7 };
+function readCSSVar(name: string, fallback: number): number {
+  if (typeof window === 'undefined') return fallback
+  const val = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  const parsed = parseFloat(val)
+  return isNaN(parsed) ? fallback : parsed
+}
 
 export function FadeUp({
   children,
   delay = 0,
   className,
-  y = 12,
+  y,
 }: {
   children: ReactNode;
   delay?: number;
   className?: string;
   y?: number;
 }) {
+  const resolvedY = y ?? readCSSVar('--motion-distance-adaptive', 12)
+  const duration = readCSSVar('--motion-duration-adaptive', 0.55)
   return (
     <motion.div
-      initial={{ opacity: 0, y }}
+      initial={{ opacity: 0, y: resolvedY }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration, delay, ease: [0.22, 1, 0.36, 1] }}
       className={className}
     >
       {children}
@@ -31,7 +38,7 @@ export function FadeUp({
 export function Stagger({
   children,
   className,
-  gap = 0.06,
+  gap,
   initialDelay = 0.05,
 }: {
   children: ReactNode;
@@ -39,6 +46,7 @@ export function Stagger({
   gap?: number;
   initialDelay?: number;
 }) {
+  const staggerDelay = gap ?? readCSSVar('--motion-stagger-adaptive', 0.06)
   return (
     <motion.div
       className={className}
@@ -46,7 +54,7 @@ export function Stagger({
       animate="show"
       variants={{
         hidden: {},
-        show: { transition: { staggerChildren: gap, delayChildren: initialDelay } },
+        show: { transition: { staggerChildren: staggerDelay, delayChildren: initialDelay } },
       }}
     >
       {children}
@@ -57,18 +65,20 @@ export function Stagger({
 export function StaggerItem({
   children,
   className,
-  y = 10,
+  y,
 }: {
   children: ReactNode;
   className?: string;
   y?: number;
 }) {
+  const resolvedY = y ?? readCSSVar('--motion-distance-adaptive', 10)
+  const duration = readCSSVar('--motion-duration-adaptive', 0.5)
   return (
     <motion.div
       className={className}
       variants={{
-        hidden: { opacity: 0, y },
-        show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
+        hidden: { opacity: 0, y: resolvedY },
+        show: { opacity: 1, y: 0, transition: { duration, ease: [0.22, 1, 0.36, 1] } },
       }}
     >
       {children}
@@ -85,6 +95,10 @@ export function TapCard({
   className?: string;
   onClick?: () => void;
 }) {
+  // Spring stiffness: 260 - (1 - env.motion) * 100; defaults to 260 at motion=1, 160 at motion=0
+  const envMotion = readCSSVar('--env-motion', 0.5)
+  const stiffness = 260 - (1 - envMotion) * 100
+  const spring = { type: "spring" as const, stiffness, damping: 28, mass: 0.7 }
   return (
     <motion.div
       onClick={onClick}
@@ -141,4 +155,11 @@ export function PageTransition({ children }: { children: ReactNode }) {
       </motion.div>
     </AnimatePresence>
   );
+}
+
+// Unused ref suppressor for hooks that track previous values
+export function usePrevious<T>(value: T): T | undefined {
+  const ref = useRef<T | undefined>(undefined)
+  useEffect(() => { ref.current = value }, [value])
+  return ref.current
 }

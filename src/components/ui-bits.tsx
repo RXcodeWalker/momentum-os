@@ -37,7 +37,14 @@ export function ScreenHeader({
 }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`hairline rounded-3xl bg-card p-5 ${className}`}>{children}</div>;
+  return (
+    <div
+      className={`hairline rounded-3xl bg-card ${className}`}
+      style={{ padding: 'var(--card-padding-adaptive, 1.25rem)' }}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function StatLabel({

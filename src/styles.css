@@ -914,3 +914,94 @@
     transform: none !important;
   }
 }
+
+/* ─── PHASE 3B — ENVIRONMENTAL ADAPTATION TOKENS ─────────────────────
+ * Layer 1: Semantic env tokens (JS writes via .style.setProperty).
+ * Layer 2: Derived adaptive tokens (CSS calc from Layer 1).
+ * Layer 3: Data-attribute coarse-band overrides.
+ * ───────────────────────────────────────────────────────────────────── */
+
+/* Layer 1 — defaults (EnvironmentRenderer overwrites on each pipeline cycle) */
+:root {
+  --env-density:   0.6;
+  --env-spacing:   1.0;
+  --env-motion:    0.5;
+  --env-hierarchy: 0.6;
+  --env-pressure:  0.4;
+
+  /* Custom property transitions — CSS handles interpolation, no JS animation needed */
+  transition:
+    --env-density   600ms ease,
+    --env-spacing   600ms ease,
+    --env-motion    600ms ease,
+    --env-hierarchy 600ms ease,
+    --env-pressure  600ms ease;
+}
+
+/* Layer 2 — derived adaptive tokens computed from env scalars */
+:root {
+  /* Spacing */
+  --card-padding-adaptive:   calc(1.25rem * var(--env-spacing));
+  --section-gap-adaptive:    calc(var(--rhythm-8) * var(--env-spacing));
+  --list-gap-adaptive:       calc(0.75rem * var(--env-spacing));
+
+  /* Typography (variable font axes where supported) */
+  --font-weight-adaptive:    calc(360 + var(--env-hierarchy) * 80);
+  --tracking-adaptive:       calc(var(--tracking-body) - var(--env-density) * 0.01em);
+  --leading-adaptive:        calc(1.4 + (1 - var(--env-density)) * 0.4);
+
+  /* Borders */
+  --border-opacity-adaptive: calc(0.25 + var(--env-hierarchy) * 0.55);
+
+  /* Motion (read by Framer Motion consumers) */
+  --motion-duration-adaptive:  calc(0.15s + (1 - var(--env-motion)) * 0.45s);
+  --motion-stagger-adaptive:   calc(0.03s + (1 - var(--env-motion)) * 0.09s);
+  --motion-distance-adaptive:  calc(4px + var(--env-motion) * 12px);
+
+  /* Visual pressure */
+  --grain-opacity-adaptive:    calc(0.03 + var(--env-pressure) * 0.05);
+  --accent-saturation-scale:   calc(0.7 + var(--env-pressure) * 0.3);
+
+  /* Aurora drift speed (consumed by AuroraBackground via inline style) */
+  --aurora-base-opacity:     0.55;
+}
+
+/* Layer 3 — coarse band data-attribute overrides */
+
+/* Low density: collapse secondary sections */
+html[data-env-density="low"] [data-secondary-card] {
+  display: none;
+}
+
+/* Low motion: collapse all entrance animations to near-instant */
+html[data-env-motion="low"] {
+  --motion-duration-adaptive: 100ms;
+  --motion-distance-adaptive: 0px;
+  --motion-stagger-adaptive: 0s;
+}
+
+/* High hierarchy: elevate border and font emphasis */
+html[data-env-hierarchy="high"] {
+  --border-opacity-adaptive: 0.85;
+  --font-weight-adaptive: 440;
+}
+
+/* Low pressure: desaturate aurora */
+html[data-env-pressure="low"] .aurora-blob {
+  opacity: calc(var(--aurora-base-opacity) * 0.6);
+}
+
+/* High pressure: intensify grain texture */
+html[data-env-pressure="high"] {
+  --grain-opacity: var(--grain-opacity-adaptive);
+}
+
+/* Reduced motion hard-clamp (defensive CSS layer alongside JS clamp) */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --env-motion: 0 !important;
+    --motion-duration-adaptive: 100ms !important;
+    --motion-distance-adaptive: 0px !important;
+    --motion-stagger-adaptive: 0s !important;
+  }
+}

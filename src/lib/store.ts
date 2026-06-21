@@ -16,6 +16,8 @@ import { buildMigrationPayload } from "@/lib/migration";
 import type { BehavioralPipeline } from "@/core/contracts/pipeline/behavioral-pipeline";
 import type { EveningReflectionRecord } from "@/core/contracts/flow/reflection";
 import type { FocusEnvironmentState, FocusEntrySource, FocusExitReason } from "@/core/contracts/focus/environment";
+import type { EnvironmentOverride, CommittedEnvironmentSnapshot } from "@/engine/environment";
+import { SSR_ENVIRONMENT_SNAPSHOT } from "@/engine/environment";
 import { buildSessionEvidence } from "@/engine/orchestrator/evidence-bridge";
 import { runBehavioralPipeline } from "@/engine/orchestrator/pipeline-runner";
 import { readRecentAuditRecords, writeAuditRecord } from "@/persistence/intervention-audit";
@@ -244,6 +246,10 @@ type State = {
   focusEnvironment: FocusEnvironmentState;
   /** Persisted acknowledgements for level-3 intervention modals — cleared after 24h. */
   acknowledgedInterventions: { type: string; acknowledgedAt: string }[];
+  /** Persisted temporary environment overrides — e.g. from deep-work sessions or recovery protocols. */
+  environmentOverrides: EnvironmentOverride[];
+  /** Ephemeral committed environment snapshot — initialized to SSR baseline, not persisted. */
+  committedEnvironment: CommittedEnvironmentSnapshot;
 
   // Actions
   acceptTomorrowPlan: () => void;
@@ -286,6 +292,10 @@ type State = {
   enterFocusEnvironment: (source: FocusEntrySource) => void;
   exitFocusEnvironment: (reason: FocusExitReason, heldInterventions?: FocusEnvironmentState['pendingPostFocusInterventions']) => void;
   clearPostFocusInterventions: () => void;
+  applyEnvironmentOverride: (override: EnvironmentOverride) => void;
+  clearEnvironmentOverride: (id: string) => void;
+  clearExpiredEnvironmentOverrides: () => void;
+  setCommittedEnvironment: (snapshot: CommittedEnvironmentSnapshot) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -543,6 +553,8 @@ export const useApp = create<State>()(
           pendingPostFocusInterventions: [],
         },
         acknowledgedInterventions: [],
+        environmentOverrides: [],
+        committedEnvironment: SSR_ENVIRONMENT_SNAPSHOT,
         setup: {
           step: 0,
           completed: false,
@@ -938,6 +950,30 @@ export const useApp = create<State>()(
 
           if (changed) set({ insights: newInsights });
         },
+        applyEnvironmentOverride: (override) =>
+          set((s) => ({
+            environmentOverrides: [
+              ...s.environmentOverrides.filter((o) => o.id !== override.id),
+              override,
+            ],
+          })),
+
+        clearEnvironmentOverride: (id) =>
+          set((s) => ({
+            environmentOverrides: s.environmentOverrides.filter((o) => o.id !== id),
+          })),
+
+        clearExpiredEnvironmentOverrides: () => {
+          const now = Date.now()
+          set((s) => ({
+            environmentOverrides: s.environmentOverrides.filter(
+              (o) => o.expiresAt === 0 || o.expiresAt > now,
+            ),
+          }))
+        },
+
+        setCommittedEnvironment: (snapshot) => set({ committedEnvironment: snapshot }),
+
         signIn: async (email, password) => {
           const { data, error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
@@ -1272,7 +1308,13 @@ export const useApp = create<State>()(
     },
     {
       name: "cadence-store-v1",
-      version: 8,
+      version: 9,
+      // committedEnvironment is ephemeral — EnvironmentRenderer recomputes it on mount
+      partialize: (s) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { committedEnvironment: _ce, ...rest } = s
+        return rest as State
+      },
       migrate: (persistedState, version) => {
         let s = persistedState as Partial<State>;
         if (version < 2) {
@@ -1351,6 +1393,12 @@ export const useApp = create<State>()(
               lastManualDismissAt: prev?.lastManualDismissAt ?? null,
               pendingPostFocusInterventions: [],
             },
+          }
+        }
+        if (version < 9) {
+          s = {
+            ...s,
+            environmentOverrides: (s as Partial<State>).environmentOverrides ?? [],
           }
         }
         return s as State;
