@@ -18,6 +18,29 @@ import type { EveningReflectionRecord } from "@/core/contracts/flow/reflection";
 import type { FocusEnvironmentState, FocusEntrySource, FocusExitReason } from "@/core/contracts/focus/environment";
 import type { EnvironmentOverride, CommittedEnvironmentSnapshot } from "@/engine/environment";
 import { SSR_ENVIRONMENT_SNAPSHOT } from "@/engine/environment";
+import type { BehavioralEvent } from "@/core/contracts/history/event";
+import type { AggregationSnapshot, WindowKey } from "@/core/contracts/history/snapshot";
+import type { TrendRecord } from "@/core/contracts/history/trend";
+import type { BehavioralPeriod } from "@/core/contracts/history/period";
+import type { BehavioralEvidence } from "@/core/contracts/history/evidence";
+import {
+  emitCheckInCompleted,
+  emitBlockerCaptured,
+  emitDistractionLogged,
+  emitInsightCommitted,
+  emitTaskRescheduled,
+  emitRecoveryTriggered,
+  emitRecoveryExited,
+  emitReflectionGenerated,
+  pruneEvents,
+  computeThresholdCrossings,
+  computeAllSnapshots,
+  detectTrends,
+  pruneTrends,
+  buildEvidence,
+  backfillEventsFromHistory,
+  backfillPeriodsFromHistory,
+} from "@/lib/history-engine";
 import { buildSessionEvidence } from "@/engine/orchestrator/evidence-bridge";
 import { runBehavioralPipeline } from "@/engine/orchestrator/pipeline-runner";
 import { readRecentAuditRecords, writeAuditRecord } from "@/persistence/intervention-audit";
@@ -251,6 +274,12 @@ type State = {
   /** Ephemeral committed environment snapshot — initialized to SSR baseline, not persisted. */
   committedEnvironment: CommittedEnvironmentSnapshot;
 
+  // History Engine state (Phase 4A)
+  behavioralEvents: BehavioralEvent[];
+  aggregationSnapshots: Partial<Record<WindowKey, AggregationSnapshot>>;
+  trendRecords: TrendRecord[];
+  behavioralPeriods: BehavioralPeriod[];
+
   // Actions
   acceptTomorrowPlan: () => void;
   completeOnboarding: () => void;
@@ -296,6 +325,7 @@ type State = {
   clearEnvironmentOverride: (id: string) => void;
   clearExpiredEnvironmentOverrides: () => void;
   setCommittedEnvironment: (snapshot: CommittedEnvironmentSnapshot) => void;
+  refreshSnapshots: (snapshots: Partial<Record<WindowKey, AggregationSnapshot>>) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -588,6 +618,12 @@ export const useApp = create<State>()(
         members: [],
         circle: emptyCircle,
 
+        // History Engine initial state (Phase 4A)
+        behavioralEvents: [],
+        aggregationSnapshots: {},
+        trendRecords: [],
+        behavioralPeriods: [],
+
         completeOnboarding: () => set({ onboarded: true }),
         updateSetup: (step) => set((s) => ({ setup: { ...s.setup, step } })),
         finishSetup: (archetype, score) =>
@@ -641,11 +677,24 @@ export const useApp = create<State>()(
           if (currentUserId) syncTasks(currentUserId, tasks, todayStr());
         },
         rescheduleTask: (id) => {
-          set((s) => ({
-            tasks: s.tasks.map((t) =>
+          set((s) => {
+            const task = s.tasks.find((t) => t.id === id)
+            const updatedTasks = s.tasks.map((t) =>
               t.id === id ? { ...t, rescheduled: (t.rescheduled || 0) + 1 } : t,
-            ),
-          }));
+            )
+            const rescheduleEvent = task ? emitTaskRescheduled(task) : null
+            const w7 = s.aggregationSnapshots.W7
+            const nextSnapshots = w7
+              ? { ...s.aggregationSnapshots, W7: { ...w7, isStale: true } }
+              : s.aggregationSnapshots
+            return {
+              tasks: updatedTasks,
+              aggregationSnapshots: nextSnapshots,
+              behavioralEvents: rescheduleEvent
+                ? pruneEvents([...s.behavioralEvents, rescheduleEvent], 90)
+                : s.behavioralEvents,
+            }
+          });
           const { currentUserId, tasks } = get();
           if (currentUserId) syncTasks(currentUserId, tasks, todayStr());
         },
@@ -699,6 +748,29 @@ export const useApp = create<State>()(
             lastPipelineResult, s.lastReflectionResult, s.reflectionHistory,
           )
 
+          // History Engine: emit events, recompute snapshots and trends
+          const prevScore = s.history[s.history.length - 1]?.executionScore ?? 50
+          const historyEngineDelta = newScore - prevScore
+          const allNewEvents: BehavioralEvent[] = [
+            emitCheckInCompleted(newScore, historyEngineDelta, todayStr(), data),
+            ...newBlockers.map((b) => emitBlockerCaptured(b.blockerType, b.taskType)),
+            emitDistractionLogged(data.distractions),
+            ...computeThresholdCrossings(prevScore, newScore),
+            ...(lastReflectionResult
+              ? [emitReflectionGenerated(
+                  lastReflectionResult.workloadGuidance,
+                  lastReflectionResult.confidenceContext.band,
+                )]
+              : []),
+          ]
+          const prunedEvents = pruneEvents([...s.behavioralEvents, ...allNewEvents], 90)
+          const updatedBlockerHistory = [...s.blockerHistory, ...newBlockers]
+          const nextSnapshots = computeAllSnapshots(history, updatedCheckIns, updatedBlockerHistory, distractionLog)
+          const nextTrends = pruneTrends(
+            detectTrends(nextSnapshots.W7, nextSnapshots.W7_PRIOR, s.trendRecords),
+            90,
+          )
+
           // F-01: pipeline is the sole authority for recovery mode classification
           const wasRecovery = s.recoveryMode
           let recoveryHighScoreDays = s.recoveryHighScoreDays ?? 0
@@ -729,13 +801,16 @@ export const useApp = create<State>()(
             recoverySuggestion: nextSuggestion,
             firstCheckInAt: state.firstCheckInAt ?? todayStr(),
             dataIsSeeded: false,
-            blockerHistory: [...state.blockerHistory, ...newBlockers],
+            blockerHistory: updatedBlockerHistory,
             distractionLog,
             streaks,
             tomorrowPlan,
             lastPipelineResult,
             lastReflectionResult,
             reflectionHistory,
+            behavioralEvents: prunedEvents,
+            aggregationSnapshots: nextSnapshots,
+            trendRecords: nextTrends,
           }))
 
           const userId = get().currentUserId
@@ -756,9 +831,34 @@ export const useApp = create<State>()(
           const userId = get().currentUserId;
           if (userId) syncInsightState(userId, id, { unlocked: true, unlocked_at: todayStr() });
         },
-        enterRecovery: (reason) => set({ recoveryMode: true, recoveryReason: reason }),
-        exitRecovery: () =>
-          set({ recoveryMode: false, recoveryReason: undefined, recoveryPlan: undefined }),
+        enterRecovery: (reason) => {
+          set((s) => ({
+            recoveryMode: true,
+            recoveryReason: reason,
+            behavioralEvents: pruneEvents(
+              [...s.behavioralEvents, emitRecoveryTriggered(reason, 'manual')],
+              90,
+            ),
+          }))
+        },
+        exitRecovery: () => {
+          const s = get()
+          const recoveryStartDate = s.history.findLast((d) => !d.recovery)?.date
+          const daysInRecovery = recoveryStartDate
+            ? Math.round(
+                (Date.now() - new Date(recoveryStartDate).getTime()) / (24 * 60 * 60 * 1000),
+              )
+            : 0
+          set((state) => ({
+            recoveryMode: false,
+            recoveryReason: undefined,
+            recoveryPlan: undefined,
+            behavioralEvents: pruneEvents(
+              [...state.behavioralEvents, emitRecoveryExited(daysInRecovery)],
+              90,
+            ),
+          }))
+        },
         setRecoveryPlan: (plan) => set({ recoveryPlan: plan }),
         acceptMinimumViableDay: (mvdTasks) =>
           set({
@@ -867,6 +967,10 @@ export const useApp = create<State>()(
                 preCommitAvgScore,
               },
             ],
+            behavioralEvents: pruneEvents(
+              [...get().behavioralEvents, emitInsightCommitted(id, preCommitAvgScore)],
+              90,
+            ),
           }));
           const userId = get().currentUserId;
           if (userId) {
@@ -973,6 +1077,8 @@ export const useApp = create<State>()(
         },
 
         setCommittedEnvironment: (snapshot) => set({ committedEnvironment: snapshot }),
+
+        refreshSnapshots: (snapshots) => set({ aggregationSnapshots: snapshots }),
 
         signIn: async (email, password) => {
           const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -1308,7 +1414,7 @@ export const useApp = create<State>()(
     },
     {
       name: "cadence-store-v1",
-      version: 9,
+      version: 10,
       // committedEnvironment is ephemeral — EnvironmentRenderer recomputes it on mount
       partialize: (s) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1401,6 +1507,29 @@ export const useApp = create<State>()(
             environmentOverrides: (s as Partial<State>).environmentOverrides ?? [],
           }
         }
+        if (version < 10) {
+          const history = s.history ?? []
+          const checkIns = s.checkIns ?? []
+          const blockerHistory = s.blockerHistory ?? []
+          const distractionLog = s.distractionLog ?? []
+          const backfilledEvents = backfillEventsFromHistory(history, blockerHistory, distractionLog)
+          const backfilledSnapshots =
+            history.length > 0
+              ? computeAllSnapshots(history, checkIns, blockerHistory, distractionLog)
+              : {}
+          const backfilledTrends =
+            backfilledSnapshots.W7 && backfilledSnapshots.W7_PRIOR
+              ? pruneTrends(detectTrends(backfilledSnapshots.W7, backfilledSnapshots.W7_PRIOR, []), 90)
+              : []
+          const backfilledPeriods = backfillPeriodsFromHistory(history)
+          s = {
+            ...s,
+            behavioralEvents: backfilledEvents,
+            aggregationSnapshots: backfilledSnapshots,
+            trendRecords: backfilledTrends,
+            behavioralPeriods: backfilledPeriods,
+          }
+        }
         return s as State;
       },
     },
@@ -1413,15 +1542,34 @@ export function useExecutionScore(): number {
   return h[h.length - 1]?.executionScore ?? 0;
 }
 
+export function useBehavioralEvidence(): BehavioralEvidence {
+  const events = useApp((s) => s.behavioralEvents)
+  const snapshots = useApp((s) => s.aggregationSnapshots)
+  const trends = useApp((s) => s.trendRecords)
+  const checkIns = useApp((s) => s.checkIns)
+  const periods = useApp((s) => s.behavioralPeriods)
+  return useMemo(
+    () => buildEvidence(events, snapshots, trends, checkIns, periods),
+    [events, snapshots, trends, checkIns, periods],
+  )
+}
+
 export function useMomentum(): { delta: number; trend: "up" | "down" | "flat" } {
   const h = useApp((s) => s.history);
+  const w7 = useApp((s) => s.aggregationSnapshots.W7);
+  const w7Prior = useApp((s) => s.aggregationSnapshots.W7_PRIOR);
   return useMemo(() => {
+    if (w7 && !w7.isStale && w7Prior && !w7Prior.isStale) {
+      const delta = Math.round(w7.metrics.avgExecutionScore - w7Prior.metrics.avgExecutionScore)
+      return { delta, trend: delta > 2 ? "up" : delta < -2 ? "down" : "flat" }
+    }
+    // Fallback: live computation
     const last7 = h.slice(-7).map((d) => d.executionScore);
     const prev7 = h.slice(-14, -7).map((d) => d.executionScore);
     const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
     const delta = Math.round(avg(last7) - avg(prev7));
     return { delta, trend: delta > 2 ? "up" : delta < -2 ? "down" : "flat" };
-  }, [h]);
+  }, [h, w7, w7Prior]);
 }
 
 export function useMomentumScore(): number {
@@ -1740,50 +1888,48 @@ export function useLatestInsight() {
 export function useDistractionProfile() {
   const distractionLog = useApp((s) => s.distractionLog);
   const history = useApp((s) => s.history);
+  const w14 = useApp((s) => s.aggregationSnapshots.W14);
 
   return useMemo(() => {
-    const DISTRACTION_IDS = [
-      "phone",
-      "social",
-      "video",
-      "noise",
-      "snacks",
-      "thoughts",
-      "fatigue",
-      "meetings",
-    ];
+    // Use pre-computed distraction profile from W14 snapshot when fresh
+    const snapshotProfile = w14 && !w14.isStale ? w14.metrics.distractionProfile : null
 
-    const topDistractors = DISTRACTION_IDS.map((id) => {
-      const daysWith = distractionLog.filter((d) => d.types.includes(id)).map((d) => d.date);
-      const daysWithout = distractionLog.filter((d) => !d.types.includes(id)).map((d) => d.date);
+    let topDistractors: { id: string; frequency: number; avgScoreImpact: number }[]
 
-      const avgScoreWith =
-        daysWith.length > 0
-          ? daysWith.reduce((sum, date) => {
-              const h = history.find((d) => d.date === date);
-              return sum + (h?.executionScore ?? 0);
-            }, 0) / daysWith.length
-          : null;
+    if (snapshotProfile && snapshotProfile.length > 0) {
+      topDistractors = [...snapshotProfile]
+    } else {
+      const DISTRACTION_IDS = [
+        "phone", "social", "video", "noise", "snacks", "thoughts", "fatigue", "meetings",
+      ];
+      topDistractors = DISTRACTION_IDS.map((id) => {
+        const daysWith = distractionLog.filter((d) => d.types.includes(id)).map((d) => d.date);
+        const daysWithout = distractionLog.filter((d) => !d.types.includes(id)).map((d) => d.date);
+        const avgScoreWith =
+          daysWith.length > 0
+            ? daysWith.reduce((sum, date) => {
+                const h = history.find((d) => d.date === date);
+                return sum + (h?.executionScore ?? 0);
+              }, 0) / daysWith.length
+            : null;
+        const avgScoreWithout =
+          daysWithout.length > 0
+            ? daysWithout.reduce((sum, date) => {
+                const h = history.find((d) => d.date === date);
+                return sum + (h?.executionScore ?? 0);
+              }, 0) / daysWithout.length
+            : null;
+        const avgScoreImpact =
+          avgScoreWith !== null && avgScoreWithout !== null
+            ? Math.round(avgScoreWith - avgScoreWithout)
+            : 0;
+        return { id, frequency: daysWith.length, avgScoreImpact };
+      })
+        .filter((d) => d.frequency > 0)
+        .sort((a, b) => a.avgScoreImpact - b.avgScoreImpact);
+    }
 
-      const avgScoreWithout =
-        daysWithout.length > 0
-          ? daysWithout.reduce((sum, date) => {
-              const h = history.find((d) => d.date === date);
-              return sum + (h?.executionScore ?? 0);
-            }, 0) / daysWithout.length
-          : null;
-
-      const avgScoreImpact =
-        avgScoreWith !== null && avgScoreWithout !== null
-          ? Math.round(avgScoreWith - avgScoreWithout)
-          : 0;
-
-      return { id, frequency: daysWith.length, avgScoreImpact };
-    })
-      .filter((d) => d.frequency > 0)
-      .sort((a, b) => a.avgScoreImpact - b.avgScoreImpact);
-
-    // Weekday pattern: most common distractor per day of week
+    // Weekday pattern: always live (not in snapshot)
     const weekdayPattern: Record<number, string[]> = {};
     for (let dow = 0; dow <= 6; dow++) {
       const entries = distractionLog.filter((d) => new Date(d.date).getDay() === dow);
@@ -1805,7 +1951,7 @@ export function useDistractionProfile() {
         : null;
 
     return { topDistractors, weekdayPattern, worstDistractor, scoreImpactText };
-  }, [distractionLog, history]);
+  }, [distractionLog, history, w14]);
 }
 
 // E3: Day-of-week performance profile
@@ -1932,8 +2078,13 @@ export function useSmartCheckInDefaults() {
 // E1: Blocker pattern analysis
 export function useBlockerPattern() {
   const blockerHistory = useApp((s) => s.blockerHistory);
+  const w14 = useApp((s) => s.aggregationSnapshots.W14);
 
   return useMemo(() => {
+    // Read dominant blocker from W14 snapshot when fresh
+    const dominantBlockerFromSnapshot =
+      w14 && !w14.isStale ? w14.metrics.dominantBlockerType : null
+
     const last14 = blockerHistory.filter((b) => {
       const d = new Date(b.date);
       const cutoff = new Date();
@@ -1951,9 +2102,9 @@ export function useBlockerPattern() {
     });
 
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    const dominantBlocker = sorted[0]?.[0] ?? null;
+    const dominantBlocker = dominantBlockerFromSnapshot ?? sorted[0]?.[0] ?? null;
 
-    // Detect streak: same blocker type for 3+ consecutive days
+    // Streak detection: same blocker type for 3+ consecutive days (always live — not in snapshot)
     const datesSorted = [...new Set(last14.map((b) => b.date))].sort();
     let streak: { type: string; days: number } | null = null;
 
@@ -1981,24 +2132,30 @@ export function useBlockerPattern() {
       recommendation: dominantBlocker ? (recommendations[dominantBlocker] ?? "") : "",
       blockerCounts: counts,
     };
-  }, [blockerHistory]);
+  }, [blockerHistory, w14]);
 }
 
 // E5: Streak context
 export function useStreakContext() {
   const streaks = useApp((s) => s.streaks);
   const history = useApp((s) => s.history);
+  const w7 = useApp((s) => s.aggregationSnapshots.W7);
 
   return useMemo(() => {
     const { current, longest, currentResilienceStreak, longestResilienceStreak, quickRecoveries } =
       streaks;
 
-    // Determine if "at risk": last 3 days trending down toward threshold
-    const last3 = history.slice(-3).map((d) => d.executionScore);
-    const atRisk =
-      last3.length >= 2 &&
-      last3[last3.length - 1] < 65 &&
-      last3[last3.length - 1] < (last3[last3.length - 2] ?? 100);
+    // Read atRisk from W7 snapshot when fresh, else live computation
+    const atRisk = w7 && !w7.isStale
+      ? w7.metrics.streakAtRisk
+      : (() => {
+          const last3 = history.slice(-3).map((d) => d.executionScore);
+          return (
+            last3.length >= 2 &&
+            last3[last3.length - 1] < 65 &&
+            last3[last3.length - 1] < (last3[last3.length - 2] ?? 100)
+          );
+        })()
 
     // Use the better of execution or resilience streak for display
     const useResilienceStreak = currentResilienceStreak > current && currentResilienceStreak > 3;
@@ -2027,7 +2184,7 @@ export function useStreakContext() {
       execStreak: current,
       resStreak: currentResilienceStreak,
     };
-  }, [streaks, history]);
+  }, [streaks, history, w7]);
 }
 
 // E7: Task intelligence

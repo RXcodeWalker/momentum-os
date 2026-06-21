@@ -22,6 +22,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useApp, useUserState } from "@/lib/store";
+import { isSnapshotStale, computeAllSnapshots } from "@/lib/history-engine";
 import { useFocusEnvironment } from "@/hooks/internal/useFocusEnvironment";
 import { EnvironmentRenderer } from "@/components/environment/EnvironmentRenderer";
 import { useEffect, useState } from "react";
@@ -365,6 +366,26 @@ function RootComponent() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    // Background snapshot recompute: runs at most once per mount, non-blocking
+    const state = useApp.getState()
+    const w7 = state.aggregationSnapshots.W7
+    const w14 = state.aggregationSnapshots.W14
+    if (
+      state.history.length > 0 &&
+      (!w7 || isSnapshotStale(w7) || !w14 || isSnapshotStale(w14))
+    ) {
+      const nextSnapshots = computeAllSnapshots(
+        state.history,
+        state.checkIns,
+        state.blockerHistory,
+        state.distractionLog,
+      )
+      state.refreshSnapshots(nextSnapshots)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
