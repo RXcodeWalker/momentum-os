@@ -8,4 +8,5 @@ export * from './adaptation'
 export * from './flow'
 export * from './reentry'
 export * from './pipeline'
+export * from './guidance'
 
