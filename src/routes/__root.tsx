@@ -35,6 +35,7 @@ import { PageTransition } from "@/lib/motion";
 import { Toaster } from "sonner";
 import { motion, LayoutGroup } from "framer-motion";
 import { ThemeToggle, useTheme } from "@/components/ThemeToggle";
+import { AdaptationDebugOverlay } from "@/components/debug/AdaptationDebugOverlay";
 
 function NotFoundComponent() {
   return (
@@ -400,6 +401,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <EnvironmentRenderer />
+      {import.meta.env.DEV && <AdaptationDebugOverlay />}
       <AuroraBackground />
       <CommandPalette />
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
