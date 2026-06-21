@@ -11,6 +11,7 @@ import { useApp } from '@/lib/store'
 import { useBehavioralState } from './internal/useBehavioralState'
 import { useBehavioralTasks } from './internal/useBehavioralTasks'
 import { useBehavioralInterventions } from './internal/useBehavioralInterventions'
+import { useBehavioralExecution } from './internal/useBehavioralExecution'
 import { densityBandToSurfaceLevel, toneToHeroTheme } from './internal/map'
 import type { BehavioralView } from './internal/contracts'
 
@@ -19,6 +20,7 @@ export function useBehavioralPipeline(): BehavioralView {
   const state         = useBehavioralState()
   const tasks         = useBehavioralTasks()
   const interventions = useBehavioralInterventions()
+  const execution     = useBehavioralExecution()
 
   return useMemo((): BehavioralView => {
     const ready = !!pipeline
@@ -33,6 +35,7 @@ export function useBehavioralPipeline(): BehavioralView {
       state,
       tasks,
       interventions,
+      execution,
       shell: {
         surfaceLevel: densityBandToSurfaceLevel(state.environment.density),
         focusMode:
@@ -41,5 +44,5 @@ export function useBehavioralPipeline(): BehavioralView {
       },
       heroTheme: toneToHeroTheme(state.guidance.tone),
     }
-  }, [pipeline, state, tasks, interventions])
+  }, [pipeline, state, tasks, interventions, execution])
 }

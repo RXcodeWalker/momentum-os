@@ -141,6 +141,37 @@ export type BehavioralInterventionsView = {
 }
 
 // ---------------------------------------------------------------------------
+// useBehavioralExecution
+// ---------------------------------------------------------------------------
+
+export type StretchOpportunity = {
+  taskId: string
+  prompt: string
+}
+
+export type DeepWorkNudge = {
+  show: boolean
+}
+
+export type AdvancementVisibility = {
+  showStreakPill: boolean
+  showMomentumDelta: boolean
+  showConsistencyPill: boolean
+  showSparkline: boolean
+}
+
+export type BehavioralExecutionView = {
+  ready: boolean
+  visibleTaskIds: string[]
+  hiddenCount: number
+  compressionReason: 'recovery-protection' | 'capacity-cap' | 'none'
+  stretchOpportunity: StretchOpportunity | null
+  deepWorkNudge: DeepWorkNudge
+  advancement: AdvancementVisibility
+  suppressTypeBalanceWarning: boolean
+}
+
+// ---------------------------------------------------------------------------
 // useBehavioralPipeline (public aggregation)
 // ---------------------------------------------------------------------------
 
@@ -151,6 +182,7 @@ export type BehavioralView = {
   state: BehavioralStateView
   tasks: BehavioralTasksView
   interventions: BehavioralInterventionsView
+  execution: BehavioralExecutionView
 
   shell: {
     surfaceLevel: 'full' | 'reduced' | 'minimal'

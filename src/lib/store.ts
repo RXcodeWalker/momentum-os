@@ -2036,6 +2036,7 @@ export function useTaskIntelligence() {
   const history = useApp((s) => s.history);
   const profile = useApp((s) => s.profile);
   const { state } = useUserState();
+  const pipeline = useApp((s) => s.lastPipelineResult);
 
   return useMemo(() => {
     // Recommended task mix by user state
@@ -2099,17 +2100,20 @@ export function useTaskIntelligence() {
       profileCap === Infinity
         ? stateCap
         : Math.round(stateCap * (1 - onboardingWeight) + profileCap * onboardingWeight);
-    const suggestedCap = Math.max(1, blendedCap);
+    const pipelineLimit = (pipeline as any)?.adaptationGeneration?.execution?.visibleTaskLimit as number | undefined;
+    const suggestedCap = Math.max(1, pipelineLimit ?? blendedCap);
+
+    const suppressWarning = (pipeline as any)?.stateInterpretation?.currentMode === 'RECOVERY';
 
     return {
       todayLoadRisk,
-      typeBalanceWarning,
+      typeBalanceWarning: suppressWarning ? null : typeBalanceWarning,
       rescheduleAlerts,
       suggestedCap,
       actual,
       recommended,
     };
-  }, [tasks, history, state, profile]);
+  }, [tasks, history, state, profile, pipeline]);
 }
 
 // E6: Personalized recovery protocol matching

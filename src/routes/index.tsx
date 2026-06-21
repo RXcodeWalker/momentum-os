@@ -329,7 +329,7 @@ function Home() {
                           {trajectoryLabel(behavioral.state.trajectory)}
                         </Pill>
                       )}
-                      {consistencyReadiness.hasMinimum && (
+                      {consistencyReadiness.hasMinimum && behavioral.execution.advancement.showConsistencyPill && (
                         <Pill tone="accent" className="px-4 py-1.5 text-xs font-bold">
                           {consistency}% Consistency
                         </Pill>
@@ -346,7 +346,7 @@ function Home() {
                     {todayScoreReadiness.hasMinimum ? (
                       <div className="relative">
                         <Ring value={score} size={200} stroke={16} label="Score" sub="Today" />
-                        {delta !== 0 && momentumReadiness.hasMinimum && (
+                        {delta !== 0 && momentumReadiness.hasMinimum && behavioral.execution.advancement.showMomentumDelta && (
                           <motion.div
                             initial={{ scale: 0, rotate: -20 }}
                             animate={{ scale: 1, rotate: 0 }}
@@ -371,7 +371,7 @@ function Home() {
                 </motion.div>
               </AnimatePresence>
 
-              {momentumReadiness.hasMinimum && (
+              {momentumReadiness.hasMinimum && behavioral.execution.advancement.showSparkline && (
                 <div className="mt-12 pt-8 border-t border-border relative">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-bold">
@@ -878,7 +878,9 @@ function TasksSection({
   const addTask = useApp((s) => s.addTask);
   const rescheduleTask = useApp((s) => s.rescheduleTask);
   const resetDemo = useApp((s) => s.resetDemo);
+  const acknowledgeIntervention = useApp((s) => s.acknowledgeIntervention);
   const taskIntel = useTaskIntelligence();
+  const stretchOpp = behavioral.execution.stretchOpportunity;
 
   const surfaceLevel = behavioral.shell.surfaceLevel;
   const pipelineReady = behavioral.ready;
@@ -957,6 +959,18 @@ function TasksSection({
         )
       )}
 
+      {behavioral.execution.deepWorkNudge.show && !focusEnv.active && (
+        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent/5 border border-accent/15">
+            <Zap className="h-3.5 w-3.5 text-accent flex-none" />
+            <p className="text-xs text-foreground flex-1">Deep work window active. Start your first task.</p>
+            <button onClick={() => acknowledgeIntervention('DEEP_WORK_NUDGE')} className="text-muted-foreground hover:text-foreground">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       <AnimatePresence mode="wait">
         {nextTask && (
           <motion.div
@@ -1009,6 +1023,20 @@ function TasksSection({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {stretchOpp && !focusEnv.active && surfaceLevel !== 'minimal' && (
+        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-success/5 border border-success/15">
+            <div className="h-7 w-7 rounded-xl bg-success/15 flex items-center justify-center">
+              <Sparkles className="h-3.5 w-3.5 text-success" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] uppercase tracking-widest text-success font-bold">Stretch opportunity</p>
+              <p className="text-xs text-foreground mt-0.5">{stretchOpp.prompt}</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Secondary task compressed line — shown during focus in FOCUSED / EXPANDING modes */}
       {focusEnv.active && focusEnv.secondaryTask && (
@@ -1096,8 +1124,11 @@ function TasksSection({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p
-                      className={`truncate text-[15px] font-medium transition-colors ${done ? "text-muted-foreground line-through" : "text-foreground"}`}
+                      className={`truncate text-[15px] font-medium transition-colors flex items-center gap-1.5 ${done ? "text-muted-foreground line-through" : "text-foreground"}`}
                     >
+                      {stretchOpp?.taskId === t.id && !done && (
+                        <Sparkles className="h-3 w-3 text-success flex-none" />
+                      )}
                       {t.label}
                     </p>
                     <p className="text-[11px] text-muted-foreground/70 mt-0.5 flex items-center gap-1.5">

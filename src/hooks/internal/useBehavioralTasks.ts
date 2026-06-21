@@ -3,6 +3,7 @@ import { useApp } from '@/lib/store'
 import type { BehavioralPipeline } from '@/core/contracts/pipeline/behavioral-pipeline'
 import type { BehavioralTasksView, ResolvedTask } from './contracts'
 import { scalarToConfidence, pacingToGuidance } from './map'
+import { useBehavioralExecution } from './useBehavioralExecution'
 
 const DEFAULT_VISIBLE_LIMIT = 5
 
@@ -13,6 +14,7 @@ const DEFAULT_VISIBLE_LIMIT = 5
 export function useBehavioralTasks(): BehavioralTasksView {
   const pipeline = useApp((s) => s.lastPipelineResult) as BehavioralPipeline | null
   const storeTasks = useApp((s) => s.tasks)
+  const executionView = useBehavioralExecution()
 
   return useMemo((): BehavioralTasksView => {
     if (!pipeline) {
@@ -63,13 +65,8 @@ export function useBehavioralTasks(): BehavioralTasksView {
     const pacingRec = adaptationGeneration?.execution.pacingRecommendation ?? 'MAINTAIN_RHYTHM'
     const guidance = pacingToGuidance(pacingRec)
 
-    // Visible task list: all tasks not suppressed, up to the limit
     const suppressedSet = new Set(suppressedTaskIds)
-    const visibleTaskIds = storeTasks
-      .filter((t) => !suppressedSet.has(t.id))
-      .slice(0, visibleTaskLimit)
-      .map((t) => t.id)
-
+    const visibleTaskIds = executionView.visibleTaskIds
     const overCapacity = storeTasks.filter((t) => !suppressedSet.has(t.id)).length > visibleTaskLimit
 
     return {
@@ -92,5 +89,5 @@ export function useBehavioralTasks(): BehavioralTasksView {
         compressedTaskIds,
       },
     }
-  }, [pipeline, storeTasks])
+  }, [pipeline, storeTasks, executionView])
 }
