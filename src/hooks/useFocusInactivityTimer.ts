@@ -61,10 +61,15 @@ export function useFocusInactivityTimer() {
       }, Math.max(0, MIN_PROTECTION_MS - (Date.now() - (enteredAtRef.current ?? Date.now()))))
     }
 
+    // Tab switch away is read/reference work — don't reset timer. Returning IS activity.
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') onActivity()
+    }
+
     window.addEventListener('click', onActivity)
     window.addEventListener('keydown', onActivity)
     window.addEventListener('touchstart', onActivity)
-    window.addEventListener('visibilitychange', onActivity)
+    window.addEventListener('visibilitychange', onVisibilityChange)
 
     scheduleCheck()
 
@@ -72,7 +77,7 @@ export function useFocusInactivityTimer() {
       window.removeEventListener('click', onActivity)
       window.removeEventListener('keydown', onActivity)
       window.removeEventListener('touchstart', onActivity)
-      window.removeEventListener('visibilitychange', onActivity)
+      window.removeEventListener('visibilitychange', onVisibilityChange)
       if (timerRef.current) clearTimeout(timerRef.current)
     }
   }, [focusEnv.active, focusEnv.enteredAt, exitFocusEnvironment])

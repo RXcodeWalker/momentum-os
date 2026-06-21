@@ -17,6 +17,7 @@ import {
   TrendingDown,
   BookOpen,
   Shield,
+  X,
 } from "lucide-react";
 import {
   useApp,
@@ -95,14 +96,24 @@ function Home() {
     hour < 11 ? "morning" : hour < 17 ? "midday" : "evening";
 
   const subtitle = (() => {
-    if (!behavioral.ready) {
-      return "Cadence learns from what you do. Today is a clean page.";
-    }
-    if (behavioral.state.mode === "RECOVERY")
+    if (!behavioral.ready) return "Cadence learns from what you do. Today is a clean page.";
+    const mode = behavioral.state.mode;
+    const traj = behavioral.state.trajectory;
+    if (mode === "RECOVERY")
       return "You're in recovery. Smaller surface, faster reps. Three things, then rest.";
-    if (behavioral.state.mode === "EXPANDING")
+    if (mode === "EXPANDING")
       return "You're in a peak window. Stretch into deeper work — protect sleep at all costs.";
-    return "Steady hand today. Don't over-plan — execute three things well.";
+    if (mode === "FOCUSED") {
+      if (traj === "EXPANDING") return "Momentum is building. Protect depth today.";
+      if (traj === "FRAGILE")  return "Hold the line. Consistency over ambition today.";
+      if (traj === "CONTRACTING") return "Friction is up. One thing done well outweighs three started.";
+      return "Steady hand today. Don't over-plan — execute three things well.";
+    }
+    // STABILIZING
+    if (traj === "EXPANDING")   return "Rebuilding. Each completed task compounds forward.";
+    if (traj === "FRAGILE")     return "Fragile ground. Prioritize finish over start today.";
+    if (traj === "CONTRACTING") return "Hold capacity. Protect sleep and the smallest win.";
+    return "Steady hand today. Show up, don't over-plan.";
   })();
 
   const momentumLabel = recoveryMode
@@ -153,6 +164,38 @@ function Home() {
   const recoveryDay = recoveryPlan?.startedAt
     ? Math.floor((Date.now() - new Date(recoveryPlan.startedAt).getTime()) / 86400000) + 1
     : 1;
+
+  // F-19/22: behavior-keyed date comparisons
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const hasCheckedInToday = checkIns.some((c) => c.date === todayDate);
+
+  // F-20: dismiss state for yesterday's signal card (ephemeral — session only)
+  const [dismissedYesterday, setDismissedYesterday] = useState(false);
+
+  // F-22: card budget
+  // Level-3 intervention renders as modal overlay (separate from budget)
+  // Level 1–2 intervention competes for priority-1 budget slot
+  const budgetInterventionActive =
+    !focusEnv.active &&
+    behavioral.interventions.highestLevel >= 1 &&
+    behavioral.interventions.highestLevel < 3;
+  const modalInterventionActive = behavioral.interventions.highestLevel >= 3;
+
+  // Priority-ordered candidates — first 3 active ones render
+  const budgetPriority: Array<[string, boolean]> = [
+    ["intervention", budgetInterventionActive],
+    ["recovery",     !!(recoveryMode && !focusEnv.active)],
+    ["aiAlert",      !!(aiAlert.detected && !focusEnv.active)],
+    ["committedTask", !!(morningCal.isComplete && morningCal.committedTask)],
+    ["briefing",     !!(shell.surfaceLevel !== "minimal" && phase === "morning" && tomorrowBriefing.hasPlan && !morningCal.isComplete && !focusEnv.active)],
+    ["velocity",     !!(velocity.declining && behavioral.tasks.workload.guidance === "reduce" && shell.surfaceLevel !== "minimal" && !focusEnv.active)],
+    ["insight",      !!(shell.surfaceLevel !== "minimal" && committedInsightData && committedInsightCard && !focusEnv.active)],
+    ["blocker",      !!(shell.surfaceLevel === "full" && blockerPattern.streak && blockerPattern.streak.days >= 3 && !focusEnv.active)],
+    ["yesterday",    !!(shell.surfaceLevel !== "minimal" && phase === "morning" && !morningCal.isComplete && !focusEnv.active && !dismissedYesterday && yesterdayCheckIn && (yesterdayCheckIn.reflection || yesterdayCheckIn.tomorrowFocus))],
+  ];
+  const budgetSlots = new Set(
+    budgetPriority.filter(([, active]) => active).slice(0, 3).map(([key]) => key),
+  );
 
   // Auto-exit focus environment when mode transitions to RECOVERY (§3.4)
   useEffect(() => {
@@ -218,16 +261,6 @@ function Home() {
           </div>
         }
       />
-
-      {aiAlert.detected && !focusEnv.active && (
-        <div className="px-5 lg:px-0">
-          <BehavioralNote
-            title={aiAlert.title || ""}
-            body={aiAlert.body || ""}
-            confidence={aiAlert.confidence}
-          />
-        </div>
-      )}
 
       <Stagger className="grid grid-cols-1 gap-4 px-5 lg:px-0 lg:grid-cols-12 lg:gap-6" gap={0.07}>
         <StaggerItem className="lg:col-span-12">
@@ -411,17 +444,13 @@ function Home() {
                   icon={<Sunrise className="h-4 w-4" />}
                   label="Morning Calibration"
                   desc="Set 3 priorities · energy check"
-                  active={phase === "morning"}
-                  done={phase !== "morning"}
+                  active={phase === "morning" && !morningCal.isComplete && !morningCal.wasSkipped}
+                  done={morningCal.isComplete || morningCal.wasSkipped}
                   onClick={() => {
                     if (tasks.length === 0) {
-                      toast("Ready to calibrate?", {
-                        description: "Add your first priority below.",
-                      });
+                      toast("Ready to calibrate?", { description: "Add your first priority below." });
                     } else {
-                      toast("Calibration complete", {
-                        description: "You have clear focus for the day.",
-                      });
+                      toast("Calibration complete", { description: "You have clear focus for the day." });
                     }
                   }}
                 />
@@ -441,7 +470,8 @@ function Home() {
                   icon={<Moon className="h-4 w-4" />}
                   label="Evening Reflection"
                   desc="Wins · recovery preparation"
-                  active={phase === "evening"}
+                  active={phase === "evening" && !hasCheckedInToday}
+                  done={hasCheckedInToday}
                   to="/check-in"
                 />
               </div>
@@ -450,69 +480,82 @@ function Home() {
         )}
       </Stagger>
 
-      <section className="px-5 lg:px-0">
-        {/* During focus: suppress level 0-1 (silent), hold level 2, still show level 3 modal.
-            Priority-tier resolution has already occurred upstream; we display [0]. */}
-        <InterventionSurface
-          surface={
-            focusEnv.active
-              ? behavioral.interventions.highestLevel >= 3
-                ? "modal"
-                : "none"
-              : behavioral.interventions.ui.surface
-          }
-          intervention={
-            focusEnv.active
-              ? behavioral.interventions.active.find((i) => i.level === 3)
-              : behavioral.interventions.active[0]
-          }
-        />
-      </section>
+      {/* ── Card budget: max 3 informational cards ──────────────────────────────
+          Priority order: intervention → recovery → aiAlert → committedTask →
+          briefing → velocity → insight → blocker → yesterday.
+          Only the first 3 active candidates render (budgetSlots Set).          */}
 
-      {/* Score velocity warning — pre-burnout alert shown before score hits 45 */}
-      {velocity.declining && behavioral.tasks.workload.guidance === "reduce" && shell.surfaceLevel !== "minimal" && !focusEnv.active && (
+      {budgetSlots.has("intervention") && (
         <section className="px-5 lg:px-0">
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35 }}
-          >
-            <Card className="border-warning/30 bg-warning/5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-warning/20 text-warning">
-                  <TrendingDown className="h-4 w-4" />
+          {/* Priority-tier resolution happened upstream; we display active[0]. */}
+          <InterventionSurface
+            surface={behavioral.interventions.ui.surface}
+            intervention={behavioral.interventions.active[0]}
+          />
+        </section>
+      )}
+
+      {budgetSlots.has("recovery") && (
+        <section className="px-5 lg:px-0">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+            <Link to="/recovery" className="group block">
+              <Card className="bg-gradient-surface border-warning/20">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <StatLabel>Recovery protocol active</StatLabel>
+                      <Pill tone="warning" className="text-[9px] h-4 py-0">
+                        {recoveryReason || "System reset"}
+                      </Pill>
+                    </div>
+                    <p className="font-display mt-1 text-lg text-foreground">
+                      {recoveryPlan?.protocol
+                        ? `${recoveryPlan.protocol.charAt(0).toUpperCase()}${recoveryPlan.protocol.slice(1)}`
+                        : "Tactical"}{" "}
+                      stabilization in progress
+                    </p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="flex -space-x-1.5">
+                        {[0, 1, 2].map((i) => (
+                          <div key={i} className={`h-1.5 w-6 rounded-full ${i < recoveryDay ? "bg-warning" : "bg-secondary"}`} />
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                        Day {Math.min(3, recoveryDay)}:{" "}
+                        {recoveryPlan?.timeline[Math.min(2, recoveryDay - 1)]?.focus || "Stabilize"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10 text-warning group-hover:bg-warning/20 transition-colors">
+                    <RotateCcw className="h-5 w-5" />
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-warning font-bold mb-1">
-                    Momentum at risk
-                  </p>
-                  <p className="text-sm text-foreground leading-relaxed">
-                    Score has declined {velocity.dropPts} pts over {velocity.dayCount} days — a pattern worth watching.
-                  </p>
-                </div>
-              </div>
-            </Card>
+              </Card>
+            </Link>
           </motion.div>
         </section>
       )}
 
-      {/* Committed morning task pin */}
-      {morningCal.isComplete && morningCal.committedTask && (
+      {budgetSlots.has("aiAlert") && (
         <section className="px-5 lg:px-0">
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
+          <BehavioralNote
+            title={aiAlert.title || ""}
+            body={aiAlert.body || ""}
+            confidence={aiAlert.confidence}
+          />
+        </section>
+      )}
+
+      {budgetSlots.has("committedTask") && morningCal.committedTask && (
+        <section className="px-5 lg:px-0">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
             <Card className="border-accent/20 bg-accent/5">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/20 text-accent flex-none">
                   <Zap className="h-4 w-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase tracking-widest text-accent font-bold">
-                    Committed start
-                  </p>
+                  <p className="text-[10px] uppercase tracking-widest text-accent font-bold">Committed start</p>
                   <p className="text-sm font-semibold text-foreground truncate mt-0.5">
                     {morningCal.committedTask.label}
                   </p>
@@ -528,13 +571,9 @@ function Home() {
         </section>
       )}
 
-      {shell.surfaceLevel !== "minimal" && phase === "morning" && tomorrowBriefing.hasPlan && !morningCal.isComplete && !focusEnv.active && (
+      {budgetSlots.has("briefing") && (
         <section className="px-5 lg:px-0">
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
             <Card className="border-success/20 bg-success/5">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2">
@@ -542,9 +581,7 @@ function Home() {
                     <Sunrise className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-widest text-success font-bold">
-                      Morning Briefing
-                    </p>
+                    <p className="text-[10px] uppercase tracking-widest text-success font-bold">Morning Briefing</p>
                     {tomorrowBriefing.northStar && (
                       <p className="font-display text-base text-foreground leading-snug mt-0.5">
                         "{tomorrowBriefing.northStar}"
@@ -553,18 +590,14 @@ function Home() {
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                {tomorrowBriefing.insight}
-              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed mb-3">{tomorrowBriefing.insight}</p>
               {tomorrowBriefing.suggestedTasks.length > 0 && (
                 <div className="space-y-1.5 mb-4">
                   {tomorrowBriefing.suggestedTasks.map((t, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs text-foreground/80">
                       <div className="h-1.5 w-1.5 rounded-full bg-success flex-none" />
                       {t.label}
-                      <span className="text-muted-foreground/60 ml-auto text-[10px]">
-                        {t.estMin}m
-                      </span>
+                      <span className="text-muted-foreground/60 ml-auto text-[10px]">{t.estMin}m</span>
                     </div>
                   ))}
                 </div>
@@ -580,57 +613,29 @@ function Home() {
         </section>
       )}
 
-      {/* Morning continuity — echo yesterday's reflection and north star */}
-      {shell.surfaceLevel !== "minimal" &&
-        phase === "morning" &&
-        !morningCal.isComplete &&
-        !focusEnv.active &&
-        yesterdayCheckIn &&
-        (yesterdayCheckIn.reflection || yesterdayCheckIn.tomorrowFocus) && (
-          <section className="px-5 lg:px-0">
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-            >
-              <Card className="border-foreground/8 bg-card/50">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-secondary text-muted-foreground">
-                    <BookOpen className="h-4 w-4" />
-                  </div>
-                  <div className="space-y-2 flex-1">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
-                      Yesterday's signal
-                    </p>
-                    {yesterdayCheckIn.tomorrowFocus && (
-                      <p className="text-sm text-foreground leading-snug">
-                        You planned to focus on:{" "}
-                        <span className="font-semibold">"{yesterdayCheckIn.tomorrowFocus}"</span>
-                      </p>
-                    )}
-                    {yesterdayCheckIn.reflection && (
-                      <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-border pl-3 italic">
-                        "{yesterdayCheckIn.reflection}"
-                      </p>
-                    )}
-                    <p className="text-[10px] text-muted-foreground/60">
-                      Does this still apply today?
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          </section>
-        )}
-
-      {/* Committed insight tracking card */}
-      {shell.surfaceLevel !== "minimal" && committedInsightData && committedInsightCard && !focusEnv.active && (
+      {budgetSlots.has("velocity") && (
         <section className="px-5 lg:px-0">
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.15 }}
-          >
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+            <Card className="border-warning/30 bg-warning/5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-warning/20 text-warning">
+                  <TrendingDown className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-warning font-bold mb-1">Momentum at risk</p>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    Score has declined {velocity.dropPts} pts over {velocity.dayCount} days — a pattern worth watching.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        </section>
+      )}
+
+      {budgetSlots.has("insight") && committedInsightData && committedInsightCard && (
+        <section className="px-5 lg:px-0">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
             <Card className="border-accent/20 bg-accent/5">
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-accent/20 text-accent">
@@ -638,24 +643,15 @@ function Home() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-[10px] uppercase tracking-widest text-accent font-bold">
-                      Active rule
-                    </p>
-                    <span className="text-[10px] text-muted-foreground">
-                      Day {committedInsightCard.daysSinceCommit + 1}
-                    </span>
+                    <p className="text-[10px] uppercase tracking-widest text-accent font-bold">Active rule</p>
+                    <span className="text-[10px] text-muted-foreground">Day {committedInsightCard.daysSinceCommit + 1}</span>
                   </div>
-                  <p className="text-sm font-medium text-foreground leading-snug mb-1">
-                    {committedInsightData.title}
-                  </p>
+                  <p className="text-sm font-medium text-foreground leading-snug mb-1">{committedInsightData.title}</p>
                   {committedInsightCard.verdict === "working" ? (
-                    <p className="text-[11px] text-success">
-                      +{committedInsightCard.delta} pts avg since commit — this is working.
-                    </p>
+                    <p className="text-[11px] text-success">+{committedInsightCard.delta} pts avg since commit — this is working.</p>
                   ) : (
                     <p className="text-[11px] text-muted-foreground">
-                      Building baseline — check back in {7 - committedInsightCard.daysSinceCommit}{" "}
-                      days.
+                      Building baseline — check back in {7 - committedInsightCard.daysSinceCommit} days.
                     </p>
                   )}
                 </div>
@@ -665,23 +661,16 @@ function Home() {
         </section>
       )}
 
-      {/* Blocker pattern nudge */}
-      {shell.surfaceLevel === "full" && blockerPattern.streak && blockerPattern.streak.days >= 3 && !focusEnv.active && (
+      {budgetSlots.has("blocker") && blockerPattern.streak && (
         <section className="px-5 lg:px-0">
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-          >
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
             <Card className="border-warning/20 bg-warning/5">
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-warning/20 text-warning">
                   <AlertTriangle className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-warning font-bold mb-1">
-                    Pattern detected
-                  </p>
+                  <p className="text-[10px] uppercase tracking-widest text-warning font-bold mb-1">Pattern detected</p>
                   <p className="text-sm text-foreground leading-relaxed">
                     <span className="font-semibold capitalize">{blockerPattern.streak.type}</span>{" "}
                     has blocked tasks {blockerPattern.streak.days} days in a row.{" "}
@@ -692,6 +681,53 @@ function Home() {
             </Card>
           </motion.div>
         </section>
+      )}
+
+      {budgetSlots.has("yesterday") && yesterdayCheckIn && (
+        <section className="px-5 lg:px-0">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+            <Card className="border-foreground/8 bg-card/50">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-secondary text-muted-foreground">
+                  <BookOpen className="h-4 w-4" />
+                </div>
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
+                      Yesterday's note
+                    </p>
+                    <button
+                      onClick={() => setDismissedYesterday(true)}
+                      className="text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+                      aria-label="Dismiss"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  {yesterdayCheckIn.tomorrowFocus && (
+                    <p className="text-sm text-foreground leading-snug">
+                      You planned to focus on:{" "}
+                      <span className="font-semibold">"{yesterdayCheckIn.tomorrowFocus}"</span>
+                    </p>
+                  )}
+                  {yesterdayCheckIn.reflection && (
+                    <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-border pl-3 italic">
+                      "{yesterdayCheckIn.reflection}"
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        </section>
+      )}
+
+      {/* Level-3 modal intervention — overlay, independent of card budget */}
+      {modalInterventionActive && (
+        <InterventionSurface
+          surface="modal"
+          intervention={behavioral.interventions.active.find((i) => i.level === 3)}
+        />
       )}
 
       {/* Level-2 interventions held during focus — surfaced on exit, persisted across navigation */}
@@ -732,55 +768,6 @@ function Home() {
         </div>
       )}
 
-      <AnimatePresence>
-        {shell.surfaceLevel !== "minimal" && recoveryMode && !focusEnv.active && (
-          <motion.section
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="px-5 lg:px-0"
-          >
-            <Link to="/recovery" className="group block">
-              <Card className="bg-gradient-surface border-warning/20">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <StatLabel>Recovery protocol active</StatLabel>
-                      <Pill tone="warning" className="text-[9px] h-4 py-0">
-                        {recoveryReason || "System reset"}
-                      </Pill>
-                    </div>
-                    <p className="font-display mt-1 text-lg text-foreground">
-                      {recoveryPlan?.protocol
-                        ? `${recoveryPlan.protocol.charAt(0).toUpperCase()}${recoveryPlan.protocol.slice(1)}`
-                        : "Tactical"}{" "}
-                      stabilization in progress
-                    </p>
-                    <div className="mt-2 flex items-center gap-3">
-                      <div className="flex -space-x-1.5">
-                        {[0, 1, 2].map((i) => (
-                          <div
-                            key={i}
-                            className={`h-1.5 w-6 rounded-full ${i < recoveryDay ? "bg-warning" : "bg-secondary"}`}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                        Day {Math.min(3, recoveryDay)}:{" "}
-                        {recoveryPlan?.timeline[Math.min(2, recoveryDay - 1)]?.focus || "Stabilize"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10 text-warning group-hover:bg-warning/20 transition-colors">
-                    <RotateCcw className="h-5 w-5" />
-                  </div>
-                </div>
-              </Card>
-            </Link>
-          </motion.section>
-        )}
-      </AnimatePresence>
-
       {shell.surfaceLevel === "full" && !focusEnv.active && <Stagger className="px-5 lg:px-0 grid grid-cols-2 gap-2.5 lg:grid-cols-4" gap={0.05}>
         {[
           { to: "/dashboard", label: "Command center", desc: "Deep analytics", icon: Sparkles },
@@ -805,18 +792,20 @@ function Home() {
         })}
       </Stagger>}
 
-      <section className="px-5 lg:px-0">
-        <Link to="/check-in">
-          <motion.button
-            whileHover={{ scale: 1.005 }}
-            whileTap={{ scale: 0.985 }}
-            className="relative w-full overflow-hidden rounded-2xl bg-foreground py-4 text-sm font-semibold text-background lg:max-w-md"
-          >
-            <span className="relative z-10">Start evening check-in</span>
-            <span className="absolute inset-0 animate-shimmer" />
-          </motion.button>
-        </Link>
-      </section>
+      {phase === "evening" && (
+        <section className="px-5 lg:px-0">
+          <Link to="/check-in">
+            <motion.button
+              whileHover={{ scale: 1.005 }}
+              whileTap={{ scale: 0.985 }}
+              className="relative w-full overflow-hidden rounded-2xl bg-foreground py-4 text-sm font-semibold text-background lg:max-w-md"
+            >
+              <span className="relative z-10">Start evening check-in</span>
+              <span className="absolute inset-0 animate-shimmer" />
+            </motion.button>
+          </Link>
+        </section>
+      )}
     </div>
   );
 }
@@ -944,16 +933,28 @@ function TasksSection({
 
   return (
     <div className="space-y-6">
-      {/* Focus environment entry affordance — appears above primary task card */}
+      {/* Focus environment entry affordance — visible card when auto-suggested, subtle link otherwise */}
       {focusEnv.entryAllowed && !focusEnv.active && (
-        <div className="flex items-center justify-end">
-          <button
-            onClick={onEnterFocus}
-            className={`text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors ${focusEnv.entryAutoSuggested ? "text-muted-foreground" : ""}`}
-          >
-            {focusEnv.entryAutoSuggested ? "Clear the surface" : "Begin"}
-          </button>
-        </div>
+        focusEnv.entryAutoSuggested ? (
+          <div className="hairline rounded-2xl px-4 py-3 flex items-center justify-between bg-card/60 backdrop-blur-sm">
+            <p className="text-sm text-foreground">Clear the surface?</p>
+            <button
+              onClick={onEnterFocus}
+              className="text-xs font-semibold text-accent hover:opacity-80 transition-opacity"
+            >
+              Begin
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-end">
+            <button
+              onClick={onEnterFocus}
+              className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            >
+              Begin
+            </button>
+          </div>
+        )
       )}
 
       <AnimatePresence mode="wait">

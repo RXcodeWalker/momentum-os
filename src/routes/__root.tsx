@@ -185,6 +185,8 @@ function BottomNav() {
   const loc = useLocation();
   const visible = useVisibleRoutes();
   const focusActive = useApp((s) => s.focusEnvironment.active);
+  const pipelineMode = useApp((s) => s.lastPipelineResult?.stateInterpretation.currentMode);
+  const suppressionLevel = !focusActive ? 'none' : pipelineMode === 'RECOVERY' ? 'full' : 'partial';
   const allItems = filterByVisibility(mobileNav, visible);
   // During focus: reduce to Today + Check-in only
   const items = focusActive
@@ -192,8 +194,9 @@ function BottomNav() {
     : allItems;
   const hide = loc.pathname === "/onboarding" || loc.pathname === "/sign-in";
   if (hide) return null;
+  if (suppressionLevel === 'full') return null;
   return (
-    <nav className="sticky bottom-0 z-30 mt-auto lg:hidden">
+    <nav className={`sticky bottom-0 z-30 mt-auto lg:hidden${suppressionLevel === 'partial' ? ' opacity-50 pointer-events-none' : ''}`}>
       <div className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-t from-background to-transparent" />
       <div className="glass mx-3 mb-3 rounded-3xl px-2 py-2 shadow-elegant">
         <LayoutGroup id="mobile-nav">
@@ -240,6 +243,8 @@ function Sidebar() {
   const checkInCount = useApp((s) => s.checkIns.length);
   const dataIsSeeded = useApp((s) => s.dataIsSeeded);
   const focusActive = useApp((s) => s.focusEnvironment.active);
+  const pipelineMode = useApp((s) => s.lastPipelineResult?.stateInterpretation.currentMode);
+  const suppressionLevel = !focusActive ? 'none' : pipelineMode === 'RECOVERY' ? 'full' : 'partial';
   const showStatePanel = dataIsSeeded || checkInCount >= 5;
   const toneClass: Record<string, string> = {
     success: "bg-success/15 text-success border-success/20",
@@ -248,8 +253,9 @@ function Sidebar() {
     danger: "bg-danger/15 text-danger border-danger/20",
     neutral: "bg-secondary text-muted-foreground border-border",
   };
+  if (suppressionLevel === 'full') return null;
   return (
-    <aside className="hidden lg:flex lg:w-[260px] lg:flex-col lg:gap-1 lg:border-r lg:border-border lg:px-5 lg:py-7 lg:sticky lg:top-0 lg:h-screen font-['Bebas_Neue',_sans-serif]">
+    <aside className={`hidden lg:flex lg:w-[260px] lg:flex-col lg:gap-1 lg:border-r lg:border-border lg:px-5 lg:py-7 lg:sticky lg:top-0 lg:h-screen font-['Bebas_Neue',_sans-serif]${suppressionLevel === 'partial' ? ' opacity-50 pointer-events-none' : ''}`}>
       <Link to="/" className="mb-4 flex items-center gap-2.5 px-2">
         <div className="relative h-8 w-8 rounded-xl bg-gradient-accent shadow-glow" />
         <div>
