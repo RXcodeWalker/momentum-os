@@ -81,6 +81,8 @@ import type {
   StateDynamicsProfile,
   StateDynamics,
 } from "@/core/contracts/state/dynamics";
+import { detectPatterns } from "@/engine/patterns";
+import type { PatternDetectionProfile } from "@/core/contracts/patterns";
 
 export type Task = {
   id: string;
@@ -2679,5 +2681,18 @@ export function useStateDynamics(): StateDynamics {
   return useMemo(
     () => computeStateDynamics(periods, snapshots, history),
     [periods, snapshots, history],
+  );
+}
+
+// E14: Behavioral pattern detection — recurring user-specific relationships
+export function usePatternDetection(): PatternDetectionProfile {
+  const history = useApp((s) => s.history);
+  const checkIns = useApp((s) => s.checkIns);
+  const blockerHistory = useApp((s) => s.blockerHistory);
+  const distractionLog = useApp((s) => s.distractionLog);
+  const periods = useApp((s) => s.behavioralPeriods);
+  return useMemo(
+    () => detectPatterns(history, checkIns, blockerHistory, distractionLog, periods),
+    [history, checkIns, blockerHistory, distractionLog, periods],
   );
 }

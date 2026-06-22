@@ -4,6 +4,7 @@ import { useVisibleRoutes } from "@/lib/maturity";
 import { BarRow, Card, Pill, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
 import { MetricSurface } from "@/components/MetricSurface";
 import { StateDynamicsCard } from "@/components/cards/StateDynamicsCard";
+import { PatternCard } from "@/components/cards/PatternCard";
 import { ExecutionHeatmap } from "@/components/heatmap";
 import {
   AlertTriangle,
@@ -715,6 +716,28 @@ function Insights() {
             </div>
             <MetricSurface metric="stateDynamics">
               {() => <StateDynamicsCard />}
+            </MetricSurface>
+          </section>
+        </StaggerItem>
+
+        {/* CHAPTER 5: BEHAVIORAL PATTERNS */}
+        <StaggerItem>
+          <section className="px-5 mt-4 space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <div className="h-1 w-1 rounded-full bg-accent" />
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Phase 5: Recurring Patterns
+              </h3>
+            </div>
+            <MetricSurface
+              metric="patternDetection"
+              fallback={
+                <div className="hairline rounded-2xl bg-secondary/10 px-4 py-3 text-xs text-muted-foreground">
+                  Patterns appear after 14+ check-ins — keep building history.
+                </div>
+              }
+            >
+              {() => <PatternCard />}
             </MetricSurface>
           </section>
         </StaggerItem>

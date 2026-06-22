@@ -19,7 +19,8 @@ export type MetricKey =
   | "thread"
   | "insightEffectiveness"
   | "interventionEffectiveness"
-  | "stateDynamics";
+  | "stateDynamics"
+  | "patternDetection";
 
 export type DataReadiness = {
   hasMinimum: boolean;
@@ -61,6 +62,7 @@ const METRIC_THRESHOLDS: Record<MetricKey, { checkIns: number; window: number }>
   insightEffectiveness: { checkIns: 7, window: 14 },
   interventionEffectiveness: { checkIns: 14, window: 90 },
   stateDynamics: { checkIns: 14, window: 28 },
+  patternDetection: { checkIns: 14, window: 56 },
 };
 
 function confidenceFor(evidence: number, minimum: number): DataReadiness["confidence"] {

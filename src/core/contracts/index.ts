@@ -10,4 +10,5 @@ export * from './reentry'
 export * from './pipeline'
 export * from './guidance'
 export * from './history'
+export * from './patterns'
 
