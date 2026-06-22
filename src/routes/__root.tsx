@@ -20,6 +20,7 @@ import {
   Users,
   Crown,
   Calendar,
+  Clock,
 } from "lucide-react";
 import { useApp, useUserState } from "@/lib/store";
 import { isSnapshotStale, computeAllSnapshots } from "@/lib/history-engine";
@@ -161,6 +162,7 @@ const primaryNav: readonly NavItem[] = [
   { to: "/check-in", label: "Check-in", icon: ClipboardCheck },
   { to: "/insights", label: "Insights", icon: BarChart3, gate: "patterns" },
   { to: "/weekly", label: "Weekly", icon: Calendar, gate: "this-week" },
+  { to: "/replay", label: "Replay", icon: Clock, gate: "replay" },
   { to: "/recovery", label: "Recovery", icon: LifeBuoy },
   { to: "/circles", label: "Circles", icon: Users, gate: "circles" },
   { to: "/identity", label: "Identity", icon: User },

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WeeklyRouteImport } from './routes/weekly'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as ReplayRouteImport } from './routes/replay'
 import { Route as RecoveryRouteImport } from './routes/recovery'
 import { Route as PremiumRouteImport } from './routes/premium'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -30,6 +31,11 @@ const WeeklyRoute = WeeklyRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReplayRoute = ReplayRouteImport.update({
+  id: '/replay',
+  path: '/replay',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RecoveryRoute = RecoveryRouteImport.update({
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/premium': typeof PremiumRoute
   '/recovery': typeof RecoveryRoute
+  '/replay': typeof ReplayRoute
   '/sign-in': typeof SignInRoute
   '/weekly': typeof WeeklyRoute
 }
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/premium': typeof PremiumRoute
   '/recovery': typeof RecoveryRoute
+  '/replay': typeof ReplayRoute
   '/sign-in': typeof SignInRoute
   '/weekly': typeof WeeklyRoute
 }
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/premium': typeof PremiumRoute
   '/recovery': typeof RecoveryRoute
+  '/replay': typeof ReplayRoute
   '/sign-in': typeof SignInRoute
   '/weekly': typeof WeeklyRoute
 }
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/premium'
     | '/recovery'
+    | '/replay'
     | '/sign-in'
     | '/weekly'
   fileRoutesByTo: FileRoutesByTo
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/premium'
     | '/recovery'
+    | '/replay'
     | '/sign-in'
     | '/weekly'
   id:
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/premium'
     | '/recovery'
+    | '/replay'
     | '/sign-in'
     | '/weekly'
   fileRoutesById: FileRoutesById
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   PremiumRoute: typeof PremiumRoute
   RecoveryRoute: typeof RecoveryRoute
+  ReplayRoute: typeof ReplayRoute
   SignInRoute: typeof SignInRoute
   WeeklyRoute: typeof WeeklyRoute
 }
@@ -200,6 +213,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/replay': {
+      id: '/replay'
+      path: '/replay'
+      fullPath: '/replay'
+      preLoaderRoute: typeof ReplayRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/recovery': {
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   PremiumRoute: PremiumRoute,
   RecoveryRoute: RecoveryRoute,
+  ReplayRoute: ReplayRoute,
   SignInRoute: SignInRoute,
   WeeklyRoute: WeeklyRoute,
 }

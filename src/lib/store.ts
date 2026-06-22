@@ -83,6 +83,8 @@ import type {
 } from "@/core/contracts/state/dynamics";
 import { detectPatterns } from "@/engine/patterns";
 import type { PatternDetectionProfile } from "@/core/contracts/patterns";
+import { buildReplay } from "@/engine/replay/replay-engine";
+import type { ReplayResult, ReplayWindowScope } from "@/core/contracts/replay";
 
 export type Task = {
   id: string;
@@ -2695,4 +2697,15 @@ export function usePatternDetection(): PatternDetectionProfile {
     () => detectPatterns(history, checkIns, blockerHistory, distractionLog, periods),
     [history, checkIns, blockerHistory, distractionLog, periods],
   );
+}
+
+// E15: Behavioral Replay — deterministic narrative, attribution, transition, and forecast
+export function useReplayAnalysis(scope: ReplayWindowScope = 'W7'): ReplayResult | null {
+  const evidence = useBehavioralEvidence();
+  const dynamics = useStateDynamicsProfile();
+  const patterns = usePatternDetection();
+  return useMemo(() => {
+    if (evidence.summary.totalCheckIns < 5) return null;
+    return buildReplay(evidence, dynamics, patterns, scope);
+  }, [evidence, dynamics, patterns, scope]);
 }

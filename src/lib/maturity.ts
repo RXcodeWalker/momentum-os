@@ -20,7 +20,8 @@ export type MetricKey =
   | "insightEffectiveness"
   | "interventionEffectiveness"
   | "stateDynamics"
-  | "patternDetection";
+  | "patternDetection"
+  | "behavioralReplay";
 
 export type DataReadiness = {
   hasMinimum: boolean;
@@ -41,6 +42,7 @@ export type RouteKey =
   | "patterns"
   | "circles"
   | "recovery"
+  | "replay"
   | "demo";
 
 const METRIC_THRESHOLDS: Record<MetricKey, { checkIns: number; window: number }> = {
@@ -63,6 +65,7 @@ const METRIC_THRESHOLDS: Record<MetricKey, { checkIns: number; window: number }>
   interventionEffectiveness: { checkIns: 14, window: 90 },
   stateDynamics: { checkIns: 14, window: 28 },
   patternDetection: { checkIns: 14, window: 56 },
+  behavioralReplay: { checkIns: 21, window: 28 },
 };
 
 function confidenceFor(evidence: number, minimum: number): DataReadiness["confidence"] {
@@ -114,12 +117,13 @@ export function useVisibleRoutes(): RouteKey[] {
   return useMemo(() => {
     const always: RouteKey[] = ["today", "reflect", "identity"];
     if (dataIsSeeded) {
-      return [...always, "this-week", "patterns", "circles", "recovery"];
+      return [...always, "this-week", "patterns", "circles", "replay", "recovery"];
     }
     const routes: RouteKey[] = [...always];
     if (checkInCount >= 7) routes.push("this-week");
     if (checkInCount >= 10) routes.push("patterns");
     if (checkInCount >= 7) routes.push("circles");
+    if (checkInCount >= 21) routes.push("replay");
     // Recovery is always reachable but never auto-routed; surfaced as a destination from Today.
     routes.push("recovery");
     return routes;

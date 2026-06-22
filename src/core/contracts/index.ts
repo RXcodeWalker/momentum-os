@@ -11,4 +11,4 @@ export * from './pipeline'
 export * from './guidance'
 export * from './history'
 export * from './patterns'
-
+export * from './replay'
