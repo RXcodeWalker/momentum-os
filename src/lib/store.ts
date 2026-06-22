@@ -73,6 +73,14 @@ import {
   demoTasks,
   emptyCircle,
 } from "@/lib/demo-data";
+import {
+  computeStateDynamicsProfile,
+  computeStateDynamics,
+} from "@/engine/state/dynamics-engine";
+import type {
+  StateDynamicsProfile,
+  StateDynamics,
+} from "@/core/contracts/state/dynamics";
 
 export type Task = {
   id: string;
@@ -2651,4 +2659,25 @@ export function useInterventionIntelligence() {
     void history;
     void checkIns;
   }, [history, checkIns]);
+}
+
+// E12: Longitudinal state dynamics — primary intelligence layer for future phases
+export function useStateDynamicsProfile(): StateDynamicsProfile {
+  const periods = useApp((s) => s.behavioralPeriods);
+  const snapshots = useApp((s) => s.aggregationSnapshots);
+  return useMemo(
+    () => computeStateDynamicsProfile(periods, snapshots),
+    [periods, snapshots],
+  );
+}
+
+// E13: Current-session state dynamics view
+export function useStateDynamics(): StateDynamics {
+  const periods = useApp((s) => s.behavioralPeriods);
+  const snapshots = useApp((s) => s.aggregationSnapshots);
+  const history = useApp((s) => s.history);
+  return useMemo(
+    () => computeStateDynamics(periods, snapshots, history),
+    [periods, snapshots, history],
+  );
 }

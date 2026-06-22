@@ -2,6 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useVisibleRoutes } from "@/lib/maturity";
 import { BarRow, Card, Pill, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
+import { MetricSurface } from "@/components/MetricSurface";
+import { StateDynamicsCard } from "@/components/cards/StateDynamicsCard";
 import { ExecutionHeatmap } from "@/components/heatmap";
 import {
   AlertTriangle,
@@ -700,6 +702,20 @@ function Insights() {
                 </p>
               </div>
             </Card>
+          </section>
+        </StaggerItem>
+        {/* CHAPTER 4: STATE DYNAMICS */}
+        <StaggerItem>
+          <section className="px-5 mt-4 space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <div className="h-1 w-1 rounded-full bg-accent/60" />
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Phase 4: State Dynamics
+              </h3>
+            </div>
+            <MetricSurface metric="stateDynamics">
+              {() => <StateDynamicsCard />}
+            </MetricSurface>
           </section>
         </StaggerItem>
       </Stagger>
