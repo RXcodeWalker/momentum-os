@@ -45,6 +45,19 @@ import { buildSessionEvidence } from "@/engine/orchestrator/evidence-bridge";
 import { runBehavioralPipeline } from "@/engine/orchestrator/pipeline-runner";
 import { readRecentAuditRecords, writeAuditRecord } from "@/persistence/intervention-audit";
 import {
+  writeOutcomeRecord,
+  readOutcomes,
+  updateOutcome,
+  readPendingElapsed,
+} from "@/persistence/intervention-outcome";
+import {
+  buildPendingOutcomeRecord,
+  reconcileOutcomes,
+  computeAllEffectiveness,
+  computeAllFatigue,
+  buildIntelligenceAdvisories,
+} from "@/engine/interventions/intelligence";
+import {
   evaluateReflection,
   evaluatePatterns,
   buildReflectionInputBundle,
@@ -482,20 +495,45 @@ function runEveningPipeline(
     lastResultAge < 5 * 86400 * 1000 ? prevResult?.stateInterpretation.currentMode : undefined
   let result: BehavioralPipeline | null = prevResult
   try {
+    // Reconcile elapsed outcome windows before building advisories
+    const nowMs = Date.now()
+    const pendingElapsed = readPendingElapsed(nowMs)
+    if (pendingElapsed.length > 0) {
+      const auditRecords = readRecentAuditRecords(90)
+      const { changed } = reconcileOutcomes(pendingElapsed, history, updatedCheckIns, auditRecords, nowMs)
+      changed.forEach(updateOutcome)
+    }
+
+    // Build intelligence advisories from finalized outcomes
+    const allOutcomes = readOutcomes()
+    const auditRecords = readRecentAuditRecords(90)
+    const effectiveness = computeAllEffectiveness(allOutcomes)
+    const fatigue = computeAllFatigue(auditRecords, effectiveness, nowMs)
+    const report = buildIntelligenceAdvisories(allOutcomes, effectiveness, fatigue, new Date(nowMs).toISOString())
+
     result = runBehavioralPipeline({
       evidence: buildSessionEvidence(history, updatedCheckIns),
       context: { flowPhase: 'evening', historicalSnapshots: [], previousMode: previousEngineMode },
       recentInterventions: readRecentAuditRecords(),
+      intelligenceAdvisories: {
+        cooldown: report.cooldownAdvisories,
+        suppression: report.suppressionAdvisories,
+      },
     })
+
+    const firedAt = new Date().toISOString()
     result.interventionEvaluation.interventions
       .filter((i) => i.level >= 1)
-      .forEach((i) =>
+      .forEach((i) => {
         writeAuditRecord({
           interventionId: i.id, type: i.type, level: i.level,
-          firedAt: new Date().toISOString(), flowPhase: 'evening',
+          firedAt, flowPhase: 'evening',
           cooldownDurationHours: i.cooldownDurationHours,
-        }),
-      )
+        })
+        // Write a PENDING outcome record to be reconciled after the window elapses
+        const outcomeRecord = buildPendingOutcomeRecord(i.id, i.type, firedAt, history, updatedCheckIns)
+        writeOutcomeRecord(outcomeRecord)
+      })
   } catch (err) {
     console.error('[pipeline] runBehavioralPipeline failed (saveCheckIn):', err)
     result = null
@@ -1290,6 +1328,22 @@ export const useApp = create<State>()(
           let lastPipelineResult: BehavioralPipeline | null = s.lastPipelineResult
 
           try {
+            // Reconcile elapsed outcome windows before building advisories
+            const nowMs = Date.now()
+            const pendingElapsed = readPendingElapsed(nowMs)
+            if (pendingElapsed.length > 0) {
+              const morningAuditRecords = readRecentAuditRecords(90)
+              const { changed } = reconcileOutcomes(pendingElapsed, s.history, s.checkIns, morningAuditRecords, nowMs)
+              changed.forEach(updateOutcome)
+            }
+
+            // Build intelligence advisories from finalized outcomes
+            const allOutcomes = readOutcomes()
+            const morningAuditRecords = readRecentAuditRecords(90)
+            const effectiveness = computeAllEffectiveness(allOutcomes)
+            const fatigue = computeAllFatigue(morningAuditRecords, effectiveness, nowMs)
+            const report = buildIntelligenceAdvisories(allOutcomes, effectiveness, fatigue, new Date(nowMs).toISOString())
+
             lastPipelineResult = runBehavioralPipeline({
               evidence: mergedEvidence,
               context: {
@@ -1298,20 +1352,28 @@ export const useApp = create<State>()(
                 previousMode,
               },
               recentInterventions: readRecentAuditRecords(),
+              intelligenceAdvisories: {
+                cooldown: report.cooldownAdvisories,
+                suppression: report.suppressionAdvisories,
+              },
             })
             // F-04: persist fired interventions so future pipeline runs enforce cooldowns
+            const morningFiredAt = new Date().toISOString()
             lastPipelineResult.interventionEvaluation.interventions
               .filter((i) => i.level >= 1)
-              .forEach((i) =>
+              .forEach((i) => {
                 writeAuditRecord({
                   interventionId: i.id,
                   type: i.type,
                   level: i.level,
-                  firedAt: new Date().toISOString(),
+                  firedAt: morningFiredAt,
                   flowPhase: 'morning',
                   cooldownDurationHours: i.cooldownDurationHours,
-                }),
-              )
+                })
+                // Write a PENDING outcome record to be reconciled after the window elapses
+                const outcomeRecord = buildPendingOutcomeRecord(i.id, i.type, morningFiredAt, s.history, s.checkIns)
+                writeOutcomeRecord(outcomeRecord)
+              })
           } catch (err) {
             console.error('[pipeline] runBehavioralPipeline failed (applyMorningInputs):', err)
             lastPipelineResult = null
@@ -2571,4 +2633,22 @@ export function useTomorrowBriefing() {
       insight,
     };
   }, [tomorrowPlan, history]);
+}
+
+// E11: Intervention intelligence report — per-type effectiveness, fatigue, advisories
+export function useInterventionIntelligence() {
+  const history = useApp((s) => s.history);
+  const checkIns = useApp((s) => s.checkIns);
+
+  return useMemo(() => {
+    const nowMs = Date.now();
+    const outcomes = readOutcomes();
+    const auditRecords = readRecentAuditRecords(90);
+    const effectiveness = computeAllEffectiveness(outcomes);
+    const fatigue = computeAllFatigue(auditRecords, effectiveness, nowMs);
+    return buildIntelligenceAdvisories(outcomes, effectiveness, fatigue, null);
+    // history + checkIns included so this re-derives when new data arrives
+    void history;
+    void checkIns;
+  }, [history, checkIns]);
 }

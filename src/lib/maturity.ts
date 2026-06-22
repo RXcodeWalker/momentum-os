@@ -17,7 +17,8 @@ export type MetricKey =
   | "taskIntelligence"
   | "tomorrowPlan"
   | "thread"
-  | "insightEffectiveness";
+  | "insightEffectiveness"
+  | "interventionEffectiveness";
 
 export type DataReadiness = {
   hasMinimum: boolean;
@@ -57,6 +58,7 @@ const METRIC_THRESHOLDS: Record<MetricKey, { checkIns: number; window: number }>
   tomorrowPlan: { checkIns: 1, window: 1 },
   thread: { checkIns: 1, window: 1 },
   insightEffectiveness: { checkIns: 7, window: 14 },
+  interventionEffectiveness: { checkIns: 14, window: 90 },
 };
 
 function confidenceFor(evidence: number, minimum: number): DataReadiness["confidence"] {

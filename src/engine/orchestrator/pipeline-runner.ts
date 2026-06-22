@@ -20,6 +20,10 @@ import type { BehavioralPipeline } from "@/core/contracts/pipeline/behavioral-pi
 import type { SessionEvidence } from "@/core/contracts/signals/session-evidence";
 import type { SequencingDecision } from "@/core/contracts/tasks/sequencing";
 import type { InterventionAuditRecord } from "@/core/contracts/interventions/audit";
+import type {
+  CooldownAdvisory,
+  SuppressionAdvisory,
+} from "@/core/contracts/interventions/intelligence";
 import type { ReentryProtocol } from "@/core/contracts/reentry/protocol";
 import type { UserMode } from "@/core/contracts/state/modes";
 import type { StateEvaluationContext } from "@/core/contracts/state/evaluation";
@@ -62,6 +66,8 @@ export type PipelineRunnerInput = {
   sequencing?: SequencingDecision;
   /** Optional active reentry protocol (for intervention suppression). */
   activeReentryProtocol?: ReentryProtocol;
+  /** Optional intelligence advisories from the outcome measurement layer. Absent for fresh users. */
+  intelligenceAdvisories?: { cooldown: CooldownAdvisory[]; suppression: SuppressionAdvisory[] };
 };
 
 // ---------------------------------------------------------------------------
@@ -69,7 +75,14 @@ export type PipelineRunnerInput = {
 // ---------------------------------------------------------------------------
 
 export function runBehavioralPipeline(input: PipelineRunnerInput): BehavioralPipeline {
-  const { evidence, context, recentInterventions, sequencing, activeReentryProtocol } = input;
+  const {
+    evidence,
+    context,
+    recentInterventions,
+    sequencing,
+    activeReentryProtocol,
+    intelligenceAdvisories,
+  } = input;
 
   // ── 1. Signal Engine ─────────────────────────────────────────────────────
   // Extract DailyInputs from the evidence array — the signal engine accepts
@@ -105,6 +118,7 @@ export function runBehavioralPipeline(input: PipelineRunnerInput): BehavioralPip
       flowPhase: context.flowPhase,
       recentInterventions,
       activeReentryProtocol,
+      intelligenceAdvisories,
     },
   });
 
