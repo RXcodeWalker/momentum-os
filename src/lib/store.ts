@@ -2785,6 +2785,68 @@ export function useRecoveryCompatibility(taskId: string): RecoveryCompatibilityR
   }, [pipeline, dynamicsProfile, taskId]);
 }
 
+// ---------------------------------------------------------------------------
+// Phase 5C: Capability Expansion Engine hook
+// ---------------------------------------------------------------------------
+
+import type { ExpansionDecision } from "@/core/contracts/expansion";
+import { computeExpansionDecision } from "@/engine/expansion/capability-expansion-engine";
+
+/**
+ * Computes and memoizes the full ExpansionDecision for the current behavioral
+ * state. Returns null when there is insufficient pipeline data to derive a
+ * reliable mode/trajectory context (< 1 check-in completed).
+ */
+export function useCapabilityExpansion(): ExpansionDecision | null {
+  const momentumModel = useMomentumModel();
+  const stateDynamics = useStateDynamics();
+  const dynamicsProfile = useStateDynamicsProfile();
+  const avoidanceProfile = useAvoidanceProfile();
+  const taskCompatProfile = useTaskCompatibilityProfile();
+  const streakCtx = useStreakContext();
+  const consistency = useConsistency(7);
+  const recoveryMode = useApp((s) => s.recoveryMode);
+  const checkInsCount = useApp((s) => s.checkIns.length);
+  const lastPipelineResult = useApp((s) => s.lastPipelineResult);
+  const w14Metrics = useApp((s) => s.aggregationSnapshots.W14?.metrics ?? null);
+
+  return useMemo(() => {
+    if (checkInsCount < 1) return null;
+
+    const mode = lastPipelineResult?.stateInterpretation.currentMode ?? "STABILIZING";
+    const trajectory = momentumModel.underlyingTrajectory ?? "STABLE";
+
+    return computeExpansionDecision(
+      {
+        momentumModel,
+        stateDynamics,
+        dynamicsProfile,
+        avoidancePressure: avoidanceProfile?.overallAvoidancePressure ?? 0,
+        taskCompatibilityAvgScore: taskCompatProfile?.averageScore ?? null,
+        recoveryMode,
+        streakAtRisk: streakCtx.atRisk,
+        consistency,
+        recoveryDebtAccumulating: w14Metrics?.recoveryDebtAccumulating ?? false,
+        checkInsCount,
+      },
+      mode,
+      trajectory,
+    );
+  }, [
+    momentumModel,
+    stateDynamics,
+    dynamicsProfile,
+    avoidanceProfile,
+    taskCompatProfile,
+    streakCtx,
+    consistency,
+    recoveryMode,
+    checkInsCount,
+    lastPipelineResult,
+    w14Metrics,
+  ]);
+}
+
 /** Aggregate compatibility distribution across all current task evaluations. */
 export function useTaskCompatibilityProfile(): {
   distribution: Record<RecoveryCompatibilityTier, number>;

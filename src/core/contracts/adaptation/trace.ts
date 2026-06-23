@@ -1,6 +1,7 @@
 export type AdaptationLayer =
   | 'baseline'
   | 'trajectory'
+  | 'expansion'
   | 'risk'
   | 'signal'
   | 'directive'

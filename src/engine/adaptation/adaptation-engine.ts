@@ -2,11 +2,13 @@ import type { UserState } from '@/core/contracts/state/user-state'
 import type { SignalSnapshot } from '@/core/contracts/signals/signal-snapshot'
 import type { InterventionEvaluationResult } from '@/core/contracts/interventions/evaluation'
 import type { AdaptationOutput } from '@/core/contracts/adaptation/output'
-import type { AdaptationDraft } from './types/internal'
+import type { ExpansionDecision } from '@/core/contracts/expansion'
+import type { AdaptationContext, AdaptationDraft } from './types/internal'
 import { buildContext } from './profile/build-profile'
 import { createTraceRecorder } from './trace/trace-recorder'
 import { applyModeBaseline } from './baseline/mode-baseline'
 import { applyTrajectoryDelta } from './modulation/trajectory-modulator'
+import { applyExpansionModulation } from './modulation/expansion-modulator'
 import { applyRiskAmplification } from './modulation/risk-amplifier'
 import { applySignalTuning } from './modulation/signal-tuner'
 import { mergeDirectives } from './directives/merge-directives'
@@ -49,11 +51,21 @@ function clampDraft(draft: AdaptationDraft): void {
   draft.clarityOrientation = Math.min(100, Math.max(0, draft.clarityOrientation))
 }
 
-export function generateAdaptation(input: AdaptationEngineInput): AdaptationOutput {
+export function generateAdaptation(
+  input: AdaptationEngineInput,
+  expansionDecision?: ExpansionDecision,
+): AdaptationOutput {
   const { stateInterpretation, signalSnapshot, interventionEvaluation } = input
 
-  // Step 1 — Build frozen context
-  const ctx = buildContext(stateInterpretation, signalSnapshot, interventionEvaluation)
+  // Step 1 — Build frozen context; extend with expansion fields when provided
+  const baseCtx = buildContext(stateInterpretation, signalSnapshot, interventionEvaluation)
+  const ctx: AdaptationContext = expansionDecision
+    ? {
+        ...baseCtx,
+        expansionDirective: expansionDecision.directive,
+        expansionPaceModifier: expansionDecision.paceModifier,
+      }
+    : baseCtx
 
   // Step 2 — Trace recorder (no-op in production)
   const recorder = createTraceRecorder()
@@ -63,6 +75,10 @@ export function generateAdaptation(input: AdaptationEngineInput): AdaptationOutp
 
   // Step 4 — Pass 2: Trajectory delta + clamp
   applyTrajectoryDelta(draft, ctx, recorder)
+  clampDraft(draft)
+
+  // Step 4.5 — Pass 2.5: Expansion modulation + clamp (fine-grained challenge rate control)
+  applyExpansionModulation(draft, ctx, recorder)
   clampDraft(draft)
 
   // Step 5 — Pass 3: Risk amplification + clamp

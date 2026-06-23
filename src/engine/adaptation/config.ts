@@ -438,6 +438,15 @@ export const SIGNAL_TUNING_RULES: SignalTuningRule[] = [
   },
 ]
 
+// ── Expansion delta bounds ─────────────────────────────────────────────────
+
+export const EXPANSION_DELTA_CONFIG = {
+  /** Maximum +points applied to recommendedChallengeLevel per expansion pass */
+  MAX_EXPANSION_DELTA: 15,
+  /** Maximum -points applied to recommendedChallengeLevel per contraction pass */
+  MAX_CONTRACTION_DELTA: 15,
+} as const
+
 // ── Intensity reference baseline (FOCUSED mode) ────────────────────────────
 
 export const INTENSITY_FOCUSED_REF = {

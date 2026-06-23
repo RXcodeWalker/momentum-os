@@ -3,6 +3,7 @@ import type { AdaptationTrace, AdaptationLayer } from '@/core/contracts/adaptati
 const LAYER_COLORS: Record<AdaptationLayer, string> = {
   baseline: 'bg-neutral-500 text-white',
   trajectory: 'bg-blue-500 text-white',
+  expansion: 'bg-emerald-500 text-white',
   risk: 'bg-amber-500 text-black',
   signal: 'bg-purple-500 text-white',
   directive: 'bg-red-500 text-white',

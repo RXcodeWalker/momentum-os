@@ -29,6 +29,7 @@ class DevTraceRecorder implements TraceRecorder {
     const layerSummary: Record<AdaptationLayer, number> = {
       baseline: 0,
       trajectory: 0,
+      expansion: 0,
       risk: 0,
       signal: 0,
       directive: 0,
