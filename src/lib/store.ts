@@ -1775,6 +1775,10 @@ export function useConsistency(days: number = 28): number {
   }, [h, days]);
 }
 
+export function useCheckInsCount(): number {
+  return useApp((s) => s.checkIns.length);
+}
+
 export function useResilience(): { score: number; avgRecoveryDays: number } {
   const h = useApp((s) => s.history);
   return useMemo(() => {
