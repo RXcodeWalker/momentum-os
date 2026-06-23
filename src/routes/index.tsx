@@ -209,8 +209,8 @@ function Home() {
         {morningCal.shouldShow && (
           <MorningCalibrationSheet
             onInputsApplied={applyMorningInputs}
-            onComplete={(committedTaskId, intentionText) => {
-              commitMorningTask(committedTaskId, intentionText);
+            onComplete={(committedTaskId, intentionText, opts) => {
+              commitMorningTask(committedTaskId, intentionText, opts);
             }}
             onSkip={skipMorningCalibration}
           />
@@ -604,6 +604,16 @@ function Home() {
                   </p>
                 </div>
               </div>
+              {morningCal.calibration?.workloadAtCalibration === "reduce" && (
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed pl-11">
+                  Protect-capacity day — one solid block beats three half-ones.
+                </p>
+              )}
+              {morningCal.calibration?.workloadAtCalibration === "expand" && (
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed pl-11">
+                  Energy's high — a strong output session is within reach.
+                </p>
+              )}
               {morningCal.calibration?.intentionText && (
                 <p className="mt-2 text-xs text-muted-foreground leading-relaxed pl-11 italic">
                   "{morningCal.calibration.intentionText}"

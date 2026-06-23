@@ -210,6 +210,8 @@ export type MorningCalibration = {
   committedTaskId: string | null;
   intentionText: string | null;
   completedAt: string;
+  enteredFocus?: boolean;
+  workloadAtCalibration?: "reduce" | "hold" | "expand";
 };
 
 export type TomorrowPlan = {
@@ -341,7 +343,11 @@ type State = {
   removePrinciple: (p: string) => void;
   refreshInsights: () => void;
   applyMorningInputs: (data: MorningCalibrationInput) => void;
-  commitMorningTask: (committedTaskId: string | null, intentionText: string | null) => void;
+  commitMorningTask: (
+    committedTaskId: string | null,
+    intentionText: string | null,
+    opts?: { startNow?: boolean; workloadAtCalibration?: "reduce" | "hold" | "expand" },
+  ) => void;
   acknowledgeIntervention: (type: string) => void;
   skipMorningCalibration: () => void;
   enterFocusEnvironment: (source: FocusEntrySource) => void;
@@ -1513,7 +1519,7 @@ export const useApp = create<State>()(
           set({ lastMorningCalibration: calibration, lastPipelineResult });
         },
 
-        commitMorningTask: (committedTaskId, intentionText) => {
+        commitMorningTask: (committedTaskId, intentionText, opts) => {
           const s = get();
           if (!s.lastMorningCalibration) return;
           set({
@@ -1521,8 +1527,13 @@ export const useApp = create<State>()(
               ...s.lastMorningCalibration,
               committedTaskId,
               intentionText,
+              enteredFocus: opts?.startNow ?? false,
+              workloadAtCalibration: opts?.workloadAtCalibration,
             },
           });
+          if (opts?.startNow) {
+            get().enterFocusEnvironment("manual");
+          }
         },
 
         acknowledgeIntervention: (type: string) => {
