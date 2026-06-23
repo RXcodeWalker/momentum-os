@@ -1,4 +1,4 @@
-import type { SequencingDecision } from '@/core/contracts/tasks/sequencing'
+import type { SequencingDecision } from "@/core/contracts/tasks/sequencing";
 
 /**
  * Returns true when task sequencing has already applied enough load reduction
@@ -10,9 +10,9 @@ import type { SequencingDecision } from '@/core/contracts/tasks/sequencing'
  * eliminating, so a slightly lower bar is appropriate here.
  */
 export function sequencingIsSaturated(sequencing: SequencingDecision): boolean {
-  const suppressed = sequencing.suppressedTaskIds.length
-  const compressed = sequencing.compressedTaskIds.length
-  const total = suppressed + compressed
-  if (total === 0) return false
-  return suppressed / total >= 0.5
+  const suppressed = sequencing.suppressedTaskIds.length;
+  const compressed = sequencing.compressedTaskIds.length;
+  const total = suppressed + compressed;
+  if (total === 0) return false;
+  return suppressed / total >= 0.5;
 }

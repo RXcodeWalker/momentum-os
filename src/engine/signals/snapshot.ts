@@ -1,18 +1,18 @@
-import type { SignalSnapshot } from '@/core/contracts/signals/signal-snapshot'
-import type { DailyInputs } from '@/core/contracts/signals/daily-inputs'
-import type { SessionEvidence } from '@/core/contracts/signals/session-evidence'
-import type { Timestamp } from '@/core/contracts/primitives'
-import { DEFAULT_SMOOTHING_WINDOW } from './config'
-import { buildMetricTimeline } from './evidence'
+import type { SignalSnapshot } from "@/core/contracts/signals/signal-snapshot";
+import type { DailyInputs } from "@/core/contracts/signals/daily-inputs";
+import type { SessionEvidence } from "@/core/contracts/signals/session-evidence";
+import type { Timestamp } from "@/core/contracts/primitives";
+import { DEFAULT_SMOOTHING_WINDOW } from "./config";
+import { buildMetricTimeline } from "./evidence";
 import {
   detectBehavioralSignalsDetailed,
   resolveConfidenceBand,
   type SignalDetectionOptions,
-} from './detection'
+} from "./detection";
 
 export type GenerateSignalSnapshotOptions = SignalDetectionOptions & {
-  capturedAt?: Timestamp
-}
+  capturedAt?: Timestamp;
+};
 
 /**
  * Transform raw behavioral evidence into a point-in-time SignalSnapshot
@@ -23,21 +23,21 @@ export function generateSignalSnapshot(
   dailyInputs: DailyInputs[],
   options?: GenerateSignalSnapshotOptions,
 ): SignalSnapshot {
-  const timeline = buildMetricTimeline(evidence, dailyInputs)
-  const detected = detectBehavioralSignalsDetailed(evidence, dailyInputs, options)
+  const timeline = buildMetricTimeline(evidence, dailyInputs);
+  const detected = detectBehavioralSignalsDetailed(evidence, dailyInputs, options);
 
-  const signalStrengths: SignalSnapshot['signalStrengths'] = {}
-  const signalDurations: SignalSnapshot['signalDurations'] = {}
+  const signalStrengths: SignalSnapshot["signalStrengths"] = {};
+  const signalDurations: SignalSnapshot["signalDurations"] = {};
 
   for (const entry of detected) {
-    signalStrengths[entry.signal] = entry.strength
-    signalDurations[entry.signal] = entry.sustainedDays
+    signalStrengths[entry.signal] = entry.strength;
+    signalDurations[entry.signal] = entry.sustainedDays;
   }
 
   const capturedAt =
     options?.capturedAt ??
     timeline.points[timeline.points.length - 1]?.capturedAt ??
-    new Date().toISOString()
+    new Date().toISOString();
 
   return {
     capturedAt,
@@ -45,7 +45,7 @@ export function generateSignalSnapshot(
     signalStrengths,
     confidence: resolveConfidenceBand(timeline, detected.length),
     signalDurations,
-  }
+  };
 }
 
-export { DEFAULT_SMOOTHING_WINDOW }
+export { DEFAULT_SMOOTHING_WINDOW };

@@ -6,28 +6,27 @@
  * The UI imports ONLY this hook — sub-hooks are import-fenced to hooks/internal/.
  */
 
-import { useMemo } from 'react'
-import { useApp } from '@/lib/store'
-import { useBehavioralState } from './internal/useBehavioralState'
-import { useBehavioralTasks } from './internal/useBehavioralTasks'
-import { useBehavioralInterventions } from './internal/useBehavioralInterventions'
-import { useBehavioralExecution } from './internal/useBehavioralExecution'
-import { densityBandToSurfaceLevel, toneToHeroTheme } from './internal/map'
-import type { BehavioralView } from './internal/contracts'
+import { useMemo } from "react";
+import { useApp } from "@/lib/store";
+import { useBehavioralState } from "./internal/useBehavioralState";
+import { useBehavioralTasks } from "./internal/useBehavioralTasks";
+import { useBehavioralInterventions } from "./internal/useBehavioralInterventions";
+import { useBehavioralExecution } from "./internal/useBehavioralExecution";
+import { densityBandToSurfaceLevel, toneToHeroTheme } from "./internal/map";
+import type { BehavioralView } from "./internal/contracts";
 
 export function useBehavioralPipeline(): BehavioralView {
-  const pipeline = useApp((s) => s.lastPipelineResult)
-  const state         = useBehavioralState()
-  const tasks         = useBehavioralTasks()
-  const interventions = useBehavioralInterventions()
-  const execution     = useBehavioralExecution()
+  const pipeline = useApp((s) => s.lastPipelineResult);
+  const state = useBehavioralState();
+  const tasks = useBehavioralTasks();
+  const interventions = useBehavioralInterventions();
+  const execution = useBehavioralExecution();
 
   return useMemo((): BehavioralView => {
-    const ready = !!pipeline
+    const ready = !!pipeline;
 
-    const generatedAt = pipeline?.stateExplanation?.generatedAt
-      ?? pipeline?.inputCollection.capturedAt
-      ?? null
+    const generatedAt =
+      pipeline?.stateExplanation?.generatedAt ?? pipeline?.inputCollection.capturedAt ?? null;
 
     return {
       ready,
@@ -39,10 +38,9 @@ export function useBehavioralPipeline(): BehavioralView {
       shell: {
         surfaceLevel: densityBandToSurfaceLevel(state.environment.density),
         focusMode:
-          state.environment.deepWorkProtection ||
-          state.execution.pacing === 'PROTECT_CONTINUITY',
+          state.environment.deepWorkProtection || state.execution.pacing === "PROTECT_CONTINUITY",
       },
       heroTheme: toneToHeroTheme(state.guidance.tone),
-    }
-  }, [pipeline, state, tasks, interventions, execution])
+    };
+  }, [pipeline, state, tasks, interventions, execution]);
 }

@@ -1,24 +1,25 @@
-import type { UserMode, UserTrajectory } from '@/core/contracts/state/modes'
-import type { RiskLevel } from '@/core/contracts/primitives'
-import type { BehavioralSignal } from '@/core/contracts/signals/behavioral-signals'
-import type { AdaptationDraft } from './types/internal'
+import type { UserMode, UserTrajectory } from "@/core/contracts/state/modes";
+import type { RiskLevel } from "@/core/contracts/primitives";
+import type { BehavioralSignal } from "@/core/contracts/signals/behavioral-signals";
+import type { AdaptationDraft } from "./types/internal";
 
-export const ADAPTATION_ENGINE_VERSION = '1.0.0'
+export const ADAPTATION_ENGINE_VERSION = "1.0.0";
 
 // ── Environmental baselines ────────────────────────────────────────────────
 
-type EnvBaselineRow = Pick<AdaptationDraft,
-  | 'interfaceDensity'
-  | 'spacingIntensity'
-  | 'visualNoiseLevel'
-  | 'motionIntensity'
-  | 'pacingFeel'
-  | 'hierarchySharpness'
-  | 'contrastStrength'
-  | 'visibleComplexity'
-  | 'deepWorkProtectionEnabled'
-  | 'dashboardCompressionLevel'
->
+type EnvBaselineRow = Pick<
+  AdaptationDraft,
+  | "interfaceDensity"
+  | "spacingIntensity"
+  | "visualNoiseLevel"
+  | "motionIntensity"
+  | "pacingFeel"
+  | "hierarchySharpness"
+  | "contrastStrength"
+  | "visibleComplexity"
+  | "deepWorkProtectionEnabled"
+  | "dashboardCompressionLevel"
+>;
 
 export const MODE_ENV_BASELINES: Record<UserMode, EnvBaselineRow> = {
   RECOVERY: {
@@ -69,19 +70,22 @@ export const MODE_ENV_BASELINES: Record<UserMode, EnvBaselineRow> = {
     deepWorkProtectionEnabled: false,
     dashboardCompressionLevel: 20,
   },
-}
+};
 
-type EnvDelta = Partial<Pick<AdaptationDraft,
-  | 'interfaceDensity'
-  | 'spacingIntensity'
-  | 'visualNoiseLevel'
-  | 'motionIntensity'
-  | 'pacingFeel'
-  | 'hierarchySharpness'
-  | 'contrastStrength'
-  | 'visibleComplexity'
-  | 'dashboardCompressionLevel'
->>
+type EnvDelta = Partial<
+  Pick<
+    AdaptationDraft,
+    | "interfaceDensity"
+    | "spacingIntensity"
+    | "visualNoiseLevel"
+    | "motionIntensity"
+    | "pacingFeel"
+    | "hierarchySharpness"
+    | "contrastStrength"
+    | "visibleComplexity"
+    | "dashboardCompressionLevel"
+  >
+>;
 
 export const TRAJECTORY_ENV_DELTAS: Record<UserTrajectory, EnvDelta> = {
   CONTRACTING: {
@@ -105,28 +109,29 @@ export const TRAJECTORY_ENV_DELTAS: Record<UserTrajectory, EnvDelta> = {
     visibleComplexity: 5,
     dashboardCompressionLevel: -5,
   },
-}
+};
 
 // ── Execution baselines ────────────────────────────────────────────────────
 
-type ExecBaselineRow = Pick<AdaptationDraft,
-  | 'visibleTaskLimit'
-  | 'recommendedChallengeLevel'
-  | 'workloadCompressionRatio'
-  | 'deepWorkExpectation'
-  | 'recoveryWeighting'
-  | 'advancementWeighting'
-  | 'focusProtectionStrength'
->
+type ExecBaselineRow = Pick<
+  AdaptationDraft,
+  | "visibleTaskLimit"
+  | "recommendedChallengeLevel"
+  | "workloadCompressionRatio"
+  | "deepWorkExpectation"
+  | "recoveryWeighting"
+  | "advancementWeighting"
+  | "focusProtectionStrength"
+>;
 
 export const MODE_EXEC_BASELINES: Record<UserMode, ExecBaselineRow> = {
   RECOVERY: {
     visibleTaskLimit: 2,
     recommendedChallengeLevel: 10,
-    workloadCompressionRatio: 0.40,
+    workloadCompressionRatio: 0.4,
     deepWorkExpectation: 10,
-    recoveryWeighting: 0.80,
-    advancementWeighting: 0.20,
+    recoveryWeighting: 0.8,
+    advancementWeighting: 0.2,
     focusProtectionStrength: 60,
   },
   STABILIZING: {
@@ -143,29 +148,29 @@ export const MODE_EXEC_BASELINES: Record<UserMode, ExecBaselineRow> = {
     recommendedChallengeLevel: 60,
     workloadCompressionRatio: 0.85,
     deepWorkExpectation: 70,
-    recoveryWeighting: 0.30,
-    advancementWeighting: 0.70,
+    recoveryWeighting: 0.3,
+    advancementWeighting: 0.7,
     focusProtectionStrength: 75,
   },
   EXPANDING: {
     visibleTaskLimit: 8,
     recommendedChallengeLevel: 80,
-    workloadCompressionRatio: 1.00,
+    workloadCompressionRatio: 1.0,
     deepWorkExpectation: 80,
     recoveryWeighting: 0.15,
     advancementWeighting: 0.85,
     focusProtectionStrength: 65,
   },
-}
+};
 
 type ExecDelta = {
-  visibleTaskLimit?: number
-  recommendedChallengeLevel?: number
-  workloadCompressionRatio?: number
-  deepWorkExpectation?: number
-  recoveryWeighting?: number
-  advancementWeighting?: number
-}
+  visibleTaskLimit?: number;
+  recommendedChallengeLevel?: number;
+  workloadCompressionRatio?: number;
+  deepWorkExpectation?: number;
+  recoveryWeighting?: number;
+  advancementWeighting?: number;
+};
 
 export const TRAJECTORY_EXEC_DELTAS: Record<UserTrajectory, ExecDelta> = {
   CONTRACTING: {
@@ -183,19 +188,20 @@ export const TRAJECTORY_EXEC_DELTAS: Record<UserTrajectory, ExecDelta> = {
   EXPANDING: {
     visibleTaskLimit: 1,
     recommendedChallengeLevel: 10,
-    advancementWeighting: 0.10,
+    advancementWeighting: 0.1,
   },
-}
+};
 
 // ── Guidance baselines ─────────────────────────────────────────────────────
 
-type GuidanceBaselineRow = Pick<AdaptationDraft,
-  | 'interventionFrequency'
-  | 'reflectionDepth'
-  | 'strategicGuidanceWeight'
-  | 'emotionalPressureLevel'
-  | 'clarityOrientation'
->
+type GuidanceBaselineRow = Pick<
+  AdaptationDraft,
+  | "interventionFrequency"
+  | "reflectionDepth"
+  | "strategicGuidanceWeight"
+  | "emotionalPressureLevel"
+  | "clarityOrientation"
+>;
 
 export const MODE_GUIDANCE_BASELINES: Record<UserMode, GuidanceBaselineRow> = {
   RECOVERY: {
@@ -226,15 +232,15 @@ export const MODE_GUIDANCE_BASELINES: Record<UserMode, GuidanceBaselineRow> = {
     emotionalPressureLevel: 60,
     clarityOrientation: 40,
   },
-}
+};
 
 type GuidanceDelta = {
-  interventionFrequency?: number
-  reflectionDepth?: number
-  strategicGuidanceWeight?: number
-  emotionalPressureLevel?: number
-  clarityOrientation?: number
-}
+  interventionFrequency?: number;
+  reflectionDepth?: number;
+  strategicGuidanceWeight?: number;
+  emotionalPressureLevel?: number;
+  clarityOrientation?: number;
+};
 
 export const TRAJECTORY_GUIDANCE_DELTAS: Record<UserTrajectory, GuidanceDelta> = {
   CONTRACTING: {
@@ -254,189 +260,238 @@ export const TRAJECTORY_GUIDANCE_DELTAS: Record<UserTrajectory, GuidanceDelta> =
     emotionalPressureLevel: 5,
     interventionFrequency: -5,
   },
-}
+};
 
 // ── Risk gates ─────────────────────────────────────────────────────────────
 
 export type RiskGate = {
-  field: keyof AdaptationDraft
+  field: keyof AdaptationDraft;
   /** 'ceil' clamps max; 'floor' clamps min; 'set' hard-assigns */
-  op: 'ceil' | 'floor' | 'set'
-  value: number | boolean
-  reason: string
-}
+  op: "ceil" | "floor" | "set";
+  value: number | boolean;
+  reason: string;
+};
 
 export const RISK_GATES: Array<{
-  risk: 'burnoutRisk' | 'overloadRisk' | 'collapseRisk' | 'avoidanceRisk'
-  level: RiskLevel
-  gates: RiskGate[]
+  risk: "burnoutRisk" | "overloadRisk" | "collapseRisk" | "avoidanceRisk";
+  level: RiskLevel;
+  gates: RiskGate[];
 }> = [
   {
-    risk: 'burnoutRisk',
-    level: 'CRITICAL',
+    risk: "burnoutRisk",
+    level: "CRITICAL",
     gates: [
-      { field: 'interfaceDensity', op: 'ceil', value: 40, reason: 'burnoutRisk CRITICAL' },
-      { field: 'dashboardCompressionLevel', op: 'floor', value: 75, reason: 'burnoutRisk CRITICAL' },
+      { field: "interfaceDensity", op: "ceil", value: 40, reason: "burnoutRisk CRITICAL" },
+      {
+        field: "dashboardCompressionLevel",
+        op: "floor",
+        value: 75,
+        reason: "burnoutRisk CRITICAL",
+      },
     ],
   },
   {
-    risk: 'burnoutRisk',
-    level: 'HIGH',
+    risk: "burnoutRisk",
+    level: "HIGH",
     gates: [
-      { field: 'interfaceDensity', op: 'ceil', value: 55, reason: 'burnoutRisk HIGH' },
-      { field: 'dashboardCompressionLevel', op: 'floor', value: 60, reason: 'burnoutRisk HIGH' },
+      { field: "interfaceDensity", op: "ceil", value: 55, reason: "burnoutRisk HIGH" },
+      { field: "dashboardCompressionLevel", op: "floor", value: 60, reason: "burnoutRisk HIGH" },
     ],
   },
   {
-    risk: 'overloadRisk',
-    level: 'HIGH',
+    risk: "overloadRisk",
+    level: "HIGH",
     gates: [
-      { field: 'visualNoiseLevel', op: 'ceil', value: 35, reason: 'overloadRisk HIGH' },
-      { field: 'pacingFeel', op: 'ceil', value: 60, reason: 'overloadRisk HIGH' },
+      { field: "visualNoiseLevel", op: "ceil", value: 35, reason: "overloadRisk HIGH" },
+      { field: "pacingFeel", op: "ceil", value: 60, reason: "overloadRisk HIGH" },
     ],
   },
   {
-    risk: 'overloadRisk',
-    level: 'CRITICAL',
+    risk: "overloadRisk",
+    level: "CRITICAL",
     gates: [
-      { field: 'visualNoiseLevel', op: 'ceil', value: 35, reason: 'overloadRisk CRITICAL' },
-      { field: 'pacingFeel', op: 'ceil', value: 60, reason: 'overloadRisk CRITICAL' },
+      { field: "visualNoiseLevel", op: "ceil", value: 35, reason: "overloadRisk CRITICAL" },
+      { field: "pacingFeel", op: "ceil", value: 60, reason: "overloadRisk CRITICAL" },
     ],
   },
   {
-    risk: 'collapseRisk',
-    level: 'CRITICAL',
+    risk: "collapseRisk",
+    level: "CRITICAL",
     gates: [
-      { field: 'hierarchySharpness', op: 'floor', value: 85, reason: 'collapseRisk CRITICAL' },
-      { field: 'deepWorkExpectation', op: 'ceil', value: 20, reason: 'collapseRisk CRITICAL' },
-      { field: 'reflectionDepth', op: 'ceil', value: 35, reason: 'collapseRisk CRITICAL' },
-      { field: 'interventionFrequency', op: 'floor', value: 70, reason: 'collapseRisk CRITICAL' },
+      { field: "hierarchySharpness", op: "floor", value: 85, reason: "collapseRisk CRITICAL" },
+      { field: "deepWorkExpectation", op: "ceil", value: 20, reason: "collapseRisk CRITICAL" },
+      { field: "reflectionDepth", op: "ceil", value: 35, reason: "collapseRisk CRITICAL" },
+      { field: "interventionFrequency", op: "floor", value: 70, reason: "collapseRisk CRITICAL" },
     ],
   },
   {
-    risk: 'burnoutRisk',
-    level: 'CRITICAL',
+    risk: "burnoutRisk",
+    level: "CRITICAL",
     gates: [
-      { field: 'workloadCompressionRatio', op: 'ceil', value: 0.50, reason: 'burnoutRisk CRITICAL exec' },
-      { field: 'visibleTaskLimit', op: 'ceil', value: 3, reason: 'burnoutRisk CRITICAL exec' },
-      { field: 'recoveryWeighting', op: 'floor', value: 0.75, reason: 'burnoutRisk CRITICAL exec' },
+      {
+        field: "workloadCompressionRatio",
+        op: "ceil",
+        value: 0.5,
+        reason: "burnoutRisk CRITICAL exec",
+      },
+      { field: "visibleTaskLimit", op: "ceil", value: 3, reason: "burnoutRisk CRITICAL exec" },
+      { field: "recoveryWeighting", op: "floor", value: 0.75, reason: "burnoutRisk CRITICAL exec" },
     ],
   },
   {
-    risk: 'overloadRisk',
-    level: 'HIGH',
+    risk: "overloadRisk",
+    level: "HIGH",
     gates: [
-      { field: 'workloadCompressionRatio', op: 'ceil', value: 0.60, reason: 'overloadRisk HIGH exec' },
-      { field: 'visibleTaskLimit', op: 'ceil', value: 4, reason: 'overloadRisk HIGH exec' },
+      {
+        field: "workloadCompressionRatio",
+        op: "ceil",
+        value: 0.6,
+        reason: "overloadRisk HIGH exec",
+      },
+      { field: "visibleTaskLimit", op: "ceil", value: 4, reason: "overloadRisk HIGH exec" },
     ],
   },
   {
-    risk: 'overloadRisk',
-    level: 'CRITICAL',
+    risk: "overloadRisk",
+    level: "CRITICAL",
     gates: [
-      { field: 'workloadCompressionRatio', op: 'ceil', value: 0.60, reason: 'overloadRisk CRITICAL exec' },
-      { field: 'visibleTaskLimit', op: 'ceil', value: 4, reason: 'overloadRisk CRITICAL exec' },
+      {
+        field: "workloadCompressionRatio",
+        op: "ceil",
+        value: 0.6,
+        reason: "overloadRisk CRITICAL exec",
+      },
+      { field: "visibleTaskLimit", op: "ceil", value: 4, reason: "overloadRisk CRITICAL exec" },
     ],
   },
   {
-    risk: 'burnoutRisk',
-    level: 'HIGH',
+    risk: "burnoutRisk",
+    level: "HIGH",
     gates: [
-      { field: 'emotionalPressureLevel', op: 'ceil', value: 20, reason: 'burnoutRisk HIGH guidance' },
+      {
+        field: "emotionalPressureLevel",
+        op: "ceil",
+        value: 20,
+        reason: "burnoutRisk HIGH guidance",
+      },
     ],
   },
   {
-    risk: 'burnoutRisk',
-    level: 'CRITICAL',
+    risk: "burnoutRisk",
+    level: "CRITICAL",
     gates: [
-      { field: 'emotionalPressureLevel', op: 'ceil', value: 20, reason: 'burnoutRisk CRITICAL guidance' },
+      {
+        field: "emotionalPressureLevel",
+        op: "ceil",
+        value: 20,
+        reason: "burnoutRisk CRITICAL guidance",
+      },
     ],
   },
   {
-    risk: 'avoidanceRisk',
-    level: 'HIGH',
+    risk: "avoidanceRisk",
+    level: "HIGH",
     gates: [
-      { field: 'emotionalPressureLevel', op: 'ceil', value: 15, reason: 'avoidanceRisk HIGH guidance' },
-      { field: 'clarityOrientation', op: 'floor', value: 70, reason: 'avoidanceRisk HIGH guidance' },
+      {
+        field: "emotionalPressureLevel",
+        op: "ceil",
+        value: 15,
+        reason: "avoidanceRisk HIGH guidance",
+      },
+      {
+        field: "clarityOrientation",
+        op: "floor",
+        value: 70,
+        reason: "avoidanceRisk HIGH guidance",
+      },
     ],
   },
-]
+];
 
 // ── Signal tuning ──────────────────────────────────────────────────────────
 
 export type SignalTuningRule = {
-  signal: BehavioralSignal
+  signal: BehavioralSignal;
   /** Threshold above which the rule fires (0 if always-on when active). */
-  strengthThreshold: number
-  apply: (draft: AdaptationDraft, strength: number) => void
-}
+  strengthThreshold: number;
+  apply: (draft: AdaptationDraft, strength: number) => void;
+};
 
 export const SIGNAL_TUNING_RULES: SignalTuningRule[] = [
   {
-    signal: 'DEEP_WORK_DEGRADATION',
+    signal: "DEEP_WORK_DEGRADATION",
     strengthThreshold: 0,
     apply: (draft, strength) => {
-      draft.deepWorkProtectionEnabled = true
-      draft.motionIntensity = Math.max(0, draft.motionIntensity - strength * 0.15)
+      draft.deepWorkProtectionEnabled = true;
+      draft.motionIntensity = Math.max(0, draft.motionIntensity - strength * 0.15);
     },
   },
   {
-    signal: 'RISING_FRAGMENTATION',
+    signal: "RISING_FRAGMENTATION",
     strengthThreshold: 60,
     apply: (draft, strength) => {
-      draft.visualNoiseLevel = Math.max(0, draft.visualNoiseLevel - (strength - 60) * 0.3)
+      draft.visualNoiseLevel = Math.max(0, draft.visualNoiseLevel - (strength - 60) * 0.3);
     },
   },
   {
-    signal: 'VOLATILITY_ACCELERATION',
+    signal: "VOLATILITY_ACCELERATION",
     strengthThreshold: 50,
     apply: (draft, strength) => {
-      draft.spacingIntensity = Math.min(100, draft.spacingIntensity + (strength - 50) * 0.2)
+      draft.spacingIntensity = Math.min(100, draft.spacingIntensity + (strength - 50) * 0.2);
     },
   },
   {
-    signal: 'AVOIDANCE_CLUSTERING',
+    signal: "AVOIDANCE_CLUSTERING",
     strengthThreshold: 55,
     apply: (draft) => {
-      draft.visibleTaskLimit = Math.max(1, draft.visibleTaskLimit - 1)
+      draft.visibleTaskLimit = Math.max(1, draft.visibleTaskLimit - 1);
     },
   },
   {
-    signal: 'OVERCOMMITMENT_EXPANSION',
+    signal: "OVERCOMMITMENT_EXPANSION",
     strengthThreshold: 60,
     apply: (draft, strength) => {
-      draft.workloadCompressionRatio = Math.max(0, draft.workloadCompressionRatio - (strength - 60) * 0.002)
+      draft.workloadCompressionRatio = Math.max(
+        0,
+        draft.workloadCompressionRatio - (strength - 60) * 0.002,
+      );
     },
   },
   {
-    signal: 'PLANNING_ESCAPE',
+    signal: "PLANNING_ESCAPE",
     strengthThreshold: 50,
     apply: (draft, strength) => {
-      draft.advancementWeighting = Math.min(1, draft.advancementWeighting + (strength - 50) * 0.002)
+      draft.advancementWeighting = Math.min(
+        1,
+        draft.advancementWeighting + (strength - 50) * 0.002,
+      );
     },
   },
   {
-    signal: 'MEANINGFULNESS_DEFERRAL',
+    signal: "MEANINGFULNESS_DEFERRAL",
     strengthThreshold: 50,
     apply: (draft, strength) => {
-      draft.strategicGuidanceWeight = Math.min(100, draft.strategicGuidanceWeight + (strength - 50) * 0.3)
+      draft.strategicGuidanceWeight = Math.min(
+        100,
+        draft.strategicGuidanceWeight + (strength - 50) * 0.3,
+      );
     },
   },
   {
-    signal: 'AVOIDANCE_CLUSTERING',
+    signal: "AVOIDANCE_CLUSTERING",
     strengthThreshold: 0,
     apply: (draft, strength) => {
-      draft.emotionalPressureLevel = Math.max(0, draft.emotionalPressureLevel - strength * 0.15)
+      draft.emotionalPressureLevel = Math.max(0, draft.emotionalPressureLevel - strength * 0.15);
     },
   },
   {
-    signal: 'DECLINING_EXECUTION_QUALITY',
+    signal: "DECLINING_EXECUTION_QUALITY",
     strengthThreshold: 60,
     apply: (draft, strength) => {
-      draft.reflectionDepth = Math.min(100, draft.reflectionDepth + (strength - 60) * 0.2)
+      draft.reflectionDepth = Math.min(100, draft.reflectionDepth + (strength - 60) * 0.2);
     },
   },
-]
+];
 
 // ── Expansion delta bounds ─────────────────────────────────────────────────
 
@@ -445,15 +500,15 @@ export const EXPANSION_DELTA_CONFIG = {
   MAX_EXPANSION_DELTA: 15,
   /** Maximum -points applied to recommendedChallengeLevel per contraction pass */
   MAX_CONTRACTION_DELTA: 15,
-} as const
+} as const;
 
 // ── Intensity reference baseline (FOCUSED mode) ────────────────────────────
 
 export const INTENSITY_FOCUSED_REF = {
   interfaceDensity: 70,
   dashboardCompressionLevel: 35,
-  workloadCompressionRatioScaled: 85,  // ratio * 100
-  recoveryWeightingScaled: 30,         // weighting * 100
+  workloadCompressionRatioScaled: 85, // ratio * 100
+  recoveryWeightingScaled: 30, // weighting * 100
   emotionalPressureLevel: 45,
   interventionFrequency: 35,
-}
+};

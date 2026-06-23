@@ -40,7 +40,7 @@ export function Card({ children, className = "" }: { children: ReactNode; classN
   return (
     <div
       className={`hairline rounded-3xl bg-card ${className}`}
-      style={{ padding: 'var(--card-padding-adaptive, 1.25rem)' }}
+      style={{ padding: "var(--card-padding-adaptive, 1.25rem)" }}
     >
       {children}
     </div>

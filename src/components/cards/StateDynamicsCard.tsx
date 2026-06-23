@@ -22,7 +22,10 @@ const PATTERN_LABEL: Record<DominantPattern, string> = {
   erratic: "Erratic",
 };
 
-const PATTERN_TONE: Record<DominantPattern, "neutral" | "accent" | "success" | "warning" | "danger"> = {
+const PATTERN_TONE: Record<
+  DominantPattern,
+  "neutral" | "accent" | "success" | "warning" | "danger"
+> = {
   cycling: "warning",
   stable: "success",
   expanding: "accent",
@@ -45,12 +48,8 @@ export function StateDynamicsCard() {
   if (!hasMinimum) return null;
 
   const { stability, volatility, oscillation } = dynamics;
-  const {
-    dominantPattern,
-    transitionMatrix,
-    recoveryPathwayAnalysis,
-    instabilityHotspots,
-  } = profile;
+  const { dominantPattern, transitionMatrix, recoveryPathwayAnalysis, instabilityHotspots } =
+    profile;
 
   const topPaths = transitionMatrix.commonPaths.slice(0, 2);
   const showRecovery =
@@ -62,7 +61,9 @@ export function StateDynamicsCard() {
   const recoverySuccessRate =
     recoveryPathwayAnalysis.pathways.length > 0
       ? Math.round(
-          (recoveryPathwayAnalysis.pathways.filter((p) => p.isSuccessful).reduce((s, p) => s + p.count, 0) /
+          (recoveryPathwayAnalysis.pathways
+            .filter((p) => p.isSuccessful)
+            .reduce((s, p) => s + p.count, 0) /
             recoveryPathwayAnalysis.pathways.reduce((s, p) => s + p.count, 0)) *
             100,
         )
@@ -79,14 +80,10 @@ export function StateDynamicsCard() {
             <p className="text-xs text-muted-foreground">Current state</p>
             <p className="mt-0.5 text-sm font-medium text-foreground">
               {dynamics.currentPeriod ? PERIOD_LABEL[dynamics.currentPeriod] : "—"}{" "}
-              <span className="text-muted-foreground">
-                · {stability.currentModeDays}d
-              </span>
+              <span className="text-muted-foreground">· {stability.currentModeDays}d</span>
             </p>
           </div>
-          <Pill tone={STABILITY_TONE[stability.rating] ?? "neutral"}>
-            {stability.rating}
-          </Pill>
+          <Pill tone={STABILITY_TONE[stability.rating] ?? "neutral"}>{stability.rating}</Pill>
         </div>
 
         {/* Volatility */}
@@ -148,7 +145,8 @@ export function StateDynamicsCard() {
               High instability risk after {PERIOD_LABEL[topHotspot.predecessorState]}
             </p>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
-              {Math.round(topHotspot.precedenceRate * 100)}% of instability periods follow this state
+              {Math.round(topHotspot.precedenceRate * 100)}% of instability periods follow this
+              state
             </p>
           </div>
         )}
@@ -160,8 +158,11 @@ export function StateDynamicsCard() {
             <p className="mt-0.5 text-[11px] text-muted-foreground">
               {oscillation.frequencyPer28Days} transitions in the last 28 days
               {oscillation.dominantCyclePair && (
-                <> · {PERIOD_LABEL[oscillation.dominantCyclePair.from]} ↔{" "}
-                {PERIOD_LABEL[oscillation.dominantCyclePair.to]}</>
+                <>
+                  {" "}
+                  · {PERIOD_LABEL[oscillation.dominantCyclePair.from]} ↔{" "}
+                  {PERIOD_LABEL[oscillation.dominantCyclePair.to]}
+                </>
               )}
             </p>
           </div>

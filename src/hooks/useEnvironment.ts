@@ -1,6 +1,6 @@
-import { useApp } from '@/lib/store'
-import type { CommittedEnvironmentSnapshot } from '@/engine/environment'
+import { useApp } from "@/lib/store";
+import type { CommittedEnvironmentSnapshot } from "@/engine/environment";
 
 export function useEnvironment(): CommittedEnvironmentSnapshot {
-  return useApp((s) => s.committedEnvironment)
+  return useApp((s) => s.committedEnvironment);
 }

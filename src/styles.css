@@ -14,8 +14,9 @@
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
-    U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215;
 }
 
 @font-face {
@@ -24,8 +25,7 @@
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2074, U+20AC,
-    U+2122, U+2212;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2074, U+20AC, U+2122, U+2212;
 }
 
 /* Metrics-matched fallback: minimises layout shift while Geist loads. */
@@ -77,29 +77,26 @@
    * Mono:    Geist Mono (with JetBrains Mono as named fallback) */
   --font-display: "Instrument Serif", "Times New Roman", Georgia, serif;
   --font-sans:
-    "Geist", "Geist Fallback", "Inter", system-ui, -apple-system, "Segoe UI",
-    Roboto, sans-serif;
+    "Geist", "Geist Fallback", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono:
-    "Geist Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo,
-    Consolas, monospace;
-  --font-reading:
-    "Instrument Serif", Georgia, "Times New Roman", serif;
+    "Geist Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-reading: "Instrument Serif", Georgia, "Times New Roman", serif;
 
   /* ─── Fluid type scale ───────────────────────────────────────────
    * 9 steps. Min viewport 375px, max 1280px. Each step resolves
    * cleanly to readable absolute sizes at both ends.
    * NB: --text-base intentionally floors at 1rem (16px) — never smaller. */
-  --text-2xs: clamp(0.625rem, 0.58rem + 0.22vw, 0.75rem);   /* 10 → 12 */
-  --text-xs: clamp(0.75rem, 0.70rem + 0.27vw, 0.875rem);    /* 12 → 14 */
-  --text-sm: clamp(0.875rem, 0.82rem + 0.27vw, 1rem);       /* 14 → 16 */
-  --text-base: clamp(1rem, 0.95rem + 0.27vw, 1.0625rem);    /* 16 → 17 */
-  --text-md: clamp(1.0625rem, 1rem + 0.33vw, 1.125rem);     /* 17 → 18 */
-  --text-lg: clamp(1.125rem, 1.03rem + 0.49vw, 1.375rem);   /* 18 → 22 */
-  --text-xl: clamp(1.375rem, 1.20rem + 0.89vw, 1.75rem);    /* 22 → 28 */
-  --text-2xl: clamp(1.75rem, 1.46rem + 1.46vw, 2.5rem);     /* 28 → 40 */
-  --text-3xl: clamp(2.25rem, 1.80rem + 2.20vw, 3.5rem);     /* 36 → 56 */
-  --text-4xl: clamp(2.75rem, 2.10rem + 3.20vw, 4.5rem);     /* 44 → 72 */
-  --text-5xl: clamp(3.25rem, 2.40rem + 4.27vw, 5.5rem);     /* 52 → 88 */
+  --text-2xs: clamp(0.625rem, 0.58rem + 0.22vw, 0.75rem); /* 10 → 12 */
+  --text-xs: clamp(0.75rem, 0.7rem + 0.27vw, 0.875rem); /* 12 → 14 */
+  --text-sm: clamp(0.875rem, 0.82rem + 0.27vw, 1rem); /* 14 → 16 */
+  --text-base: clamp(1rem, 0.95rem + 0.27vw, 1.0625rem); /* 16 → 17 */
+  --text-md: clamp(1.0625rem, 1rem + 0.33vw, 1.125rem); /* 17 → 18 */
+  --text-lg: clamp(1.125rem, 1.03rem + 0.49vw, 1.375rem); /* 18 → 22 */
+  --text-xl: clamp(1.375rem, 1.2rem + 0.89vw, 1.75rem); /* 22 → 28 */
+  --text-2xl: clamp(1.75rem, 1.46rem + 1.46vw, 2.5rem); /* 28 → 40 */
+  --text-3xl: clamp(2.25rem, 1.8rem + 2.2vw, 3.5rem); /* 36 → 56 */
+  --text-4xl: clamp(2.75rem, 2.1rem + 3.2vw, 4.5rem); /* 44 → 72 */
+  --text-5xl: clamp(3.25rem, 2.4rem + 4.27vw, 5.5rem); /* 52 → 88 */
 
   /* ─── Optical tracking scale ─────────────────────────────────────
    * Letter-spacing as a function of size, not a per-component judgment. */
@@ -270,8 +267,7 @@
 
   /* Shadows — ambient depth using color instead of pure black */
   --shadow-elegant:
-    0 1px 3px oklch(0.15 0.012 270 / 0.06),
-    0 4px 12px oklch(0.15 0.012 270 / 0.08),
+    0 1px 3px oklch(0.15 0.012 270 / 0.06), 0 4px 12px oklch(0.15 0.012 270 / 0.08),
     0 20px 40px -12px oklch(0.15 0.012 270 / 0.1);
   --shadow-glow: 0 0 40px -8px oklch(0.72 0.15 70 / 0.25);
 
@@ -457,7 +453,10 @@
   html {
     font-size: 100%;
     font-synthesis: none;
-    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+    font-feature-settings:
+      "kern" 1,
+      "liga" 1,
+      "calt" 1;
     /* Respect system reduced-motion: collapsed transitions handled per-element below */
   }
 
@@ -493,7 +492,12 @@
   /* ─── Heading defaults ─────────────────────────────────────────
    * Size-aware tracking, balanced wrapping, snug leading.
    * Components that need different behaviour can override locally. */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     line-height: var(--leading-tight);
     text-wrap: balance;
     letter-spacing: var(--tracking-heading);
@@ -508,7 +512,8 @@
     letter-spacing: var(--tracking-heading);
   }
 
-  h3, h4 {
+  h3,
+  h4 {
     letter-spacing: var(--tracking-subhead);
     line-height: var(--leading-snug);
   }
@@ -522,8 +527,13 @@
 
   /* ─── Tabular numerics for code / monospace / metrics ─────────
    * Slashed zero disambiguates O/0 in dense metric grids. */
-  code, kbd, samp, pre {
-    font-feature-settings: "calt" 1, "liga" 1;
+  code,
+  kbd,
+  samp,
+  pre {
+    font-feature-settings:
+      "calt" 1,
+      "liga" 1;
     font-variant-numeric: tabular-nums slashed-zero;
   }
 }
@@ -612,7 +622,9 @@
 
   .type-stat {
     font-family: var(--font-mono);
-    font-feature-settings: "tnum" 1, "zero" 1;
+    font-feature-settings:
+      "tnum" 1,
+      "zero" 1;
     font-variant-numeric: tabular-nums slashed-zero;
     font-size: var(--text-2xl);
     font-weight: 600;
@@ -647,8 +659,12 @@
   }
 
   /* Rhythm helpers — fluid spacing tokens as classes for layout work */
-  .rhythm-section { margin-block: var(--rhythm-12); }
-  .rhythm-chapter { margin-block: var(--rhythm-16); }
+  .rhythm-section {
+    margin-block: var(--rhythm-12);
+  }
+  .rhythm-chapter {
+    margin-block: var(--rhythm-16);
+  }
 
   .glass {
     background: color-mix(in oklab, var(--surface) 72%, transparent);
@@ -728,7 +744,12 @@
     }
   }
   .animate-shimmer {
-    background: linear-gradient(90deg, transparent, var(--shimmer-highlight, oklch(1 0 0 / 0.06)), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--shimmer-highlight, oklch(1 0 0 / 0.06)),
+      transparent
+    );
     background-size: 200% 100%;
     animation: shimmer 2.5s infinite;
   }
@@ -923,47 +944,47 @@
 
 /* Layer 1 — defaults (EnvironmentRenderer overwrites on each pipeline cycle) */
 :root {
-  --env-density:   0.6;
-  --env-spacing:   1.0;
-  --env-motion:    0.5;
+  --env-density: 0.6;
+  --env-spacing: 1;
+  --env-motion: 0.5;
   --env-hierarchy: 0.6;
-  --env-pressure:  0.4;
+  --env-pressure: 0.4;
 
   /* Custom property transitions — CSS handles interpolation, no JS animation needed */
   transition:
-    --env-density   600ms ease,
-    --env-spacing   600ms ease,
-    --env-motion    600ms ease,
+    --env-density 600ms ease,
+    --env-spacing 600ms ease,
+    --env-motion 600ms ease,
     --env-hierarchy 600ms ease,
-    --env-pressure  600ms ease;
+    --env-pressure 600ms ease;
 }
 
 /* Layer 2 — derived adaptive tokens computed from env scalars */
 :root {
   /* Spacing */
-  --card-padding-adaptive:   calc(1.25rem * var(--env-spacing));
-  --section-gap-adaptive:    calc(var(--rhythm-8) * var(--env-spacing));
-  --list-gap-adaptive:       calc(0.75rem * var(--env-spacing));
+  --card-padding-adaptive: calc(1.25rem * var(--env-spacing));
+  --section-gap-adaptive: calc(var(--rhythm-8) * var(--env-spacing));
+  --list-gap-adaptive: calc(0.75rem * var(--env-spacing));
 
   /* Typography (variable font axes where supported) */
-  --font-weight-adaptive:    calc(360 + var(--env-hierarchy) * 80);
-  --tracking-adaptive:       calc(var(--tracking-body) - var(--env-density) * 0.01em);
-  --leading-adaptive:        calc(1.4 + (1 - var(--env-density)) * 0.4);
+  --font-weight-adaptive: calc(360 + var(--env-hierarchy) * 80);
+  --tracking-adaptive: calc(var(--tracking-body) - var(--env-density) * 0.01em);
+  --leading-adaptive: calc(1.4 + (1 - var(--env-density)) * 0.4);
 
   /* Borders */
   --border-opacity-adaptive: calc(0.25 + var(--env-hierarchy) * 0.55);
 
   /* Motion (read by Framer Motion consumers) */
-  --motion-duration-adaptive:  calc(0.15s + (1 - var(--env-motion)) * 0.45s);
-  --motion-stagger-adaptive:   calc(0.03s + (1 - var(--env-motion)) * 0.09s);
-  --motion-distance-adaptive:  calc(4px + var(--env-motion) * 12px);
+  --motion-duration-adaptive: calc(0.15s + (1 - var(--env-motion)) * 0.45s);
+  --motion-stagger-adaptive: calc(0.03s + (1 - var(--env-motion)) * 0.09s);
+  --motion-distance-adaptive: calc(4px + var(--env-motion) * 12px);
 
   /* Visual pressure */
-  --grain-opacity-adaptive:    calc(0.03 + var(--env-pressure) * 0.05);
-  --accent-saturation-scale:   calc(0.7 + var(--env-pressure) * 0.3);
+  --grain-opacity-adaptive: calc(0.03 + var(--env-pressure) * 0.05);
+  --accent-saturation-scale: calc(0.7 + var(--env-pressure) * 0.3);
 
   /* Aurora drift speed (consumed by AuroraBackground via inline style) */
-  --aurora-base-opacity:     0.55;
+  --aurora-base-opacity: 0.55;
 }
 
 /* Layer 3 — coarse band data-attribute overrides */

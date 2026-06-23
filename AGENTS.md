@@ -19,14 +19,14 @@ Full index: [`.cursor/rules/MASTER_RULES_SUMMARY.md`](.cursor/rules/MASTER_RULES
 
 ## Priority Ladder (highest wins)
 
-| Tier | Rules |
-|------|-------|
-| 1 | `product-philosophy.mdc` — constitutional, non-negotiable |
-| 2 | `architecture.mdc` + `engine-contracts.mdc` — structure and type shapes |
-| 3 | Engine pipeline: `state-engine` → `task-intelligence` → `intervention-system` → adaptation |
-| 4 | `daily-flow.mdc` — orchestration sequence |
-| 5 | `ui-adaptation.mdc` — presentation constraints |
-| 6 | `coding-standards.mdc` + `simulation-testing.mdc` — implementation and verification |
+| Tier | Rules                                                                                      |
+| ---- | ------------------------------------------------------------------------------------------ |
+| 1    | `product-philosophy.mdc` — constitutional, non-negotiable                                  |
+| 2    | `architecture.mdc` + `engine-contracts.mdc` — structure and type shapes                    |
+| 3    | Engine pipeline: `state-engine` → `task-intelligence` → `intervention-system` → adaptation |
+| 4    | `daily-flow.mdc` — orchestration sequence                                                  |
+| 5    | `ui-adaptation.mdc` — presentation constraints                                             |
+| 6    | `coding-standards.mdc` + `simulation-testing.mdc` — implementation and verification        |
 
 ---
 
@@ -74,17 +74,17 @@ Run this before every feature, fix, or refactor:
 
 ## Rule Files Quick Map
 
-| Working in… | Primary rule |
-|-------------|--------------|
-| `src/core/**` | `engine-contracts.mdc` |
-| `src/engine/state/**` | `state-engine.mdc` |
-| `src/engine/tasks/**` | `task-intelligence.mdc` |
-| `src/engine/interventions/**` | `intervention-system.mdc` |
-| `src/orchestration/**` | `daily-flow.mdc` |
-| `src/ui/**`, `src/adaptation/**`, `*.tsx` | `ui-adaptation.mdc` |
-| `**/*.{ts,tsx}` | `coding-standards.mdc` |
-| `**/*.test.ts`, `src/testing/**` | `simulation-testing.mdc` |
-| Any session | `product-philosophy.mdc` + `architecture.mdc` (always apply) |
+| Working in…                               | Primary rule                                                 |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| `src/core/**`                             | `engine-contracts.mdc`                                       |
+| `src/engine/state/**`                     | `state-engine.mdc`                                           |
+| `src/engine/tasks/**`                     | `task-intelligence.mdc`                                      |
+| `src/engine/interventions/**`             | `intervention-system.mdc`                                    |
+| `src/orchestration/**`                    | `daily-flow.mdc`                                             |
+| `src/ui/**`, `src/adaptation/**`, `*.tsx` | `ui-adaptation.mdc`                                          |
+| `**/*.{ts,tsx}`                           | `coding-standards.mdc`                                       |
+| `**/*.test.ts`, `src/testing/**`          | `simulation-testing.mdc`                                     |
+| Any session                               | `product-philosophy.mdc` + `architecture.mdc` (always apply) |
 
 ---
 

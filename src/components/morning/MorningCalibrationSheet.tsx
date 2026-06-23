@@ -241,10 +241,16 @@ function CommitmentStep({
 
   // Fall back to tomorrowPlan if pipeline has no task recommendation yet
   const fallbackPrimary = tomorrowPlan?.suggestedTasks[0]
-    ? { taskId: tomorrowPlan.suggestedTasks[0].originalTaskId ?? null, taskLabel: tomorrowPlan.suggestedTasks[0].label }
+    ? {
+        taskId: tomorrowPlan.suggestedTasks[0].originalTaskId ?? null,
+        taskLabel: tomorrowPlan.suggestedTasks[0].label,
+      }
     : null;
   const fallbackSecondary = tomorrowPlan?.suggestedTasks[1]
-    ? { taskId: tomorrowPlan.suggestedTasks[1].originalTaskId ?? null, taskLabel: tomorrowPlan.suggestedTasks[1].label }
+    ? {
+        taskId: tomorrowPlan.suggestedTasks[1].originalTaskId ?? null,
+        taskLabel: tomorrowPlan.suggestedTasks[1].label,
+      }
     : null;
 
   const resolvedPrimary = pipelinePrimary
@@ -255,8 +261,10 @@ function CommitmentStep({
     : fallbackSecondary;
 
   // Resistance-aware display swap: 'resistant' users see the lighter task first
-  const primaryTask = resistance === "resistant" && resolvedSecondary ? resolvedSecondary : resolvedPrimary;
-  const secondaryTask = resistance === "resistant" && resolvedSecondary ? resolvedPrimary : resolvedSecondary;
+  const primaryTask =
+    resistance === "resistant" && resolvedSecondary ? resolvedSecondary : resolvedPrimary;
+  const secondaryTask =
+    resistance === "resistant" && resolvedSecondary ? resolvedPrimary : resolvedSecondary;
 
   const showIntentionField = mode !== "RECOVERY";
   const showSecondary = mode !== "RECOVERY" && secondaryTask !== null;

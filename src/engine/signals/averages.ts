@@ -1,1 +1,1 @@
-export { movingAverage, weightedAverage } from '@/engine/shared/averages'
+export { movingAverage, weightedAverage } from "@/engine/shared/averages";

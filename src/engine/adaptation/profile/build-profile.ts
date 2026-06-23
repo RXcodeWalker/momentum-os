@@ -1,8 +1,8 @@
-import type { UserState } from '@/core/contracts/state/user-state'
-import type { SignalSnapshot } from '@/core/contracts/signals/signal-snapshot'
-import type { InterventionEvaluationResult } from '@/core/contracts/interventions/evaluation'
-import type { AdaptationDirective } from '@/core/contracts/adaptation/directives'
-import type { AdaptationContext } from '../types/internal'
+import type { UserState } from "@/core/contracts/state/user-state";
+import type { SignalSnapshot } from "@/core/contracts/signals/signal-snapshot";
+import type { InterventionEvaluationResult } from "@/core/contracts/interventions/evaluation";
+import type { AdaptationDirective } from "@/core/contracts/adaptation/directives";
+import type { AdaptationContext } from "../types/internal";
 
 export function buildContext(
   state: UserState,
@@ -11,7 +11,7 @@ export function buildContext(
 ): AdaptationContext {
   const directives: AdaptationDirective[] = interventionResult.interventions.flatMap(
     (i) => i.adaptationDirectives,
-  )
+  );
 
   return Object.freeze({
     mode: state.currentMode,
@@ -28,5 +28,5 @@ export function buildContext(
     activeSignalStrengths: signalSnapshot.signalStrengths,
     resolvedDirectives: directives,
     stateConfidence: state.confidence,
-  })
+  });
 }

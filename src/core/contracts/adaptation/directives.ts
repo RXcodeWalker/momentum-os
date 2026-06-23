@@ -4,8 +4,7 @@
 
 /** Engine-safe partial adaptation hint produced by the Intervention Engine. */
 export type AdaptationDirective = {
-  field: string
-  suggestedValue: number | boolean | string
-  reason: string
-}
-
+  field: string;
+  suggestedValue: number | boolean | string;
+  reason: string;
+};

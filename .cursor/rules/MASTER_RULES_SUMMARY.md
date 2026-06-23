@@ -9,6 +9,7 @@ Human-readable index for the `.cursor/rules/` system. This file is not a Cursor 
 These rules compress [docs/architecture-freeze.md](../../docs/architecture-freeze.md), [docs/engine-contracts.md](../../docs/engine-contracts.md), and [docs/ai-regulations.md](../../docs/ai-regulations.md) into enforceable AI instructions. They prevent architectural drift, behavioral logic leakage into UI, and productivity-app regression during AI-assisted implementation.
 
 **How Cursor loads rules:**
+
 - `alwaysApply: true` rules (`product-philosophy`, `architecture`) are active in every session.
 - Glob-scoped rules activate when matching files are open or edited.
 - When multiple rules apply, use the priority ladder below to resolve conflicts.
@@ -17,18 +18,18 @@ These rules compress [docs/architecture-freeze.md](../../docs/architecture-freez
 
 ## File Responsibility Matrix
 
-| File | Tier | Activates On | Responsibility |
-|------|------|--------------|----------------|
-| `product-philosophy.mdc` | 1 | Always | Constitutional gate: 9 Non-Negotiables, trust boundaries, forbidden behaviors, probabilistic language |
-| `architecture.mdc` | 2 | Always | Structural law: folder freeze, state authority, data flow, persistence, engine boundaries, versioning |
-| `engine-contracts.mdc` | 2 | `src/core/**`, `src/types/**` | Canonical type shapes — single source of truth; engines import, never redefine |
-| `state-engine.mdc` | 3 | `src/engine/state/**`, `trajectory/**`, `reentry/**` | UserState derivation, mode vs trajectory semantics, transitions, re-entry behavior |
-| `task-intelligence.mdc` | 3 | `src/engine/tasks/**` | Task scoring, burden analysis, sequencing logic |
-| `intervention-system.mdc` | 3 | `src/engine/interventions/**` | Intervention triggers, suppression, cooldown, escalation (level 0 default) |
-| `daily-flow.mdc` | 4 | `src/orchestration/**`, `src/routes/**` | Pipeline orchestration wiring, DailyOutputs assembly, zero reasoning |
-| `ui-adaptation.mdc` | 5 | `src/ui/**`, `src/adaptation/**`, `**/*.tsx`, `src/hooks/**` | Adaptation projection consumption, UI rendering, legacy behavioral freeze |
-| `coding-standards.mdc` | 6 | `**/*.{ts,tsx}` | Pure TS engines, import direction, legacy freeze, unit tests, AI safety patterns |
-| `simulation-testing.mdc` | 6 | `src/testing/**`, `**/*.test.ts`, `**/*.spec.ts` | Scenario-based temporal tests, spec-validity assertions, regression guards |
+| File                      | Tier | Activates On                                                 | Responsibility                                                                                        |
+| ------------------------- | ---- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `product-philosophy.mdc`  | 1    | Always                                                       | Constitutional gate: 9 Non-Negotiables, trust boundaries, forbidden behaviors, probabilistic language |
+| `architecture.mdc`        | 2    | Always                                                       | Structural law: folder freeze, state authority, data flow, persistence, engine boundaries, versioning |
+| `engine-contracts.mdc`    | 2    | `src/core/**`, `src/types/**`                                | Canonical type shapes — single source of truth; engines import, never redefine                        |
+| `state-engine.mdc`        | 3    | `src/engine/state/**`, `trajectory/**`, `reentry/**`         | UserState derivation, mode vs trajectory semantics, transitions, re-entry behavior                    |
+| `task-intelligence.mdc`   | 3    | `src/engine/tasks/**`                                        | Task scoring, burden analysis, sequencing logic                                                       |
+| `intervention-system.mdc` | 3    | `src/engine/interventions/**`                                | Intervention triggers, suppression, cooldown, escalation (level 0 default)                            |
+| `daily-flow.mdc`          | 4    | `src/orchestration/**`, `src/routes/**`                      | Pipeline orchestration wiring, DailyOutputs assembly, zero reasoning                                  |
+| `ui-adaptation.mdc`       | 5    | `src/ui/**`, `src/adaptation/**`, `**/*.tsx`, `src/hooks/**` | Adaptation projection consumption, UI rendering, legacy behavioral freeze                             |
+| `coding-standards.mdc`    | 6    | `**/*.{ts,tsx}`                                              | Pure TS engines, import direction, legacy freeze, unit tests, AI safety patterns                      |
+| `simulation-testing.mdc`  | 6    | `src/testing/**`, `**/*.test.ts`, `**/*.spec.ts`             | Scenario-based temporal tests, spec-validity assertions, regression guards                            |
 
 ---
 
@@ -86,15 +87,15 @@ flowchart TB
 
 ### Boundary Summary
 
-| Layer | Owns | Must NOT |
-|-------|------|----------|
-| **Contracts** (`engine-contracts`) | Type shapes, enums, primitives | Computation, algorithms |
-| **State Engine** | UserState derivation, transitions, trajectory | Type definitions, task sequencing |
-| **Task Intelligence** | Scoring, sequencing decisions | Type definitions, task storage, UI |
-| **Intervention Engine** | Trigger evaluation, suppression | Type definitions, UI rendering |
-| **Orchestration** | Pipeline wiring, DailyOutputs | Scoring, interpretation |
-| **UI Adaptation** | Projection rendering | Behavioral computation |
-| **Simulation Testing** | Scenario timelines, semantic assertions | Type definitions, engine behavior |
+| Layer                              | Owns                                          | Must NOT                           |
+| ---------------------------------- | --------------------------------------------- | ---------------------------------- |
+| **Contracts** (`engine-contracts`) | Type shapes, enums, primitives                | Computation, algorithms            |
+| **State Engine**                   | UserState derivation, transitions, trajectory | Type definitions, task sequencing  |
+| **Task Intelligence**              | Scoring, sequencing decisions                 | Type definitions, task storage, UI |
+| **Intervention Engine**            | Trigger evaluation, suppression               | Type definitions, UI rendering     |
+| **Orchestration**                  | Pipeline wiring, DailyOutputs                 | Scoring, interpretation            |
+| **UI Adaptation**                  | Projection rendering                          | Behavioral computation             |
+| **Simulation Testing**             | Scenario timelines, semantic assertions       | Type definitions, engine behavior  |
 
 ---
 
@@ -135,6 +136,7 @@ Before implementing any feature:
 ## Legacy Migration Note
 
 The current codebase contains legacy Cadence patterns:
+
 - Monolithic `src/lib/store.ts` with behavioral selector hooks
 - Route components with embedded behavioral logic
 - No `src/engine/` or `src/core/` directories yet
@@ -147,24 +149,24 @@ The current codebase contains legacy Cadence patterns:
 
 For deep reference beyond compressed rules:
 
-| Topic | Source |
-|-------|--------|
-| System architecture freeze | [docs/architecture-freeze.md](../../docs/architecture-freeze.md) |
-| Engine type contracts | [docs/engine-contracts.md](../../docs/engine-contracts.md) |
-| AI regulations / Non-Negotiables | [docs/ai-regulations.md](../../docs/ai-regulations.md) |
-| User-facing daily rhythm | [src/components/help/help-content.ts](../../src/components/help/help-content.ts) |
+| Topic                            | Source                                                                           |
+| -------------------------------- | -------------------------------------------------------------------------------- |
+| System architecture freeze       | [docs/architecture-freeze.md](../../docs/architecture-freeze.md)                 |
+| Engine type contracts            | [docs/engine-contracts.md](../../docs/engine-contracts.md)                       |
+| AI regulations / Non-Negotiables | [docs/ai-regulations.md](../../docs/ai-regulations.md)                           |
+| User-facing daily rhythm         | [src/components/help/help-content.ts](../../src/components/help/help-content.ts) |
 
 ---
 
 ## Deduplication Quick Reference
 
-| Topic | Owner | Others reference |
-|-------|-------|------------------|
-| 9 Non-Negotiables | product-philosophy | coding-standards |
-| Folder structure | architecture | coding-standards |
-| Type shapes | engine-contracts | all engine rules |
-| Mode vs trajectory semantics | state-engine | engine-contracts (enums only) |
-| Silent adaptation default | product-philosophy + intervention-system | — |
-| Unit tests | coding-standards | simulation-testing |
-| Scenario tests | simulation-testing | coding-standards |
-| UI behavioral freeze | ui-adaptation | coding-standards |
+| Topic                        | Owner                                    | Others reference              |
+| ---------------------------- | ---------------------------------------- | ----------------------------- |
+| 9 Non-Negotiables            | product-philosophy                       | coding-standards              |
+| Folder structure             | architecture                             | coding-standards              |
+| Type shapes                  | engine-contracts                         | all engine rules              |
+| Mode vs trajectory semantics | state-engine                             | engine-contracts (enums only) |
+| Silent adaptation default    | product-philosophy + intervention-system | —                             |
+| Unit tests                   | coding-standards                         | simulation-testing            |
+| Scenario tests               | simulation-testing                       | coding-standards              |
+| UI behavioral freeze         | ui-adaptation                            | coding-standards              |

@@ -9,13 +9,13 @@ export const REFLECTION_CONFIG = {
   executionQualityGoodThreshold: 70,
   fragmentationLowThreshold: 40,
   emotionalFrictionHighThreshold: 45,
-  emotionalFrictionLowThreshold: 25,   // mood >= 3 equivalent
+  emotionalFrictionLowThreshold: 25, // mood >= 3 equivalent
   meaningfulBreakthroughPriorMax: 80,
 
   // Minimum history for deviation computation and confidence
   minHistoryDaysForDeviation: 3,
   minHistoryDaysForObservations: 7,
-  minHistoryDaysForSomeRules: 5,       // used by FRAGMENTATION, EMOTIONAL_FRICTION rules
+  minHistoryDaysForSomeRules: 5, // used by FRAGMENTATION, EMOTIONAL_FRICTION rules
 
   // Confidence completeness thresholds
   minCompletenessForMedium: 0.6,
@@ -28,4 +28,4 @@ export const REFLECTION_CONFIG = {
   // Suppression
   repetitionSuppressionWindow: 3,
   maxObservations: 2,
-} as const
+} as const;

@@ -1,3 +1,2 @@
-export const CONTRACT_VERSION = 'v1' as const
-export type ContractVersion = typeof CONTRACT_VERSION
-
+export const CONTRACT_VERSION = "v1" as const;
+export type ContractVersion = typeof CONTRACT_VERSION;

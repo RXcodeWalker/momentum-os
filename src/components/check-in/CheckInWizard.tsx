@@ -47,9 +47,9 @@ export function CheckInWizard({
   const [blockers, setBlockers] = useState<Record<string, "time" | "energy" | "focus" | "other">>(
     {},
   );
-  const [meaningfulProgress, setMeaningfulProgress] = useState<
-    "yes" | "partial" | "no" | null
-  >(null);
+  const [meaningfulProgress, setMeaningfulProgress] = useState<"yes" | "partial" | "no" | null>(
+    null,
+  );
 
   const completed = tasks.filter((t) => t.done).length;
 
@@ -236,9 +236,7 @@ export function CheckInWizard({
       content: (
         <div className="space-y-6">
           <div className="space-y-3">
-            <p className="text-sm text-foreground">
-              Did the most important work get closer today?
-            </p>
+            <p className="text-sm text-foreground">Did the most important work get closer today?</p>
             <div className="grid grid-cols-3 gap-2">
               {(["yes", "partial", "no"] as const).map((v) => (
                 <button

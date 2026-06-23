@@ -1,20 +1,20 @@
-import { Calendar, Target } from 'lucide-react'
-import { Card, StatLabel } from '@/components/ui-bits'
-import { TapCard } from '@/lib/motion'
+import { Calendar, Target } from "lucide-react";
+import { Card, StatLabel } from "@/components/ui-bits";
+import { TapCard } from "@/lib/motion";
 
 interface TomorrowCardProps {
-  workloadMessage: string | null
-  workloadGuidance: 'reduce' | 'hold' | 'expand'
-  northStar: string | null
-  suggestedTasks: { label: string; type: string }[]
-  displayMode: 'recovery' | 'stabilizing' | 'focused' | 'expanding'
+  workloadMessage: string | null;
+  workloadGuidance: "reduce" | "hold" | "expand";
+  northStar: string | null;
+  suggestedTasks: { label: string; type: string }[];
+  displayMode: "recovery" | "stabilizing" | "focused" | "expanding";
 }
 
 const GUIDANCE_LABELS: Record<string, string> = {
-  reduce: 'Lighter load tomorrow',
+  reduce: "Lighter load tomorrow",
   hold: "Maintain tomorrow's pace",
-  expand: 'Room to push tomorrow',
-}
+  expand: "Room to push tomorrow",
+};
 
 export function TomorrowCard({
   workloadMessage,
@@ -24,31 +24,33 @@ export function TomorrowCard({
   displayMode,
 }: TomorrowCardProps) {
   const accentClass =
-    displayMode === 'recovery'
-      ? 'border-warning/20 bg-warning/5'
-      : displayMode === 'expanding'
-        ? 'border-success/20 bg-success/5'
-        : 'border-accent/20 bg-accent/5'
+    displayMode === "recovery"
+      ? "border-warning/20 bg-warning/5"
+      : displayMode === "expanding"
+        ? "border-success/20 bg-success/5"
+        : "border-accent/20 bg-accent/5";
 
   const iconClass =
-    displayMode === 'recovery'
-      ? 'bg-warning/15 text-warning'
-      : displayMode === 'expanding'
-        ? 'bg-success/15 text-success'
-        : 'bg-accent/15 text-accent'
+    displayMode === "recovery"
+      ? "bg-warning/15 text-warning"
+      : displayMode === "expanding"
+        ? "bg-success/15 text-success"
+        : "bg-accent/15 text-accent";
 
   const labelClass =
-    displayMode === 'recovery'
-      ? 'text-warning'
-      : displayMode === 'expanding'
-        ? 'text-success'
-        : 'text-accent'
+    displayMode === "recovery"
+      ? "text-warning"
+      : displayMode === "expanding"
+        ? "text-success"
+        : "text-accent";
 
   return (
     <TapCard>
       <Card className={accentClass}>
         <div className="flex items-center gap-3 mb-3">
-          <div className={`flex h-9 w-9 flex-none items-center justify-center rounded-xl ${iconClass}`}>
+          <div
+            className={`flex h-9 w-9 flex-none items-center justify-center rounded-xl ${iconClass}`}
+          >
             <Calendar className="h-4 w-4" />
           </div>
           <div>
@@ -77,7 +79,9 @@ export function TomorrowCard({
             </p>
             {suggestedTasks.map((t, i) => (
               <div key={i} className="flex items-center gap-2 text-xs text-foreground">
-                <div className={`h-1.5 w-1.5 rounded-full flex-none ${labelClass.replace('text-', 'bg-')}`} />
+                <div
+                  className={`h-1.5 w-1.5 rounded-full flex-none ${labelClass.replace("text-", "bg-")}`}
+                />
                 {t.label}
               </div>
             ))}
@@ -85,5 +89,5 @@ export function TomorrowCard({
         )}
       </Card>
     </TapCard>
-  )
+  );
 }

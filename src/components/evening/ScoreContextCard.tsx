@@ -1,20 +1,20 @@
-import { TrendingDown, TrendingUp } from 'lucide-react'
-import { Card, Ring, StatLabel } from '@/components/ui-bits'
-import { TapCard } from '@/lib/motion'
+import { TrendingDown, TrendingUp } from "lucide-react";
+import { Card, Ring, StatLabel } from "@/components/ui-bits";
+import { TapCard } from "@/lib/motion";
 
 interface AttributionRow {
-  label: string
-  value: string
-  baseline: string
-  direction: 'drag' | 'boost' | 'neutral'
+  label: string;
+  value: string;
+  baseline: string;
+  direction: "drag" | "boost" | "neutral";
 }
 
 interface ScoreContextCardProps {
-  score: number
-  delta: number
-  attribution: AttributionRow[]
-  maxRows?: number
-  ringSize?: 'small' | 'medium' | 'full'
+  score: number;
+  delta: number;
+  attribution: AttributionRow[];
+  maxRows?: number;
+  ringSize?: "small" | "medium" | "full";
 }
 
 export function ScoreContextCard({
@@ -22,10 +22,10 @@ export function ScoreContextCard({
   delta,
   attribution,
   maxRows = 2,
-  ringSize = 'medium',
+  ringSize = "medium",
 }: ScoreContextCardProps) {
-  const isRecovery = score < 45
-  const ringOpacity = isRecovery ? 'opacity-40' : 'opacity-100'
+  const isRecovery = score < 45;
+  const ringOpacity = isRecovery ? "opacity-40" : "opacity-100";
 
   return (
     <TapCard>
@@ -35,9 +35,10 @@ export function ScoreContextCard({
           <div className="flex-1">
             <StatLabel>Change vs yesterday</StatLabel>
             <p
-              className={`font-display mt-1 text-3xl num-tabular ${delta >= 0 ? 'text-success' : 'text-danger'}`}
+              className={`font-display mt-1 text-3xl num-tabular ${delta >= 0 ? "text-success" : "text-danger"}`}
             >
-              {delta >= 0 ? '+' : ''}{delta}
+              {delta >= 0 ? "+" : ""}
+              {delta}
             </p>
           </div>
         </div>
@@ -52,14 +53,14 @@ export function ScoreContextCard({
                   <span className="text-[11px] text-muted-foreground/60">{row.baseline}</span>
                   <span
                     className={`font-semibold flex items-center gap-0.5 ${
-                      row.direction === 'boost' ? 'text-success' : 'text-danger'
+                      row.direction === "boost" ? "text-success" : "text-danger"
                     }`}
                   >
-                    {row.direction === 'boost' ? (
+                    {row.direction === "boost" ? (
                       <TrendingUp className="h-3 w-3" />
                     ) : (
                       <TrendingDown className="h-3 w-3" />
-                    )}{' '}
+                    )}{" "}
                     {row.value}
                   </span>
                 </div>
@@ -69,5 +70,5 @@ export function ScoreContextCard({
         )}
       </Card>
     </TapCard>
-  )
+  );
 }

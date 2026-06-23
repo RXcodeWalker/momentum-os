@@ -1,4 +1,8 @@
-import type { AdaptationLayer, AdaptationTrace, AdaptationTraceEntry } from '@/core/contracts/adaptation/trace'
+import type {
+  AdaptationLayer,
+  AdaptationTrace,
+  AdaptationTraceEntry,
+} from "@/core/contracts/adaptation/trace";
 
 export interface TraceRecorder {
   record(
@@ -7,12 +11,12 @@ export interface TraceRecorder {
     newValue: number | boolean | string,
     layer: AdaptationLayer,
     reason?: string,
-  ): void
-  flush(): AdaptationTrace | undefined
+  ): void;
+  flush(): AdaptationTrace | undefined;
 }
 
 class DevTraceRecorder implements TraceRecorder {
-  private entries: AdaptationTraceEntry[] = []
+  private entries: AdaptationTraceEntry[] = [];
 
   record(
     field: string,
@@ -21,8 +25,8 @@ class DevTraceRecorder implements TraceRecorder {
     layer: AdaptationLayer,
     reason?: string,
   ): void {
-    if (previousValue === newValue) return
-    this.entries.push({ field, previousValue, newValue, layer, reason })
+    if (previousValue === newValue) return;
+    this.entries.push({ field, previousValue, newValue, layer, reason });
   }
 
   flush(): AdaptationTrace {
@@ -33,24 +37,24 @@ class DevTraceRecorder implements TraceRecorder {
       risk: 0,
       signal: 0,
       directive: 0,
-    }
+    };
     for (const e of this.entries) {
-      layerSummary[e.layer]++
+      layerSummary[e.layer]++;
     }
     return {
       entries: this.entries,
       layerSummary,
       generatedAt: new Date().toISOString(),
-    }
+    };
   }
 }
 
 const NOOP_RECORDER: TraceRecorder = {
   record: () => {},
   flush: () => undefined,
-}
+};
 
 export function createTraceRecorder(): TraceRecorder {
-  if (import.meta.env.PROD) return NOOP_RECORDER
-  return new DevTraceRecorder()
+  if (import.meta.env.PROD) return NOOP_RECORDER;
+  return new DevTraceRecorder();
 }

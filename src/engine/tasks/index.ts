@@ -1,8 +1,12 @@
-export { TASK_INTELLIGENCE_VERSION } from './config'
-export { evaluate, type TaskEngineInput, type TaskEngineResult } from './task-engine'
-export { scoreTask, computeExecutionWeight, computeResistanceWeight } from './analysis/task-scoring'
-export { computeRecoveryBurden } from './analysis/burden-calculator'
-export { evaluateCompatibility } from './analysis/compatibility-evaluator'
-export { observePortfolio } from './analysis/portfolio-observer'
-export { sequenceTasks } from './decision/task-sequencer'
-export { buildReasoningTrace, attachReasoning } from './explainability/reasoning'
+export { TASK_INTELLIGENCE_VERSION } from "./config";
+export { evaluate, type TaskEngineInput, type TaskEngineResult } from "./task-engine";
+export {
+  scoreTask,
+  computeExecutionWeight,
+  computeResistanceWeight,
+} from "./analysis/task-scoring";
+export { computeRecoveryBurden } from "./analysis/burden-calculator";
+export { evaluateCompatibility } from "./analysis/compatibility-evaluator";
+export { observePortfolio } from "./analysis/portfolio-observer";
+export { sequenceTasks } from "./decision/task-sequencer";
+export { buildReasoningTrace, attachReasoning } from "./explainability/reasoning";

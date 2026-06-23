@@ -15,7 +15,11 @@ import {
 import { buildMigrationPayload } from "@/lib/migration";
 import type { BehavioralPipeline } from "@/core/contracts/pipeline/behavioral-pipeline";
 import type { EveningReflectionRecord } from "@/core/contracts/flow/reflection";
-import type { FocusEnvironmentState, FocusEntrySource, FocusExitReason } from "@/core/contracts/focus/environment";
+import type {
+  FocusEnvironmentState,
+  FocusEntrySource,
+  FocusExitReason,
+} from "@/core/contracts/focus/environment";
 import type { EnvironmentOverride, CommittedEnvironmentSnapshot } from "@/engine/environment";
 import { SSR_ENVIRONMENT_SNAPSHOT } from "@/engine/environment";
 import type { BehavioralEvent } from "@/core/contracts/history/event";
@@ -73,14 +77,8 @@ import {
   demoTasks,
   emptyCircle,
 } from "@/lib/demo-data";
-import {
-  computeStateDynamicsProfile,
-  computeStateDynamics,
-} from "@/engine/state/dynamics-engine";
-import type {
-  StateDynamicsProfile,
-  StateDynamics,
-} from "@/core/contracts/state/dynamics";
+import { computeStateDynamicsProfile, computeStateDynamics } from "@/engine/state/dynamics-engine";
+import type { StateDynamicsProfile, StateDynamics } from "@/core/contracts/state/dynamics";
 import { detectPatterns } from "@/engine/patterns";
 import type { PatternDetectionProfile } from "@/core/contracts/patterns";
 import { buildReplay } from "@/engine/replay/replay-engine";
@@ -146,7 +144,7 @@ export type CheckIn = {
   blockers: Record<string, string>;
   tomorrowFocus?: string;
   reflection?: string;
-  meaningfulProgress?: 'yes' | 'partial' | 'no';
+  meaningfulProgress?: "yes" | "partial" | "no";
 };
 
 export type OnboardingProfile = {
@@ -200,19 +198,19 @@ export type StreakState = {
 };
 
 export type MorningCalibrationInput = {
-  sleepQuality: 'rough' | 'decent' | 'good'
-  bodyEnergy: 1 | 2 | 3 | 4 | 5
-  resistance: 'ready' | 'friction' | 'resistant'
-}
+  sleepQuality: "rough" | "decent" | "good";
+  bodyEnergy: 1 | 2 | 3 | 4 | 5;
+  resistance: "ready" | "friction" | "resistant";
+};
 
 export type MorningCalibration = {
-  date: string
-  inputs: MorningCalibrationInput
-  skipped: boolean
-  committedTaskId: string | null
-  intentionText: string | null
-  completedAt: string
-}
+  date: string;
+  inputs: MorningCalibrationInput;
+  skipped: boolean;
+  committedTaskId: string | null;
+  intentionText: string | null;
+  completedAt: string;
+};
 
 export type TomorrowPlan = {
   northStar: string;
@@ -347,7 +345,10 @@ type State = {
   acknowledgeIntervention: (type: string) => void;
   skipMorningCalibration: () => void;
   enterFocusEnvironment: (source: FocusEntrySource) => void;
-  exitFocusEnvironment: (reason: FocusExitReason, heldInterventions?: FocusEnvironmentState['pendingPostFocusInterventions']) => void;
+  exitFocusEnvironment: (
+    reason: FocusExitReason,
+    heldInterventions?: FocusEnvironmentState["pendingPostFocusInterventions"],
+  ) => void;
   clearPostFocusInterventions: () => void;
   applyEnvironmentOverride: (override: EnvironmentOverride) => void;
   clearEnvironmentOverride: (id: string) => void;
@@ -378,22 +379,22 @@ function todayStr() {
 
 function computeLegacyScore(
   tasks: Task[],
-  data: Omit<CheckIn, 'date'>,
+  data: Omit<CheckIn, "date">,
 ): { newScore: number; completed: number; planned: number } {
-  const completed = tasks.filter((t) => t.done).length
-  const planned = tasks.length
-  const completionRatio = planned > 0 ? completed / planned : 1
+  const completed = tasks.filter((t) => t.done).length;
+  const planned = tasks.length;
+  const completionRatio = planned > 0 ? completed / planned : 1;
   const newScore = Math.round(
     completionRatio * 50 +
-    (data.focus / 10) * 20 +
-    (data.sleepHours / 8) * 20 +
-    (data.honesty / 10) * 10,
-  )
-  return { newScore, completed, planned }
+      (data.focus / 10) * 20 +
+      (data.sleepHours / 8) * 20 +
+      (data.honesty / 10) * 10,
+  );
+  return { newScore, completed, planned };
 }
 
 function buildDayEntry(
-  data: Omit<CheckIn, 'date'>,
+  data: Omit<CheckIn, "date">,
   completed: number,
   planned: number,
   newScore: number,
@@ -408,94 +409,118 @@ function buildDayEntry(
     planned,
     completed,
     recovery: inRecovery || data.energy < 4,
-  }
+  };
 }
 
-function captureBlockerRecords(tasks: Task[], data: Omit<CheckIn, 'date'>): BlockerRecord[] {
-  const records: BlockerRecord[] = []
+function captureBlockerRecords(tasks: Task[], data: Omit<CheckIn, "date">): BlockerRecord[] {
+  const records: BlockerRecord[] = [];
   Object.entries(data.blockers).forEach(([taskId, blockerType]) => {
-    const task = tasks.find((t) => t.id === taskId)
+    const task = tasks.find((t) => t.id === taskId);
     if (task && !task.done) {
-      records.push({ date: todayStr(), taskId, taskType: task.type, blockerType: blockerType as string })
+      records.push({
+        date: todayStr(),
+        taskId,
+        taskType: task.type,
+        blockerType: blockerType as string,
+      });
     }
-  })
-  return records
+  });
+  return records;
 }
 
-function buildDistractionEntry(data: Omit<CheckIn, 'date'>): DistractionLogEntry {
-  return { date: todayStr(), types: data.distractions }
+function buildDistractionEntry(data: Omit<CheckIn, "date">): DistractionLogEntry {
+  return { date: todayStr(), types: data.distractions };
 }
 
 function computeStreaks(allHistory: DayData[], prevStreaks: StreakState): StreakState {
-  const streaks = { ...prevStreaks }
-  const scoreThreshold = 60
+  const streaks = { ...prevStreaks };
+  const scoreThreshold = 60;
 
-  let execStreak = 0
+  let execStreak = 0;
   for (let i = allHistory.length - 1; i >= 0; i--) {
-    if (allHistory[i].executionScore >= scoreThreshold) execStreak++
-    else break
+    if (allHistory[i].executionScore >= scoreThreshold) execStreak++;
+    else break;
   }
-  if (execStreak > streaks.longest) streaks.longest = execStreak
-  const prevStreak = streaks.current
-  streaks.current = execStreak
+  if (execStreak > streaks.longest) streaks.longest = execStreak;
+  const prevStreak = streaks.current;
+  streaks.current = execStreak;
 
-  let resStreak = 0
-  let prevBelow = false
+  let resStreak = 0;
+  let prevBelow = false;
   for (let i = 0; i < allHistory.length; i++) {
-    const below = allHistory[i].executionScore < 50
-    if (below && prevBelow) { resStreak = 0 } else { resStreak++ }
-    prevBelow = below
+    const below = allHistory[i].executionScore < 50;
+    if (below && prevBelow) {
+      resStreak = 0;
+    } else {
+      resStreak++;
+    }
+    prevBelow = below;
   }
-  if (resStreak > streaks.longestResilienceStreak) streaks.longestResilienceStreak = resStreak
-  streaks.currentResilienceStreak = resStreak
+  if (resStreak > streaks.longestResilienceStreak) streaks.longestResilienceStreak = resStreak;
+  streaks.currentResilienceStreak = resStreak;
 
   if (prevStreak === 0 && execStreak >= 1 && allHistory.length >= 2) {
-    const twoDaysAgo = allHistory[allHistory.length - 2]
+    const twoDaysAgo = allHistory[allHistory.length - 2];
     if (twoDaysAgo && twoDaysAgo.executionScore < scoreThreshold) {
-      streaks.quickRecoveries = (streaks.quickRecoveries || 0) + 1
+      streaks.quickRecoveries = (streaks.quickRecoveries || 0) + 1;
     }
   }
-  if (execStreak === 0) streaks.lastBreakDate = todayStr()
-  return streaks
+  if (execStreak === 0) streaks.lastBreakDate = todayStr();
+  return streaks;
 }
 
-function buildTomorrowPlan(history: DayData[], tasks: Task[], data: Omit<CheckIn, 'date'>): TomorrowPlan {
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowDow = tomorrow.getDay()
-  const dowHistory = history.filter((d) => new Date(d.date).getDay() === tomorrowDow)
+function buildTomorrowPlan(
+  history: DayData[],
+  tasks: Task[],
+  data: Omit<CheckIn, "date">,
+): TomorrowPlan {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowDow = tomorrow.getDay();
+  const dowHistory = history.filter((d) => new Date(d.date).getDay() === tomorrowDow);
   const tomorrowAvgScore = dowHistory.length
     ? Math.round(dowHistory.reduce((a, d) => a + d.executionScore, 0) / dowHistory.length)
-    : 60
-  const tomorrowIsLowDay = tomorrowAvgScore < 55
-  const capacityCap = tomorrowIsLowDay ? 2 : 3
+    : 60;
+  const tomorrowIsLowDay = tomorrowAvgScore < 55;
+  const capacityCap = tomorrowIsLowDay ? 2 : 3;
 
   const rescheduledTasks = tasks
     .filter((t) => !t.done && (t.rescheduled ?? 0) >= 0)
     .sort((a, b) => (b.rescheduled ?? 0) - (a.rescheduled ?? 0))
-    .slice(0, capacityCap)
+    .slice(0, capacityCap);
 
-  const hasMovementTask = rescheduledTasks.some((t) => t.type === 'movement')
-  const movementBoost = history.filter((d) => d.recovery).length > history.length * 0.3
-  const suggestedTasks: TomorrowPlan['suggestedTasks'] = rescheduledTasks.map((t) => ({
-    label: t.label, type: t.type, estMin: t.estMin, source: 'rescheduled' as const, originalTaskId: t.id,
-  }))
+  const hasMovementTask = rescheduledTasks.some((t) => t.type === "movement");
+  const movementBoost = history.filter((d) => d.recovery).length > history.length * 0.3;
+  const suggestedTasks: TomorrowPlan["suggestedTasks"] = rescheduledTasks.map((t) => ({
+    label: t.label,
+    type: t.type,
+    estMin: t.estMin,
+    source: "rescheduled" as const,
+    originalTaskId: t.id,
+  }));
   if (!hasMovementTask && movementBoost && suggestedTasks.length < capacityCap) {
-    suggestedTasks.push({ label: 'Recovery: 20 min walk', type: 'movement', estMin: 20, source: 'generated' })
+    suggestedTasks.push({
+      label: "Recovery: 20 min walk",
+      type: "movement",
+      estMin: 20,
+      source: "generated",
+    });
   }
   const avgDowLoad = dowHistory.length
     ? Math.round(dowHistory.reduce((a, d) => a + d.planned, 0) / dowHistory.length)
-    : 3
+    : 3;
   return {
-    northStar: data.tomorrowFocus || '',
+    northStar: data.tomorrowFocus || "",
     suggestedTasks,
     capacityForecast: {
       predictedScore: tomorrowAvgScore,
       recommendedLoadMin: Math.min(capacityCap, avgDowLoad) * 45,
-      warningFlags: tomorrowIsLowDay ? ['Historically a lower-performance day — keep the load light'] : [],
+      warningFlags: tomorrowIsLowDay
+        ? ["Historically a lower-performance day — keep the load light"]
+        : [],
     },
     generatedAt: new Date().toISOString(),
-  }
+  };
 }
 
 function runEveningPipeline(
@@ -505,84 +530,113 @@ function runEveningPipeline(
 ): BehavioralPipeline | null {
   const lastResultAge = prevResult
     ? Date.now() - new Date(prevResult.inputCollection.capturedAt).getTime()
-    : Infinity
+    : Infinity;
   const previousEngineMode =
-    lastResultAge < 5 * 86400 * 1000 ? prevResult?.stateInterpretation.currentMode : undefined
-  let result: BehavioralPipeline | null = prevResult
+    lastResultAge < 5 * 86400 * 1000 ? prevResult?.stateInterpretation.currentMode : undefined;
+  let result: BehavioralPipeline | null = prevResult;
   try {
     // Reconcile elapsed outcome windows before building advisories
-    const nowMs = Date.now()
-    const pendingElapsed = readPendingElapsed(nowMs)
+    const nowMs = Date.now();
+    const pendingElapsed = readPendingElapsed(nowMs);
     if (pendingElapsed.length > 0) {
-      const auditRecords = readRecentAuditRecords(90)
-      const { changed } = reconcileOutcomes(pendingElapsed, history, updatedCheckIns, auditRecords, nowMs)
-      changed.forEach(updateOutcome)
+      const auditRecords = readRecentAuditRecords(90);
+      const { changed } = reconcileOutcomes(
+        pendingElapsed,
+        history,
+        updatedCheckIns,
+        auditRecords,
+        nowMs,
+      );
+      changed.forEach(updateOutcome);
     }
 
     // Build intelligence advisories from finalized outcomes
-    const allOutcomes = readOutcomes()
-    const auditRecords = readRecentAuditRecords(90)
-    const effectiveness = computeAllEffectiveness(allOutcomes)
-    const fatigue = computeAllFatigue(auditRecords, effectiveness, nowMs)
-    const report = buildIntelligenceAdvisories(allOutcomes, effectiveness, fatigue, new Date(nowMs).toISOString())
+    const allOutcomes = readOutcomes();
+    const auditRecords = readRecentAuditRecords(90);
+    const effectiveness = computeAllEffectiveness(allOutcomes);
+    const fatigue = computeAllFatigue(auditRecords, effectiveness, nowMs);
+    const report = buildIntelligenceAdvisories(
+      allOutcomes,
+      effectiveness,
+      fatigue,
+      new Date(nowMs).toISOString(),
+    );
 
     result = runBehavioralPipeline({
       evidence: buildSessionEvidence(history, updatedCheckIns),
-      context: { flowPhase: 'evening', historicalSnapshots: [], previousMode: previousEngineMode },
+      context: { flowPhase: "evening", historicalSnapshots: [], previousMode: previousEngineMode },
       recentInterventions: readRecentAuditRecords(),
       intelligenceAdvisories: {
         cooldown: report.cooldownAdvisories,
         suppression: report.suppressionAdvisories,
       },
-    })
+    });
 
-    const firedAt = new Date().toISOString()
+    const firedAt = new Date().toISOString();
     result.interventionEvaluation.interventions
       .filter((i) => i.level >= 1)
       .forEach((i) => {
         writeAuditRecord({
-          interventionId: i.id, type: i.type, level: i.level,
-          firedAt, flowPhase: 'evening',
+          interventionId: i.id,
+          type: i.type,
+          level: i.level,
+          firedAt,
+          flowPhase: "evening",
           cooldownDurationHours: i.cooldownDurationHours,
-        })
+        });
         // Write a PENDING outcome record to be reconciled after the window elapses
-        const outcomeRecord = buildPendingOutcomeRecord(i.id, i.type, firedAt, history, updatedCheckIns)
-        writeOutcomeRecord(outcomeRecord)
-      })
+        const outcomeRecord = buildPendingOutcomeRecord(
+          i.id,
+          i.type,
+          firedAt,
+          history,
+          updatedCheckIns,
+        );
+        writeOutcomeRecord(outcomeRecord);
+      });
   } catch (err) {
-    console.error('[pipeline] runBehavioralPipeline failed (saveCheckIn):', err)
-    result = null
+    console.error("[pipeline] runBehavioralPipeline failed (saveCheckIn):", err);
+    result = null;
   }
-  return result
+  return result;
 }
 
 function runEveningReflection(
-  data: Omit<CheckIn, 'date'>,
+  data: Omit<CheckIn, "date">,
   tasks: Task[],
   history: DayData[],
   updatedCheckIns: CheckIn[],
   pipelineResult: BehavioralPipeline | null,
   prevResult: EveningReflectionRecord | null,
   prevHistory: EveningReflectionRecord[],
-): { lastReflectionResult: EveningReflectionRecord | null; reflectionHistory: EveningReflectionRecord[] } {
-  let lastReflectionResult = prevResult
-  let reflectionHistory = prevHistory
+): {
+  lastReflectionResult: EveningReflectionRecord | null;
+  reflectionHistory: EveningReflectionRecord[];
+} {
+  let lastReflectionResult = prevResult;
+  let reflectionHistory = prevHistory;
   try {
-    const reflBundle = buildReflectionInputBundle(data, tasks, history)
-    const reflOutput = evaluateReflection(reflBundle, history, updatedCheckIns.slice(-7))
-    const pipelineMode = pipelineResult?.stateInterpretation.currentMode ?? 'FOCUSED'
-    const pipelineTraj = pipelineResult?.stateInterpretation.currentTrajectory ?? 'STABLE'
-    const overloadRisk = pipelineResult?.stateInterpretation.overloadRisk ?? 'LOW'
-    const workloadGuidance: EveningReflectionRecord['workloadGuidance'] =
-      pipelineMode === 'RECOVERY' ? 'REDUCE'
-        : overloadRisk === 'HIGH' || overloadRisk === 'CRITICAL' ? 'REDUCE'
-        : pipelineMode === 'EXPANDING' && overloadRisk === 'LOW' ? 'EXPAND'
-        : 'HOLD'
+    const reflBundle = buildReflectionInputBundle(data, tasks, history);
+    const reflOutput = evaluateReflection(reflBundle, history, updatedCheckIns.slice(-7));
+    const pipelineMode = pipelineResult?.stateInterpretation.currentMode ?? "FOCUSED";
+    const pipelineTraj = pipelineResult?.stateInterpretation.currentTrajectory ?? "STABLE";
+    const overloadRisk = pipelineResult?.stateInterpretation.overloadRisk ?? "LOW";
+    const workloadGuidance: EveningReflectionRecord["workloadGuidance"] =
+      pipelineMode === "RECOVERY"
+        ? "REDUCE"
+        : overloadRisk === "HIGH" || overloadRisk === "CRITICAL"
+          ? "REDUCE"
+          : pipelineMode === "EXPANDING" && overloadRisk === "LOW"
+            ? "EXPAND"
+            : "HOLD";
     if (pipelineResult) {
-      const patternResult = evaluatePatterns(reflOutput, pipelineResult, reflectionHistory)
-      const band: EveningReflectionRecord['confidenceContext']['band'] =
-        reflOutput.historyDays >= 7 && reflOutput.evidenceCompleteness >= 0.8 ? 'HIGH'
-          : reflOutput.historyDays >= 3 ? 'MEDIUM' : 'LOW'
+      const patternResult = evaluatePatterns(reflOutput, pipelineResult, reflectionHistory);
+      const band: EveningReflectionRecord["confidenceContext"]["band"] =
+        reflOutput.historyDays >= 7 && reflOutput.evidenceCompleteness >= 0.8
+          ? "HIGH"
+          : reflOutput.historyDays >= 3
+            ? "MEDIUM"
+            : "LOW";
       const record: EveningReflectionRecord = {
         date: todayStr(),
         reflectionScalars: reflOutput.scalars,
@@ -598,14 +652,16 @@ function runEveningReflection(
         generatedAt: new Date().toISOString(),
         pipelineSnapshotMode: pipelineMode,
         pipelineSnapshotTrajectory: pipelineTraj,
-      }
-      lastReflectionResult = record
-      reflectionHistory = [...reflectionHistory.filter((r) => r.date !== todayStr()), record].slice(-28)
+      };
+      lastReflectionResult = record;
+      reflectionHistory = [...reflectionHistory.filter((r) => r.date !== todayStr()), record].slice(
+        -28,
+      );
     }
   } catch {
     // Reflection failure is non-fatal — keep previous result
   }
-  return { lastReflectionResult, reflectionHistory }
+  return { lastReflectionResult, reflectionHistory };
 }
 
 export const useApp = create<State>()(
@@ -731,22 +787,22 @@ export const useApp = create<State>()(
         },
         rescheduleTask: (id) => {
           set((s) => {
-            const task = s.tasks.find((t) => t.id === id)
+            const task = s.tasks.find((t) => t.id === id);
             const updatedTasks = s.tasks.map((t) =>
               t.id === id ? { ...t, rescheduled: (t.rescheduled || 0) + 1 } : t,
-            )
-            const rescheduleEvent = task ? emitTaskRescheduled(task) : null
-            const w7 = s.aggregationSnapshots.W7
+            );
+            const rescheduleEvent = task ? emitTaskRescheduled(task) : null;
+            const w7 = s.aggregationSnapshots.W7;
             const nextSnapshots = w7
               ? { ...s.aggregationSnapshots, W7: { ...w7, isStale: true } }
-              : s.aggregationSnapshots
+              : s.aggregationSnapshots;
             return {
               tasks: updatedTasks,
               aggregationSnapshots: nextSnapshots,
               behavioralEvents: rescheduleEvent
                 ? pruneEvents([...s.behavioralEvents, rescheduleEvent], 90)
                 : s.behavioralEvents,
-            }
+            };
           });
           const { currentUserId, tasks } = get();
           if (currentUserId) syncTasks(currentUserId, tasks, todayStr());
@@ -775,75 +831,100 @@ export const useApp = create<State>()(
             ],
           })),
         saveCheckIn: (data) => {
-          set({ dataIsSeeded: false })
-          const s = get()
+          set({ dataIsSeeded: false });
+          const s = get();
 
-          const { newScore, completed, planned } = computeLegacyScore(s.tasks, data)
-          const newEntry = buildDayEntry(data, completed, planned, newScore, s.recoveryMode)
-          const history = [...s.history]
-          const todayIdx = history.findIndex((h) => h.date === todayStr())
-          if (todayIdx !== -1) history[todayIdx] = newEntry; else history.push(newEntry)
+          const { newScore, completed, planned } = computeLegacyScore(s.tasks, data);
+          const newEntry = buildDayEntry(data, completed, planned, newScore, s.recoveryMode);
+          const history = [...s.history];
+          const todayIdx = history.findIndex((h) => h.date === todayStr());
+          if (todayIdx !== -1) history[todayIdx] = newEntry;
+          else history.push(newEntry);
 
           const updatedCheckIns = [
             ...s.checkIns.filter((c) => c.date !== todayStr()),
             { ...data, date: todayStr() },
-          ]
-          const newBlockers = captureBlockerRecords(s.tasks, data)
+          ];
+          const newBlockers = captureBlockerRecords(s.tasks, data);
           const distractionLog = [
             ...s.distractionLog.filter((d) => d.date !== todayStr()),
             buildDistractionEntry(data),
-          ]
-          const streaks = computeStreaks(history, s.streaks)
-          const tomorrowPlan = buildTomorrowPlan(history, s.tasks, data)
-          const lastPipelineResult = runEveningPipeline(s.lastPipelineResult, history, updatedCheckIns)
+          ];
+          const streaks = computeStreaks(history, s.streaks);
+          const tomorrowPlan = buildTomorrowPlan(history, s.tasks, data);
+          const lastPipelineResult = runEveningPipeline(
+            s.lastPipelineResult,
+            history,
+            updatedCheckIns,
+          );
           const { lastReflectionResult, reflectionHistory } = runEveningReflection(
-            data, s.tasks, history, updatedCheckIns,
-            lastPipelineResult, s.lastReflectionResult, s.reflectionHistory,
-          )
+            data,
+            s.tasks,
+            history,
+            updatedCheckIns,
+            lastPipelineResult,
+            s.lastReflectionResult,
+            s.reflectionHistory,
+          );
 
           // History Engine: emit events, recompute snapshots and trends
-          const prevScore = s.history[s.history.length - 1]?.executionScore ?? 50
-          const historyEngineDelta = newScore - prevScore
+          const prevScore = s.history[s.history.length - 1]?.executionScore ?? 50;
+          const historyEngineDelta = newScore - prevScore;
           const allNewEvents: BehavioralEvent[] = [
             emitCheckInCompleted(newScore, historyEngineDelta, todayStr(), data),
             ...newBlockers.map((b) => emitBlockerCaptured(b.blockerType, b.taskType)),
             emitDistractionLogged(data.distractions),
             ...computeThresholdCrossings(prevScore, newScore),
             ...(lastReflectionResult
-              ? [emitReflectionGenerated(
-                  lastReflectionResult.workloadGuidance,
-                  lastReflectionResult.confidenceContext.band,
-                )]
+              ? [
+                  emitReflectionGenerated(
+                    lastReflectionResult.workloadGuidance,
+                    lastReflectionResult.confidenceContext.band,
+                  ),
+                ]
               : []),
-          ]
-          const prunedEvents = pruneEvents([...s.behavioralEvents, ...allNewEvents], 90)
-          const updatedBlockerHistory = [...s.blockerHistory, ...newBlockers]
-          const nextSnapshots = computeAllSnapshots(history, updatedCheckIns, updatedBlockerHistory, distractionLog)
+          ];
+          const prunedEvents = pruneEvents([...s.behavioralEvents, ...allNewEvents], 90);
+          const updatedBlockerHistory = [...s.blockerHistory, ...newBlockers];
+          const nextSnapshots = computeAllSnapshots(
+            history,
+            updatedCheckIns,
+            updatedBlockerHistory,
+            distractionLog,
+          );
           const nextTrends = pruneTrends(
             detectTrends(nextSnapshots.W7, nextSnapshots.W7_PRIOR, s.trendRecords),
             90,
-          )
+          );
 
           // F-01: pipeline is the sole authority for recovery mode classification
-          const wasRecovery = s.recoveryMode
-          let recoveryHighScoreDays = s.recoveryHighScoreDays ?? 0
-          let nextRecoveryMode = wasRecovery
+          const wasRecovery = s.recoveryMode;
+          let recoveryHighScoreDays = s.recoveryHighScoreDays ?? 0;
+          let nextRecoveryMode = wasRecovery;
           if (wasRecovery) {
-            const currentMode = lastPipelineResult?.stateInterpretation.currentMode
-            if (currentMode !== undefined && currentMode !== 'RECOVERY') {
-              recoveryHighScoreDays += 1
-              if (recoveryHighScoreDays >= 2) { nextRecoveryMode = false; recoveryHighScoreDays = 0 }
-            } else if (currentMode === 'RECOVERY') {
-              recoveryHighScoreDays = 0
+            const currentMode = lastPipelineResult?.stateInterpretation.currentMode;
+            if (currentMode !== undefined && currentMode !== "RECOVERY") {
+              recoveryHighScoreDays += 1;
+              if (recoveryHighScoreDays >= 2) {
+                nextRecoveryMode = false;
+                recoveryHighScoreDays = 0;
+              }
+            } else if (currentMode === "RECOVERY") {
+              recoveryHighScoreDays = 0;
             }
             // pipeline null (failure): hold counter unchanged — conservative, no exit on failed run
           }
-          let nextSuggestion = get().recoverySuggestion
-          if (!wasRecovery && lastPipelineResult?.stateInterpretation.currentMode === 'RECOVERY' && !nextSuggestion) {
+          let nextSuggestion = get().recoverySuggestion;
+          if (
+            !wasRecovery &&
+            lastPipelineResult?.stateInterpretation.currentMode === "RECOVERY" &&
+            !nextSuggestion
+          ) {
             nextSuggestion = {
-              reason: 'Your last reflection indicates a recovery pattern. Cadence can switch to a smaller-surface recovery mode if that fits today.',
+              reason:
+                "Your last reflection indicates a recovery pattern. Cadence can switch to a smaller-surface recovery mode if that fits today.",
               suggestedAt: todayStr(),
-            }
+            };
           }
 
           set((state) => ({
@@ -864,16 +945,16 @@ export const useApp = create<State>()(
             behavioralEvents: prunedEvents,
             aggregationSnapshots: nextSnapshots,
             trendRecords: nextTrends,
-          }))
+          }));
 
-          const userId = get().currentUserId
+          const userId = get().currentUserId;
           if (userId) {
-            syncDayLog(userId, newEntry)
-            syncCheckIn(userId, { ...data, date: todayStr() })
+            syncDayLog(userId, newEntry);
+            syncCheckIn(userId, { ...data, date: todayStr() });
           }
 
-          const delta = newScore - (s.history[s.history.length - 1]?.executionScore ?? 50)
-          return { newScore, delta }
+          const delta = newScore - (s.history[s.history.length - 1]?.executionScore ?? 50);
+          return { newScore, delta };
         },
         unlockInsight: (id) => {
           set((s) => ({
@@ -889,19 +970,19 @@ export const useApp = create<State>()(
             recoveryMode: true,
             recoveryReason: reason,
             behavioralEvents: pruneEvents(
-              [...s.behavioralEvents, emitRecoveryTriggered(reason, 'manual')],
+              [...s.behavioralEvents, emitRecoveryTriggered(reason, "manual")],
               90,
             ),
-          }))
+          }));
         },
         exitRecovery: () => {
-          const s = get()
-          const recoveryStartDate = s.history.findLast((d) => !d.recovery)?.date
+          const s = get();
+          const recoveryStartDate = s.history.findLast((d) => !d.recovery)?.date;
           const daysInRecovery = recoveryStartDate
             ? Math.round(
                 (Date.now() - new Date(recoveryStartDate).getTime()) / (24 * 60 * 60 * 1000),
               )
-            : 0
+            : 0;
           set((state) => ({
             recoveryMode: false,
             recoveryReason: undefined,
@@ -910,7 +991,7 @@ export const useApp = create<State>()(
               [...state.behavioralEvents, emitRecoveryExited(daysInRecovery)],
               90,
             ),
-          }))
+          }));
         },
         setRecoveryPlan: (plan) => set({ recoveryPlan: plan }),
         acceptMinimumViableDay: (mvdTasks) =>
@@ -939,7 +1020,7 @@ export const useApp = create<State>()(
           const existing = get().tasks;
           let updated = [...existing];
           for (const pt of plan.suggestedTasks) {
-            if (pt.source === 'rescheduled' && pt.originalTaskId) {
+            if (pt.source === "rescheduled" && pt.originalTaskId) {
               // Update original task in-place — preserves rescheduled counter
               updated = updated.map((t) =>
                 t.id === pt.originalTaskId ? { ...t, label: pt.label, estMin: pt.estMin } : t,
@@ -1121,12 +1202,12 @@ export const useApp = create<State>()(
           })),
 
         clearExpiredEnvironmentOverrides: () => {
-          const now = Date.now()
+          const now = Date.now();
           set((s) => ({
             environmentOverrides: s.environmentOverrides.filter(
               (o) => o.expiresAt === 0 || o.expiresAt > now,
             ),
-          }))
+          }));
         },
 
         setCommittedEnvironment: (snapshot) => set({ committedEnvironment: snapshot }),
@@ -1301,10 +1382,10 @@ export const useApp = create<State>()(
           });
         },
         applyMorningInputs: (data) => {
-          const s = get()
-          const SLEEP_QUALITY_MAP = { rough: 25, decent: 60, good: 90 } as const
-          const ENERGY_MAP = [20, 40, 60, 80, 100] as const
-          const RESISTANCE_MAP = { ready: 15, friction: 50, resistant: 85 } as const
+          const s = get();
+          const SLEEP_QUALITY_MAP = { rough: 25, decent: 60, good: 90 } as const;
+          const ENERGY_MAP = [20, 40, 60, 80, 100] as const;
+          const RESISTANCE_MAP = { ready: 15, friction: 50, resistant: 85 } as const;
 
           const morningInputs = {
             capturedAt: `${todayStr()}T07:00:00.000Z`,
@@ -1319,50 +1400,70 @@ export const useApp = create<State>()(
               overwhelm: 40,
               stressPressure: 30,
             },
-            executionInputs: { meaningfulAdvancementQuality: 65, deepWorkContinuity: 65, executionIntegrity: 65 },
-            behavioralInputs: { fragmentationLevel: 25, distractionPatterns: 25, avoidancePressure: 25, pacingQuality: 70 },
-          }
+            executionInputs: {
+              meaningfulAdvancementQuality: 65,
+              deepWorkContinuity: 65,
+              executionIntegrity: 65,
+            },
+            behavioralInputs: {
+              fragmentationLevel: 25,
+              distractionPatterns: 25,
+              avoidancePressure: 25,
+              pacingQuality: 70,
+            },
+          };
 
           const morningEvidence = {
             sessionId: `morning-${todayStr()}`,
             capturedAt: `${todayStr()}T07:00:00.000Z`,
-            evidenceType: 'MANUAL_CALIBRATION' as const,
+            evidenceType: "MANUAL_CALIBRATION" as const,
             inputs: morningInputs,
             completeness: 0.4,
-          }
+          };
 
-          const mergedEvidence = [morningEvidence, ...buildSessionEvidence(s.history, s.checkIns)]
+          const mergedEvidence = [morningEvidence, ...buildSessionEvidence(s.history, s.checkIns)];
           // F-11: guard against stale previousMode from a session weeks ago
           const lastResultAge = s.lastPipelineResult
             ? Date.now() - new Date(s.lastPipelineResult.inputCollection.capturedAt).getTime()
-            : Infinity
+            : Infinity;
           const previousMode =
             lastResultAge < 5 * 86400 * 1000
               ? s.lastPipelineResult?.stateInterpretation.currentMode
-              : undefined
-          let lastPipelineResult: BehavioralPipeline | null = s.lastPipelineResult
+              : undefined;
+          let lastPipelineResult: BehavioralPipeline | null = s.lastPipelineResult;
 
           try {
             // Reconcile elapsed outcome windows before building advisories
-            const nowMs = Date.now()
-            const pendingElapsed = readPendingElapsed(nowMs)
+            const nowMs = Date.now();
+            const pendingElapsed = readPendingElapsed(nowMs);
             if (pendingElapsed.length > 0) {
-              const morningAuditRecords = readRecentAuditRecords(90)
-              const { changed } = reconcileOutcomes(pendingElapsed, s.history, s.checkIns, morningAuditRecords, nowMs)
-              changed.forEach(updateOutcome)
+              const morningAuditRecords = readRecentAuditRecords(90);
+              const { changed } = reconcileOutcomes(
+                pendingElapsed,
+                s.history,
+                s.checkIns,
+                morningAuditRecords,
+                nowMs,
+              );
+              changed.forEach(updateOutcome);
             }
 
             // Build intelligence advisories from finalized outcomes
-            const allOutcomes = readOutcomes()
-            const morningAuditRecords = readRecentAuditRecords(90)
-            const effectiveness = computeAllEffectiveness(allOutcomes)
-            const fatigue = computeAllFatigue(morningAuditRecords, effectiveness, nowMs)
-            const report = buildIntelligenceAdvisories(allOutcomes, effectiveness, fatigue, new Date(nowMs).toISOString())
+            const allOutcomes = readOutcomes();
+            const morningAuditRecords = readRecentAuditRecords(90);
+            const effectiveness = computeAllEffectiveness(allOutcomes);
+            const fatigue = computeAllFatigue(morningAuditRecords, effectiveness, nowMs);
+            const report = buildIntelligenceAdvisories(
+              allOutcomes,
+              effectiveness,
+              fatigue,
+              new Date(nowMs).toISOString(),
+            );
 
             lastPipelineResult = runBehavioralPipeline({
               evidence: mergedEvidence,
               context: {
-                flowPhase: 'morning',
+                flowPhase: "morning",
                 historicalSnapshots: [],
                 previousMode,
               },
@@ -1371,9 +1472,9 @@ export const useApp = create<State>()(
                 cooldown: report.cooldownAdvisories,
                 suppression: report.suppressionAdvisories,
               },
-            })
+            });
             // F-04: persist fired interventions so future pipeline runs enforce cooldowns
-            const morningFiredAt = new Date().toISOString()
+            const morningFiredAt = new Date().toISOString();
             lastPipelineResult.interventionEvaluation.interventions
               .filter((i) => i.level >= 1)
               .forEach((i) => {
@@ -1382,16 +1483,22 @@ export const useApp = create<State>()(
                   type: i.type,
                   level: i.level,
                   firedAt: morningFiredAt,
-                  flowPhase: 'morning',
+                  flowPhase: "morning",
                   cooldownDurationHours: i.cooldownDurationHours,
-                })
+                });
                 // Write a PENDING outcome record to be reconciled after the window elapses
-                const outcomeRecord = buildPendingOutcomeRecord(i.id, i.type, morningFiredAt, s.history, s.checkIns)
-                writeOutcomeRecord(outcomeRecord)
-              })
+                const outcomeRecord = buildPendingOutcomeRecord(
+                  i.id,
+                  i.type,
+                  morningFiredAt,
+                  s.history,
+                  s.checkIns,
+                );
+                writeOutcomeRecord(outcomeRecord);
+              });
           } catch (err) {
-            console.error('[pipeline] runBehavioralPipeline failed (applyMorningInputs):', err)
-            lastPipelineResult = null
+            console.error("[pipeline] runBehavioralPipeline failed (applyMorningInputs):", err);
+            lastPipelineResult = null;
           }
 
           const calibration: MorningCalibration = {
@@ -1401,25 +1508,25 @@ export const useApp = create<State>()(
             committedTaskId: null,
             intentionText: null,
             completedAt: new Date().toISOString(),
-          }
+          };
 
-          set({ lastMorningCalibration: calibration, lastPipelineResult })
+          set({ lastMorningCalibration: calibration, lastPipelineResult });
         },
 
         commitMorningTask: (committedTaskId, intentionText) => {
-          const s = get()
-          if (!s.lastMorningCalibration) return
+          const s = get();
+          if (!s.lastMorningCalibration) return;
           set({
             lastMorningCalibration: {
               ...s.lastMorningCalibration,
               committedTaskId,
               intentionText,
             },
-          })
+          });
         },
 
         acknowledgeIntervention: (type: string) => {
-          const cutoff = Date.now() - 24 * 60 * 60 * 1000
+          const cutoff = Date.now() - 24 * 60 * 60 * 1000;
           set((s) => ({
             acknowledgedInterventions: [
               ...s.acknowledgedInterventions.filter(
@@ -1427,20 +1534,20 @@ export const useApp = create<State>()(
               ),
               { type, acknowledgedAt: new Date().toISOString() },
             ],
-          }))
+          }));
         },
 
         skipMorningCalibration: () => {
           set({
             lastMorningCalibration: {
               date: todayStr(),
-              inputs: { sleepQuality: 'decent', bodyEnergy: 3, resistance: 'friction' },
+              inputs: { sleepQuality: "decent", bodyEnergy: 3, resistance: "friction" },
               skipped: true,
               committedTaskId: null,
               intentionText: null,
               completedAt: new Date().toISOString(),
             },
-          })
+          });
         },
 
         enterFocusEnvironment: (source) =>
@@ -1462,7 +1569,7 @@ export const useApp = create<State>()(
               enteredAt: null,
               entrySource: null,
               lastManualDismissAt:
-                reason === 'interruption'
+                reason === "interruption"
                   ? new Date().toISOString()
                   : s.focusEnvironment.lastManualDismissAt,
               pendingPostFocusInterventions:
@@ -1495,8 +1602,8 @@ export const useApp = create<State>()(
       // committedEnvironment is ephemeral — EnvironmentRenderer recomputes it on mount
       partialize: (s) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { committedEnvironment: _ce, ...rest } = s
-        return rest as State
+        const { committedEnvironment: _ce, ...rest } = s;
+        return rest as State;
       },
       migrate: (persistedState, version) => {
         let s = persistedState as Partial<State>;
@@ -1539,14 +1646,14 @@ export const useApp = create<State>()(
           };
         }
         if (version < 4) {
-          s = { ...s, lastMorningCalibration: s.lastMorningCalibration ?? null }
+          s = { ...s, lastMorningCalibration: s.lastMorningCalibration ?? null };
         }
         if (version < 5) {
           s = {
             ...s,
             lastReflectionResult: (s as Partial<State>).lastReflectionResult ?? null,
             reflectionHistory: (s as Partial<State>).reflectionHistory ?? [],
-          }
+          };
         }
         if (version < 6) {
           s = {
@@ -1557,16 +1664,16 @@ export const useApp = create<State>()(
               entrySource: null,
               lastManualDismissAt: null,
             },
-          }
+          };
         }
         if (version < 7) {
           s = {
             ...s,
             acknowledgedInterventions: (s as Partial<State>).acknowledgedInterventions ?? [],
-          }
+          };
         }
         if (version < 8) {
-          const prev = (s as Partial<State>).focusEnvironment
+          const prev = (s as Partial<State>).focusEnvironment;
           s = {
             ...s,
             focusEnvironment: {
@@ -1576,36 +1683,43 @@ export const useApp = create<State>()(
               lastManualDismissAt: prev?.lastManualDismissAt ?? null,
               pendingPostFocusInterventions: [],
             },
-          }
+          };
         }
         if (version < 9) {
           s = {
             ...s,
             environmentOverrides: (s as Partial<State>).environmentOverrides ?? [],
-          }
+          };
         }
         if (version < 10) {
-          const history = s.history ?? []
-          const checkIns = s.checkIns ?? []
-          const blockerHistory = s.blockerHistory ?? []
-          const distractionLog = s.distractionLog ?? []
-          const backfilledEvents = backfillEventsFromHistory(history, blockerHistory, distractionLog)
+          const history = s.history ?? [];
+          const checkIns = s.checkIns ?? [];
+          const blockerHistory = s.blockerHistory ?? [];
+          const distractionLog = s.distractionLog ?? [];
+          const backfilledEvents = backfillEventsFromHistory(
+            history,
+            blockerHistory,
+            distractionLog,
+          );
           const backfilledSnapshots =
             history.length > 0
               ? computeAllSnapshots(history, checkIns, blockerHistory, distractionLog)
-              : {}
+              : {};
           const backfilledTrends =
             backfilledSnapshots.W7 && backfilledSnapshots.W7_PRIOR
-              ? pruneTrends(detectTrends(backfilledSnapshots.W7, backfilledSnapshots.W7_PRIOR, []), 90)
-              : []
-          const backfilledPeriods = backfillPeriodsFromHistory(history)
+              ? pruneTrends(
+                  detectTrends(backfilledSnapshots.W7, backfilledSnapshots.W7_PRIOR, []),
+                  90,
+                )
+              : [];
+          const backfilledPeriods = backfillPeriodsFromHistory(history);
           s = {
             ...s,
             behavioralEvents: backfilledEvents,
             aggregationSnapshots: backfilledSnapshots,
             trendRecords: backfilledTrends,
             behavioralPeriods: backfilledPeriods,
-          }
+          };
         }
         return s as State;
       },
@@ -1620,15 +1734,15 @@ export function useExecutionScore(): number {
 }
 
 export function useBehavioralEvidence(): BehavioralEvidence {
-  const events = useApp((s) => s.behavioralEvents)
-  const snapshots = useApp((s) => s.aggregationSnapshots)
-  const trends = useApp((s) => s.trendRecords)
-  const checkIns = useApp((s) => s.checkIns)
-  const periods = useApp((s) => s.behavioralPeriods)
+  const events = useApp((s) => s.behavioralEvents);
+  const snapshots = useApp((s) => s.aggregationSnapshots);
+  const trends = useApp((s) => s.trendRecords);
+  const checkIns = useApp((s) => s.checkIns);
+  const periods = useApp((s) => s.behavioralPeriods);
   return useMemo(
     () => buildEvidence(events, snapshots, trends, checkIns, periods),
     [events, snapshots, trends, checkIns, periods],
-  )
+  );
 }
 
 export function useMomentum(): { delta: number; trend: "up" | "down" | "flat" } {
@@ -1637,8 +1751,8 @@ export function useMomentum(): { delta: number; trend: "up" | "down" | "flat" } 
   const w7Prior = useApp((s) => s.aggregationSnapshots.W7_PRIOR);
   return useMemo(() => {
     if (w7 && !w7.isStale && w7Prior && !w7Prior.isStale) {
-      const delta = Math.round(w7.metrics.avgExecutionScore - w7Prior.metrics.avgExecutionScore)
-      return { delta, trend: delta > 2 ? "up" : delta < -2 ? "down" : "flat" }
+      const delta = Math.round(w7.metrics.avgExecutionScore - w7Prior.metrics.avgExecutionScore);
+      return { delta, trend: delta > 2 ? "up" : delta < -2 ? "down" : "flat" };
     }
     // Fallback: live computation
     const last7 = h.slice(-7).map((d) => d.executionScore);
@@ -1973,15 +2087,22 @@ export function useDistractionProfile() {
 
   return useMemo(() => {
     // Use pre-computed distraction profile from W14 snapshot when fresh
-    const snapshotProfile = w14 && !w14.isStale ? w14.metrics.distractionProfile : null
+    const snapshotProfile = w14 && !w14.isStale ? w14.metrics.distractionProfile : null;
 
-    let topDistractors: { id: string; frequency: number; avgScoreImpact: number }[]
+    let topDistractors: { id: string; frequency: number; avgScoreImpact: number }[];
 
     if (snapshotProfile && snapshotProfile.length > 0) {
-      topDistractors = [...snapshotProfile]
+      topDistractors = [...snapshotProfile];
     } else {
       const DISTRACTION_IDS = [
-        "phone", "social", "video", "noise", "snacks", "thoughts", "fatigue", "meetings",
+        "phone",
+        "social",
+        "video",
+        "noise",
+        "snacks",
+        "thoughts",
+        "fatigue",
+        "meetings",
       ];
       topDistractors = DISTRACTION_IDS.map((id) => {
         const daysWith = distractionLog.filter((d) => d.types.includes(id)).map((d) => d.date);
@@ -2164,7 +2285,7 @@ export function useBlockerPattern() {
   return useMemo(() => {
     // Read dominant blocker from W14 snapshot when fresh
     const dominantBlockerFromSnapshot =
-      w14 && !w14.isStale ? w14.metrics.dominantBlockerType : null
+      w14 && !w14.isStale ? w14.metrics.dominantBlockerType : null;
 
     const last14 = blockerHistory.filter((b) => {
       const d = new Date(b.date);
@@ -2227,16 +2348,17 @@ export function useStreakContext() {
       streaks;
 
     // Read atRisk from W7 snapshot when fresh, else live computation
-    const atRisk = w7 && !w7.isStale
-      ? w7.metrics.streakAtRisk
-      : (() => {
-          const last3 = history.slice(-3).map((d) => d.executionScore);
-          return (
-            last3.length >= 2 &&
-            last3[last3.length - 1] < 65 &&
-            last3[last3.length - 1] < (last3[last3.length - 2] ?? 100)
-          );
-        })()
+    const atRisk =
+      w7 && !w7.isStale
+        ? w7.metrics.streakAtRisk
+        : (() => {
+            const last3 = history.slice(-3).map((d) => d.executionScore);
+            return (
+              last3.length >= 2 &&
+              last3[last3.length - 1] < 65 &&
+              last3[last3.length - 1] < (last3[last3.length - 2] ?? 100)
+            );
+          })();
 
     // Use the better of execution or resilience streak for display
     const useResilienceStreak = currentResilienceStreak > current && currentResilienceStreak > 3;
@@ -2338,10 +2460,12 @@ export function useTaskIntelligence() {
       profileCap === Infinity
         ? stateCap
         : Math.round(stateCap * (1 - onboardingWeight) + profileCap * onboardingWeight);
-    const pipelineLimit = (pipeline as any)?.adaptationGeneration?.execution?.visibleTaskLimit as number | undefined;
+    const pipelineLimit = (pipeline as any)?.adaptationGeneration?.execution?.visibleTaskLimit as
+      | number
+      | undefined;
     const suggestedCap = Math.max(1, pipelineLimit ?? blendedCap);
 
-    const suppressWarning = (pipeline as any)?.stateInterpretation?.currentMode === 'RECOVERY';
+    const suppressWarning = (pipeline as any)?.stateInterpretation?.currentMode === "RECOVERY";
 
     return {
       todayLoadRisk,
@@ -2682,7 +2806,14 @@ export function useAvoidanceProfile() {
   const recoveryMode = useApp((s) => s.recoveryMode);
 
   return useMemo(() => {
-    return detectAvoidance({ tasks, checkIns, history, blockerHistory, distractionLog, recoveryMode });
+    return detectAvoidance({
+      tasks,
+      checkIns,
+      history,
+      blockerHistory,
+      distractionLog,
+      recoveryMode,
+    });
   }, [tasks, checkIns, history, blockerHistory, distractionLog, recoveryMode]);
 }
 
@@ -2690,10 +2821,7 @@ export function useAvoidanceProfile() {
 export function useStateDynamicsProfile(): StateDynamicsProfile {
   const periods = useApp((s) => s.behavioralPeriods);
   const snapshots = useApp((s) => s.aggregationSnapshots);
-  return useMemo(
-    () => computeStateDynamicsProfile(periods, snapshots),
-    [periods, snapshots],
-  );
+  return useMemo(() => computeStateDynamicsProfile(periods, snapshots), [periods, snapshots]);
 }
 
 // E13: Current-session state dynamics view
@@ -2721,7 +2849,7 @@ export function usePatternDetection(): PatternDetectionProfile {
 }
 
 // E15: Behavioral Replay — deterministic narrative, attribution, transition, and forecast
-export function useReplayAnalysis(scope: ReplayWindowScope = 'W7'): ReplayResult | null {
+export function useReplayAnalysis(scope: ReplayWindowScope = "W7"): ReplayResult | null {
   const evidence = useBehavioralEvidence();
   const dynamics = useStateDynamicsProfile();
   const patterns = usePatternDetection();
@@ -2758,7 +2886,18 @@ export function useMomentumModel(): MomentumModel {
         trendRecords,
         recoveryDebtAccumulating: w14Metrics?.recoveryDebtAccumulating ?? false,
       }),
-    [dynamics, profile, streakCtx, momentum, consistency, checkInsCount, recoveryMode, lastPipelineResult, trendRecords, w14Metrics],
+    [
+      dynamics,
+      profile,
+      streakCtx,
+      momentum,
+      consistency,
+      checkInsCount,
+      recoveryMode,
+      lastPipelineResult,
+      trendRecords,
+      w14Metrics,
+    ],
   );
 }
 
@@ -2766,7 +2905,10 @@ export function useMomentumModel(): MomentumModel {
 // Phase 5B: Recovery Compatibility hooks
 // ---------------------------------------------------------------------------
 
-import type { RecoveryCompatibilityResult, RecoveryCompatibilityTier } from "@/core/contracts/tasks/recovery-compatibility";
+import type {
+  RecoveryCompatibilityResult,
+  RecoveryCompatibilityTier,
+} from "@/core/contracts/tasks/recovery-compatibility";
 import { evaluateRecoveryCompatibility } from "@/engine/tasks/analysis/recovery-compatibility-engine";
 
 /** Per-task recovery compatibility result derived from current pipeline state. */
@@ -2865,7 +3007,11 @@ export function useTaskCompatibilityProfile(): {
     if (!pipeline || pipeline.taskEvaluation.length === 0) return null;
 
     const distribution: Record<RecoveryCompatibilityTier, number> = {
-      excellent: 0, good: 0, moderate: 0, poor: 0, harmful: 0,
+      excellent: 0,
+      good: 0,
+      moderate: 0,
+      poor: 0,
+      harmful: 0,
     };
     const harmfulTaskIds: string[] = [];
     const excellentTaskIds: string[] = [];
@@ -2882,8 +3028,8 @@ export function useTaskCompatibilityProfile(): {
 
       distribution[rc.tier] += 1;
       totalScore += rc.score;
-      if (rc.tier === 'harmful') harmfulTaskIds.push(evalRow.task.id);
-      if (rc.tier === 'excellent') excellentTaskIds.push(evalRow.task.id);
+      if (rc.tier === "harmful") harmfulTaskIds.push(evalRow.task.id);
+      if (rc.tier === "excellent") excellentTaskIds.push(evalRow.task.id);
     }
 
     return {

@@ -7,9 +7,11 @@ Phase 0–1 (Behavioral Core) is complete: signals, state interpreter, task inte
 Phase 2 — Behavioral Experience Layer (Priority)
 
 Objectives
+
 - Surface deterministic engine outputs to the UI in a state-aware, interpretable way.
 
 Deliverables
+
 - Pipeline Exposure Layer
   - Implement a thin adapter that transforms BehavioralPipeline → AdaptationInput for UI consumers.
   - Contract: src/core/contracts/pipeline/behavioral-pipeline.ts stays authoritative.
@@ -24,44 +26,53 @@ Deliverables
   - UI patterns for focus protection (task limits, reduced density, deep-work toggles) wired to adaptation directives.
 
 Acceptance Criteria
+
 - All UI adjustments driven by AdaptationProjection tokens from the pipeline exposure layer (no behavioral logic in components).
 - UX copy uses engine-supplied observational reasoning (no identity/shame language).
 
 Phase 3 — Adaptation Engine
 
 Objectives
+
 - Synthesize adaptation directives into concrete UI tokens and runtime behavior.
 
 Deliverables
+
 - Environmental Adaptation (interface density, spacing, motion intensity)
 - Execution Adaptation (visibleTaskLimit, workloadCompression, pacing recommendations)
 - Guidance Adaptation (messaging tone, reflection depth)
 - Adaptation API: deterministic, versioned transform from BehavioralPipeline → AdaptationOutput
 
 Acceptance Criteria
+
 - Adaptation Engine runs as pure TypeScript module; returns AdaptationOutput (src/core/contracts/adaptation/output.ts).
 - Orchestrator attaches adaptationGeneration to BehavioralPipeline.
 
 Phase 4 — Longitudinal Intelligence
 
 Objectives
+
 - Build system memory and replay capabilities to improve personalization and auditability.
 
 Deliverables
+
 - Behavioral Timeline (UI + persisted history of pipeline results)
 - Intervention Memory (audit records, cooldown history, efficacy tracking)
 - State History & Replay tools (replay evidence → pipeline runs for regression tests)
 - Batch simulation harness for scenario testing and regression
 
 Acceptance Criteria
+
 - Versioned pipeline outputs persisted for 90+ days; replay produces identical outputs for the same evidence and engine versions.
 
 Phase 5 — Advanced Behavioral Intelligence
 
 Objectives
+
 - Improve detection and compatibility models; extend capability growth safely.
 
 Deliverables
+
 - Avoidance Detection v2 (clustered avoidance detection and sequence-aware interruption)
 - Recovery Compatibility v2 (task-level recovery impact modeling with richer evidence)
 - Capability Expansion Engine (safe stretch planning using longitudinal signals)

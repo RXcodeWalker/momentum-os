@@ -4,20 +4,20 @@ import { useEnvironment } from "@/hooks/useEnvironment";
 // Drift duration scales inversely with motion: fast at high motion, slow at low motion.
 // Formula: 22s / (env.motion + 0.2) — range ~9s (motion=1) to ~38s (motion=0).
 function driftDuration(base: number, motion: number): string {
-  return `${Math.round(base / (motion + 0.2))}s`
+  return `${Math.round(base / (motion + 0.2))}s`;
 }
 
 export function AuroraBackground() {
-  const env = useEnvironment()
-  const motion = env.tokens.motion
-  const pressure = env.tokens.pressure
+  const env = useEnvironment();
+  const motion = env.tokens.motion;
+  const pressure = env.tokens.pressure;
 
   // Opacity scales with pressure (more pressure = more vivid aurora)
-  const baseOpacity = 0.55 + pressure * 0.30
+  const baseOpacity = 0.55 + pressure * 0.3;
 
-  const blob1Duration = driftDuration(22, motion)
-  const blob2Duration = driftDuration(28, motion)
-  const blob3Duration = driftDuration(34, motion)
+  const blob1Duration = driftDuration(22, motion);
+  const blob2Duration = driftDuration(28, motion);
+  const blob3Duration = driftDuration(34, motion);
 
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">

@@ -1,30 +1,30 @@
-import { motion, AnimatePresence } from 'framer-motion'
-import { Card, StatLabel } from '@/components/ui-bits'
-import { useApp } from '@/lib/store'
-import type { BehavioralInterventionsView } from '@/hooks/internal/contracts'
+import { motion, AnimatePresence } from "framer-motion";
+import { Card, StatLabel } from "@/components/ui-bits";
+import { useApp } from "@/lib/store";
+import type { BehavioralInterventionsView } from "@/hooks/internal/contracts";
 
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 type Props = {
-  surface: BehavioralInterventionsView['ui']['surface']
+  surface: BehavioralInterventionsView["ui"]["surface"];
   // Priority-tier resolution must happen at the call site; component displays exactly one intervention.
-  intervention: BehavioralInterventionsView['active'][number] | undefined
-}
+  intervention: BehavioralInterventionsView["active"][number] | undefined;
+};
 
 export function InterventionSurface({ surface, intervention: primary }: Props) {
-  const acknowledgedInterventions = useApp((s) => s.acknowledgedInterventions)
-  const acknowledgeIntervention = useApp((s) => s.acknowledgeIntervention)
+  const acknowledgedInterventions = useApp((s) => s.acknowledgedInterventions);
+  const acknowledgeIntervention = useApp((s) => s.acknowledgeIntervention);
   const isAcknowledged = primary
     ? acknowledgedInterventions.some(
         (r) =>
           r.type === primary.type &&
           Date.now() - new Date(r.acknowledgedAt).getTime() < TWENTY_FOUR_HOURS_MS,
       )
-    : false
+    : false;
 
   return (
     <AnimatePresence mode="wait">
-      {surface === 'inline' && primary && (
+      {surface === "inline" && primary && (
         <motion.div
           key="inline"
           initial={{ opacity: 0, y: 4 }}
@@ -37,7 +37,7 @@ export function InterventionSurface({ surface, intervention: primary }: Props) {
         </motion.div>
       )}
 
-      {surface === 'banner' && primary && (
+      {surface === "banner" && primary && (
         <motion.div
           key="banner"
           initial={{ opacity: 0, y: 8 }}
@@ -54,7 +54,7 @@ export function InterventionSurface({ surface, intervention: primary }: Props) {
         </motion.div>
       )}
 
-      {surface === 'modal' && primary && !isAcknowledged && (
+      {surface === "modal" && primary && !isAcknowledged && (
         <motion.div
           key="modal"
           initial={{ opacity: 0 }}
@@ -89,5 +89,5 @@ export function InterventionSurface({ surface, intervention: primary }: Props) {
         </motion.div>
       )}
     </AnimatePresence>
-  )
+  );
 }

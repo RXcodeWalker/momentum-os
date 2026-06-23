@@ -1,23 +1,23 @@
 System Diagram (implemented)
 
 Frontend (Routes / Components: src/routes/check-in.tsx, src/components/check-in/CheckInWizard.tsx)
-  ↓
+↓
 Zustand Store (src/lib/store.ts)
-  ↓ (buildSessionEvidence)
+↓ (buildSessionEvidence)
 Evidence Bridge (src/engine/orchestrator/evidence-bridge.ts)
-  ↓ (DailyInputs / SessionEvidence)
-Signal Engine (src/engine/signals/*)
-  ↓ (SignalSnapshot)
+↓ (DailyInputs / SessionEvidence)
+Signal Engine (src/engine/signals/_)
+↓ (SignalSnapshot)
 State Engine (src/engine/state/state-engine.ts)
-  ↓ (UserState + optional Transition)
+↓ (UserState + optional Transition)
 Trajectory Analyzer (src/engine/state/trajectory-analyzer.ts)
-  ↓
-Task Intelligence (optional — src/engine/tasks/*)  ← domain enrichment required for full use
-  ↓
-Intervention Engine (src/engine/interventions/*)
-  ↓
+↓
+Task Intelligence (optional — src/engine/tasks/_) ← domain enrichment required for full use
+↓
+Intervention Engine (src/engine/interventions/\*)
+↓
 (Adaptation Engine — MISSING)
-  ↓
+↓
 Store receives BehavioralPipeline (stored as state.lastPipelineResult)
 
 Engine Boundaries (as implemented)
@@ -66,9 +66,9 @@ Contracts (source of truth)
 
 - BehavioralPipeline: src/core/contracts/pipeline/behavioral-pipeline.ts
 - UserState and state primitives: src/core/contracts/state/user-state.ts, src/core/contracts/state/transitions.ts
-- Task contracts and scoring: src/core/contracts/tasks/* (task.ts, scores.ts, sequencing.ts)
-- Intervention contracts: src/core/contracts/interventions/*
-- Signal/Evidence contracts: src/core/contracts/signals/*
+- Task contracts and scoring: src/core/contracts/tasks/\* (task.ts, scores.ts, sequencing.ts)
+- Intervention contracts: src/core/contracts/interventions/\*
+- Signal/Evidence contracts: src/core/contracts/signals/\*
 
 Architectural Principles (as enforced and implemented)
 

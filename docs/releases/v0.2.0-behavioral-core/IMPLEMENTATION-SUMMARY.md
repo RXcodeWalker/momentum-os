@@ -70,9 +70,9 @@ Intervention Engine
 - Files
   - src/engine/interventions/evaluate.ts
   - src/engine/interventions/matrix/intervention-matrix-v1.ts
-  - src/engine/interventions/suppression/* (hard-rules.ts, soft-rules.ts)
-  - src/engine/interventions/cooldown/*, eligibility/*, priority/*, escalation/*
-  - Tests: src/engine/interventions/*.test.ts
+  - src/engine/interventions/suppression/\* (hard-rules.ts, soft-rules.ts)
+  - src/engine/interventions/cooldown/_, eligibility/_, priority/_, escalation/_
+  - Tests: src/engine/interventions/\*.test.ts
 
 - Responsibilities
   - Evaluate trigger rules, assemble candidate interventions
@@ -117,7 +117,7 @@ Store Integration (Application)
 
 Tests & Quality
 
-- Unit and scenario tests present for signals, state, tasks and interventions (src/engine/*/*.test.ts). Coverage focuses on behavioral semantics, false-positive safeguards, and architecture compliance (engines return plain data).
+- Unit and scenario tests present for signals, state, tasks and interventions (src/engine/_/_.test.ts). Coverage focuses on behavioral semantics, false-positive safeguards, and architecture compliance (engines return plain data).
 - Engines include explicit version tags (v1) for auditability and migration.
 
 Known Gaps (explicit)

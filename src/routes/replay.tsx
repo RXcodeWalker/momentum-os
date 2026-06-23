@@ -76,17 +76,13 @@ function SignificanceBadge({ sig }: { sig: "HIGH" | "MEDIUM" | "LOW" }) {
     LOW: "bg-secondary/50 text-muted-foreground",
   };
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${colors[sig]}`}>
-      {sig}
-    </span>
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${colors[sig]}`}>{sig}</span>
   );
 }
 
 function DirectionIcon({ direction }: { direction: AttributionDirection }) {
-  if (direction === "SUPPORTIVE")
-    return <TrendingUp className="h-4 w-4 text-success shrink-0" />;
-  if (direction === "LIMITING")
-    return <TrendingDown className="h-4 w-4 text-danger shrink-0" />;
+  if (direction === "SUPPORTIVE") return <TrendingUp className="h-4 w-4 text-success shrink-0" />;
+  if (direction === "LIMITING") return <TrendingDown className="h-4 w-4 text-danger shrink-0" />;
   return <Minus className="h-4 w-4 text-muted-foreground shrink-0" />;
 }
 
@@ -119,7 +115,10 @@ function NarrativeSection({ scope }: { scope: ReplayWindowScope }) {
     <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <StatLabel label="Avg score" value={narrative.windowSummary.avgExecutionScore.toFixed(0)} />
+          <StatLabel
+            label="Avg score"
+            value={narrative.windowSummary.avgExecutionScore.toFixed(0)}
+          />
           <div className="flex items-center gap-2">
             <Pill
               label={narrative.windowSummary.momentumDirection}
@@ -137,7 +136,9 @@ function NarrativeSection({ scope }: { scope: ReplayWindowScope }) {
       </Card>
       {narrative.entries.length === 0 ? (
         <Card className="opacity-50">
-          <p className="text-sm text-muted-foreground">No significant events to surface in this window.</p>
+          <p className="text-sm text-muted-foreground">
+            No significant events to surface in this window.
+          </p>
         </Card>
       ) : (
         <Stagger>
@@ -146,18 +147,20 @@ function NarrativeSection({ scope }: { scope: ReplayWindowScope }) {
               <TapCard>
                 <Card className="flex flex-col gap-1.5">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-foreground leading-snug">{entry.headline}</p>
+                    <p className="text-sm font-medium text-foreground leading-snug">
+                      {entry.headline}
+                    </p>
                     <SignificanceBadge sig={entry.significance} />
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[11px] text-muted-foreground">{entry.sessionDate}</span>
                     {entry.numericContext != null && (
-                      <span className="text-[11px] text-muted-foreground">· {entry.numericContext}</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        · {entry.numericContext}
+                      </span>
                     )}
                   </div>
-                  {entry.detail && (
-                    <p className="text-xs text-muted-foreground">{entry.detail}</p>
-                  )}
+                  {entry.detail && <p className="text-xs text-muted-foreground">{entry.detail}</p>}
                 </Card>
               </TapCard>
             </StaggerItem>
@@ -231,7 +234,8 @@ function AttributionSection({ scope }: { scope: ReplayWindowScope }) {
 
 function TransitionSection({ scope }: { scope: ReplayWindowScope }) {
   const replay = useReplayAnalysis(scope);
-  if (!replay) return <SuppressedCard reason="At least 10 check-ins needed to detect transitions." />;
+  if (!replay)
+    return <SuppressedCard reason="At least 10 check-ins needed to detect transitions." />;
   const { transitionSummary } = replay;
   if (transitionSummary.suppressed)
     return <SuppressedCard reason={transitionSummary.suppressionReason} />;
@@ -259,7 +263,9 @@ function TransitionSection({ scope }: { scope: ReplayWindowScope }) {
       )}
       {transitionSummary.transitions.length === 0 ? (
         <Card className="opacity-50">
-          <p className="text-sm text-muted-foreground">No period transitions detected in this window.</p>
+          <p className="text-sm text-muted-foreground">
+            No period transitions detected in this window.
+          </p>
         </Card>
       ) : (
         <Stagger>
@@ -287,7 +293,8 @@ function TransitionSection({ scope }: { scope: ReplayWindowScope }) {
 
 function ForecastSection({ scope }: { scope: ReplayWindowScope }) {
   const replay = useReplayAnalysis(scope);
-  if (!replay) return <SuppressedCard reason="At least 21 check-ins needed for pattern-based forecasting." />;
+  if (!replay)
+    return <SuppressedCard reason="At least 21 check-ins needed for pattern-based forecasting." />;
   const { forecast } = replay;
   if (forecast.suppressed) return <SuppressedCard reason={forecast.suppressionReason} />;
 
@@ -301,7 +308,8 @@ function ForecastSection({ scope }: { scope: ReplayWindowScope }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Based on {forecast.sourceTransitionCount} historical transition{forecast.sourceTransitionCount !== 1 ? "s" : ""}
+          Based on {forecast.sourceTransitionCount} historical transition
+          {forecast.sourceTransitionCount !== 1 ? "s" : ""}
         </p>
         <HedgePill hedge={forecast.sectionHedge} />
       </div>
@@ -330,8 +338,8 @@ function ForecastSection({ scope }: { scope: ReplayWindowScope }) {
                 <p className="text-sm text-muted-foreground leading-snug">{outcome.observation}</p>
                 {outcome.estimatedDaysRange && (
                   <p className="text-[11px] text-muted-foreground">
-                    Estimated {outcome.estimatedDaysRange.min}–{outcome.estimatedDaysRange.max} days ·{" "}
-                    based on {outcome.evidenceCount} transitions
+                    Estimated {outcome.estimatedDaysRange.min}–{outcome.estimatedDaysRange.max} days
+                    · based on {outcome.evidenceCount} transitions
                   </p>
                 )}
               </Card>
@@ -340,7 +348,8 @@ function ForecastSection({ scope }: { scope: ReplayWindowScope }) {
         ))}
       </Stagger>
       <p className="text-[11px] text-muted-foreground text-center px-2">
-        These patterns reflect historical frequencies, not predictions. They are observational, not diagnostic.
+        These patterns reflect historical frequencies, not predictions. They are observational, not
+        diagnostic.
       </p>
     </div>
   );

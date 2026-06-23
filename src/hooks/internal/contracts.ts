@@ -9,186 +9,189 @@
  * authoritative for engine-domain types while this layer owns presentation shape.
  */
 
-import type { UserMode, UserTrajectory } from '@/core/contracts/state/modes'
-import type { PacingRecommendation } from '@/core/contracts/adaptation/execution'
-import type { ActiveInterventionType, InterventionLevel } from '@/core/contracts/interventions/types'
-import type { AdaptationDirective } from '@/core/contracts/adaptation/directives'
-import type { Task } from '@/lib/store'
+import type { UserMode, UserTrajectory } from "@/core/contracts/state/modes";
+import type { PacingRecommendation } from "@/core/contracts/adaptation/execution";
+import type {
+  ActiveInterventionType,
+  InterventionLevel,
+} from "@/core/contracts/interventions/types";
+import type { AdaptationDirective } from "@/core/contracts/adaptation/directives";
+import type { Task } from "@/lib/store";
 
 // ---------------------------------------------------------------------------
 // Shared presentation primitives
 // ---------------------------------------------------------------------------
 
 /** Replaces every raw Scalar — four coarse named bands. */
-export type Band = 'low' | 'moderate' | 'elevated' | 'high'
+export type Band = "low" | "moderate" | "elevated" | "high";
 
 /** Messaging tone for the guidance layer. */
-export type Tone = 'calm' | 'steady' | 'focused' | 'challenging' | 'stabilizing' | 'observational'
+export type Tone = "calm" | "steady" | "focused" | "challenging" | "stabilizing" | "observational";
 
 /** Collapsed from ConfidenceBand — never a number. */
-export type Confidence = 'low' | 'medium' | 'high'
+export type Confidence = "low" | "medium" | "high";
 
 /** Expansion/challenge readiness — three levels. */
-export type Readiness = 'not-ready' | 'building' | 'ready'
+export type Readiness = "not-ready" | "building" | "ready";
 
 // ---------------------------------------------------------------------------
 // useBehavioralState
 // ---------------------------------------------------------------------------
 
 export type BehavioralStateView = {
-  ready: boolean
+  ready: boolean;
 
-  mode: UserMode
-  trajectory: UserTrajectory
+  mode: UserMode;
+  trajectory: UserTrajectory;
   /** true when a mode transition occurred this pipeline run. */
-  transitioned: boolean
+  transitioned: boolean;
 
   interpretation: {
-    headline: string
-    supporting: string[]
-    confidence: Confidence
-  }
+    headline: string;
+    supporting: string[];
+    confidence: Confidence;
+  };
 
   environment: {
-    density: Band
+    density: Band;
     /** Inverse of visualNoiseLevel — named for intent, not the formula. */
-    visualCalm: Band
-    motion: Band
-    deepWorkProtection: boolean
-    dashboardCompression: Band
-  }
+    visualCalm: Band;
+    motion: Band;
+    deepWorkProtection: boolean;
+    dashboardCompression: Band;
+  };
 
   execution: {
-    pacing: PacingRecommendation
-    challenge: Readiness
-    recoveryEmphasis: Band
-  }
+    pacing: PacingRecommendation;
+    challenge: Readiness;
+    recoveryEmphasis: Band;
+  };
 
   guidance: {
-    tone: Tone
-    interventionFrequency: Band
-    reflectionDepth: Band
-  }
+    tone: Tone;
+    interventionFrequency: Band;
+    reflectionDepth: Band;
+  };
 
   /** false while the Adaptation Engine (Phase 3) is not yet implemented. */
-  adaptationAvailable: boolean
-}
+  adaptationAvailable: boolean;
+};
 
 // ---------------------------------------------------------------------------
 // useBehavioralTasks
 // ---------------------------------------------------------------------------
 
 /** Store Task fields only — no TaskScore or engine weight fields. */
-export type ResolvedTask = Pick<Task, 'id' | 'label' | 'type' | 'estMin'>
+export type ResolvedTask = Pick<Task, "id" | "label" | "type" | "estMin">;
 
 export type BehavioralTasksView = {
-  ready: boolean
+  ready: boolean;
 
-  primaryTask: ResolvedTask | null
-  secondaryTask: ResolvedTask | null
+  primaryTask: ResolvedTask | null;
+  secondaryTask: ResolvedTask | null;
 
   sequencing: {
-    rationale: string[]
-    focusWindowMinutes: number | null
-    confidence: Confidence
-  }
+    rationale: string[];
+    focusWindowMinutes: number | null;
+    confidence: Confidence;
+  };
 
   workload: {
-    visibleTaskLimit: number
-    guidance: 'reduce' | 'hold' | 'expand'
-    overCapacity: boolean
-  }
+    visibleTaskLimit: number;
+    guidance: "reduce" | "hold" | "expand";
+    overCapacity: boolean;
+  };
 
   visibility: {
-    visibleTaskIds: string[]
-    suppressedTaskIds: string[]
-    compressedTaskIds: string[]
-  }
-}
+    visibleTaskIds: string[];
+    suppressedTaskIds: string[];
+    compressedTaskIds: string[];
+  };
+};
 
 // ---------------------------------------------------------------------------
 // useBehavioralInterventions
 // ---------------------------------------------------------------------------
 
 export type ActiveInterventionView = {
-  id: string
-  type: ActiveInterventionType
-  level: InterventionLevel
+  id: string;
+  type: ActiveInterventionType;
+  level: InterventionLevel;
   /** Engine-authored user-facing message — required at render. */
-  message: string
+  message: string;
   /** Engine-authored emotional goal — surfaced as supporting line. */
-  intent: string
+  intent: string;
   /** Declarative UI adaptation instructions — passed through verbatim. */
-  directives: AdaptationDirective[]
-}
+  directives: AdaptationDirective[];
+};
 
 export type BehavioralInterventionsView = {
-  ready: boolean
+  ready: boolean;
 
-  active: ActiveInterventionView[]
-  highestLevel: 0 | 1 | 2 | 3
-  restraintApplied: boolean
+  active: ActiveInterventionView[];
+  highestLevel: 0 | 1 | 2 | 3;
+  restraintApplied: boolean;
 
   ui: {
-    requiresAcknowledgement: boolean
-    surface: 'none' | 'inline' | 'banner' | 'modal'
-  }
+    requiresAcknowledgement: boolean;
+    surface: "none" | "inline" | "banner" | "modal";
+  };
 
   cooldown: {
-    anyOnCooldown: boolean
-    nextEligibleHint: string | null
-  }
-}
+    anyOnCooldown: boolean;
+    nextEligibleHint: string | null;
+  };
+};
 
 // ---------------------------------------------------------------------------
 // useBehavioralExecution
 // ---------------------------------------------------------------------------
 
 export type StretchOpportunity = {
-  taskId: string
-  prompt: string
-}
+  taskId: string;
+  prompt: string;
+};
 
 export type DeepWorkNudge = {
-  show: boolean
-}
+  show: boolean;
+};
 
 export type AdvancementVisibility = {
-  showStreakPill: boolean
-  showMomentumDelta: boolean
-  showConsistencyPill: boolean
-  showSparkline: boolean
-}
+  showStreakPill: boolean;
+  showMomentumDelta: boolean;
+  showConsistencyPill: boolean;
+  showSparkline: boolean;
+};
 
 export type BehavioralExecutionView = {
-  ready: boolean
-  visibleTaskIds: string[]
-  hiddenCount: number
-  compressionReason: 'recovery-protection' | 'capacity-cap' | 'none'
-  stretchOpportunity: StretchOpportunity | null
-  deepWorkNudge: DeepWorkNudge
-  advancement: AdvancementVisibility
-  suppressTypeBalanceWarning: boolean
-}
+  ready: boolean;
+  visibleTaskIds: string[];
+  hiddenCount: number;
+  compressionReason: "recovery-protection" | "capacity-cap" | "none";
+  stretchOpportunity: StretchOpportunity | null;
+  deepWorkNudge: DeepWorkNudge;
+  advancement: AdvancementVisibility;
+  suppressTypeBalanceWarning: boolean;
+};
 
 // ---------------------------------------------------------------------------
 // useBehavioralPipeline (public aggregation)
 // ---------------------------------------------------------------------------
 
 export type BehavioralView = {
-  ready: boolean
-  generatedAt: string | null
+  ready: boolean;
+  generatedAt: string | null;
 
-  state: BehavioralStateView
-  tasks: BehavioralTasksView
-  interventions: BehavioralInterventionsView
-  execution: BehavioralExecutionView
+  state: BehavioralStateView;
+  tasks: BehavioralTasksView;
+  interventions: BehavioralInterventionsView;
+  execution: BehavioralExecutionView;
 
   shell: {
-    surfaceLevel: 'full' | 'reduced' | 'minimal'
-    focusMode: boolean
-  }
+    surfaceLevel: "full" | "reduced" | "minimal";
+    focusMode: boolean;
+  };
 
   /** Tailwind gradient class computed from guidance.tone — apply directly to hero card. */
-  heroTheme: string
-}
+  heroTheme: string;
+};

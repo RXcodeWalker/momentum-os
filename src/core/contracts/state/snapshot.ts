@@ -1,5 +1,5 @@
-import type { Timestamp } from '../primitives'
-import type { UserState } from './user-state'
+import type { Timestamp } from "../primitives";
+import type { UserState } from "./user-state";
 
 /**
  * Frozen, versioned snapshot of UserState distributed to downstream engines.
@@ -8,8 +8,8 @@ import type { UserState } from './user-state'
  * The `explanation` field is optional — not every pipeline run requires UI text.
  */
 export type StateSnapshot = {
-  readonly state: Readonly<UserState>
-  readonly capturedAt: Timestamp
-  readonly engineVersion: string
-  readonly explanation?: import('./explanation').StateExplanationResult
-}
+  readonly state: Readonly<UserState>;
+  readonly capturedAt: Timestamp;
+  readonly engineVersion: string;
+  readonly explanation?: import("./explanation").StateExplanationResult;
+};

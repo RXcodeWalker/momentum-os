@@ -1,35 +1,31 @@
-import type { Timestamp } from '@/core/contracts/primitives'
-import type { Task } from '@/core/contracts/tasks/task'
-import type {
-  ExecutionWeight,
-  ResistanceWeight,
-  TaskScore,
-} from '@/core/contracts/tasks/scores'
-import { weightedAverage } from '@/engine/shared'
+import type { Timestamp } from "@/core/contracts/primitives";
+import type { Task } from "@/core/contracts/tasks/task";
+import type { ExecutionWeight, ResistanceWeight, TaskScore } from "@/core/contracts/tasks/scores";
+import { weightedAverage } from "@/engine/shared";
 import {
   DEFAULT_EXECUTION_QUALITY,
   DEFERRAL_PROXY_CAP,
   DEFERRAL_PROXY_PER_COUNT,
   EXECUTION_WEIGHTS,
   RESISTANCE_WEIGHTS,
-} from '../config'
-import { computeRecoveryBurden } from './burden-calculator'
-import { clampScalar } from './types'
+} from "../config";
+import { computeRecoveryBurden } from "./burden-calculator";
+import { clampScalar } from "./types";
 
 // ---------------------------------------------------------------------------
 // Task scoring — task attributes only, no UserState, no ranking
 // ---------------------------------------------------------------------------
 
 function deferralProxy(repeatedDeferralCount: number): number {
-  return clampScalar(repeatedDeferralCount * DEFERRAL_PROXY_PER_COUNT, 0, DEFERRAL_PROXY_CAP)
+  return clampScalar(repeatedDeferralCount * DEFERRAL_PROXY_PER_COUNT, 0, DEFERRAL_PROXY_CAP);
 }
 
 export function computeExecutionWeight(task: Task): ExecutionWeight {
-  const meaningfulnessWeight = clampScalar(task.meaningfulness)
-  const executionQualityWeight = clampScalar(task.executionQuality ?? DEFAULT_EXECUTION_QUALITY)
-  const momentumContributionWeight = clampScalar(task.momentumContribution)
-  const goalAlignmentWeight = clampScalar(task.leverageWeight)
-  const recoveryCompatibilityWeight = clampScalar(task.recoveryCompatibility)
+  const meaningfulnessWeight = clampScalar(task.meaningfulness);
+  const executionQualityWeight = clampScalar(task.executionQuality ?? DEFAULT_EXECUTION_QUALITY);
+  const momentumContributionWeight = clampScalar(task.momentumContribution);
+  const goalAlignmentWeight = clampScalar(task.leverageWeight);
+  const recoveryCompatibilityWeight = clampScalar(task.recoveryCompatibility);
 
   const finalExecutionWeight = clampScalar(
     weightedAverage(
@@ -48,7 +44,7 @@ export function computeExecutionWeight(task: Task): ExecutionWeight {
         EXECUTION_WEIGHTS.recoveryCompatibility,
       ],
     ),
-  )
+  );
 
   return {
     meaningfulnessWeight,
@@ -57,25 +53,20 @@ export function computeExecutionWeight(task: Task): ExecutionWeight {
     goalAlignmentWeight,
     recoveryCompatibilityWeight,
     finalExecutionWeight,
-  }
+  };
 }
 
 export function computeResistanceWeight(task: Task): ResistanceWeight {
-  const emotionalResistanceWeight = clampScalar(task.emotionalResistance)
-  const ambiguityWeight = clampScalar(task.ambiguity)
-  const reversibilityWeight = clampScalar(task.reversibilityRisk)
+  const emotionalResistanceWeight = clampScalar(task.emotionalResistance);
+  const ambiguityWeight = clampScalar(task.ambiguity);
+  const reversibilityWeight = clampScalar(task.reversibilityRisk);
   const initiationDelayWeight = clampScalar(
     task.initiationDelay ?? deferralProxy(task.repeatedDeferralCount),
-  )
+  );
 
   const finalResistanceWeight = clampScalar(
     weightedAverage(
-      [
-        emotionalResistanceWeight,
-        ambiguityWeight,
-        reversibilityWeight,
-        initiationDelayWeight,
-      ],
+      [emotionalResistanceWeight, ambiguityWeight, reversibilityWeight, initiationDelayWeight],
       [
         RESISTANCE_WEIGHTS.emotionalResistance,
         RESISTANCE_WEIGHTS.ambiguity,
@@ -83,7 +74,7 @@ export function computeResistanceWeight(task: Task): ResistanceWeight {
         RESISTANCE_WEIGHTS.initiationDelay,
       ],
     ),
-  )
+  );
 
   return {
     emotionalResistanceWeight,
@@ -91,17 +82,17 @@ export function computeResistanceWeight(task: Task): ResistanceWeight {
     reversibilityWeight,
     initiationDelayWeight,
     finalResistanceWeight,
-  }
+  };
 }
 
 export function scoreTask(task: Task, evaluatedAt: Timestamp): TaskScore {
-  const execution = computeExecutionWeight(task)
-  const resistance = computeResistanceWeight(task)
-  const burden = computeRecoveryBurden(task)
+  const execution = computeExecutionWeight(task);
+  const resistance = computeResistanceWeight(task);
+  const burden = computeRecoveryBurden(task);
   const netPriority = clampScalar(
     execution.finalExecutionWeight -
       resistance.finalResistanceWeight * 0.4 -
       burden.totalBurdenScore * 0.25,
-  )
-  return { taskId: task.id, execution, resistance, burden, netPriority, evaluatedAt }
+  );
+  return { taskId: task.id, execution, resistance, burden, netPriority, evaluatedAt };
 }

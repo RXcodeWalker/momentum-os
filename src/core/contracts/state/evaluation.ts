@@ -1,5 +1,5 @@
-import type { UserMode } from './modes'
-import type { HistoricalStateSnapshot } from './historical'
+import type { UserMode } from "./modes";
+import type { HistoricalStateSnapshot } from "./historical";
 
 /**
  * Per-evaluation context passed alongside raw evidence into the State Engine.
@@ -13,16 +13,16 @@ import type { HistoricalStateSnapshot } from './historical'
  */
 export type StateEvaluationContext = {
   /** Which phase of the daily flow triggered this evaluation. */
-  flowPhase: 'morning' | 'midday' | 'evening'
+  flowPhase: "morning" | "midday" | "evening";
   /** Last 28 days of persisted state snapshots for trajectory context. */
-  historicalSnapshots: HistoricalStateSnapshot[]
+  historicalSnapshots: HistoricalStateSnapshot[];
   /** Mode from the immediately prior pipeline run — drives hysteresis logic. */
-  previousMode?: UserMode
+  previousMode?: UserMode;
   /** If true, the engine generates a StateExplanationResult alongside UserState. */
-  forceExplanation?: boolean
+  forceExplanation?: boolean;
   /**
    * Runtime overrides for dimension thresholds.
    * Reserved for experimentation; currently unused by the engine.
    */
-  configOverride?: Record<string, number>
-}
+  configOverride?: Record<string, number>;
+};

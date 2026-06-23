@@ -1,3 +1,2 @@
-export * from './insights'
-export * from './behavioral-pipeline'
-
+export * from "./insights";
+export * from "./behavioral-pipeline";

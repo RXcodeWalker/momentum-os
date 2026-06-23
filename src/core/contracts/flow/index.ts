@@ -1,4 +1,3 @@
-export * from './morning'
-export * from './midday'
-export * from './evening'
-
+export * from "./morning";
+export * from "./midday";
+export * from "./evening";

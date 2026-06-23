@@ -1,28 +1,28 @@
-import type { DailyInputs } from '@/core/contracts/signals/daily-inputs'
-import type { SessionEvidence } from '@/core/contracts/signals/session-evidence'
+import type { DailyInputs } from "@/core/contracts/signals/daily-inputs";
+import type { SessionEvidence } from "@/core/contracts/signals/session-evidence";
 
-const BASE_DATE = new Date('2026-01-01T08:00:00.000Z')
+const BASE_DATE = new Date("2026-01-01T08:00:00.000Z");
 
 type DailyInputOverrides = {
-  sleepQuality?: number
-  physicalEnergy?: number
-  mentalClarity?: number
-  overwhelm?: number
-  emotionalResistance?: number
-  stressPressure?: number
-  meaningfulAdvancementQuality?: number
-  deepWorkContinuity?: number
-  executionIntegrity?: number
-  fragmentationLevel?: number
-  distractionPatterns?: number
-  avoidancePressure?: number
-  pacingQuality?: number
-}
+  sleepQuality?: number;
+  physicalEnergy?: number;
+  mentalClarity?: number;
+  overwhelm?: number;
+  emotionalResistance?: number;
+  stressPressure?: number;
+  meaningfulAdvancementQuality?: number;
+  deepWorkContinuity?: number;
+  executionIntegrity?: number;
+  fragmentationLevel?: number;
+  distractionPatterns?: number;
+  avoidancePressure?: number;
+  pacingQuality?: number;
+};
 
 function offsetDate(dayOffset: number): string {
-  const date = new Date(BASE_DATE)
-  date.setUTCDate(date.getUTCDate() + dayOffset)
-  return date.toISOString()
+  const date = new Date(BASE_DATE);
+  date.setUTCDate(date.getUTCDate() + dayOffset);
+  return date.toISOString();
 }
 
 export function makeDailyInputs(
@@ -53,7 +53,7 @@ export function makeDailyInputs(
     },
     capturedAt: offsetDate(dayOffset),
     sessionId: `session-${dayOffset}`,
-  }
+  };
 }
 
 export function makeSessionEvidence(
@@ -61,14 +61,14 @@ export function makeSessionEvidence(
   overrides: DailyInputOverrides = {},
   completeness = 0.9,
 ): SessionEvidence {
-  const inputs = makeDailyInputs(dayOffset, overrides)
+  const inputs = makeDailyInputs(dayOffset, overrides);
   return {
     sessionId: inputs.sessionId ?? `session-${dayOffset}`,
     capturedAt: inputs.capturedAt,
-    evidenceType: 'CHECK_IN',
+    evidenceType: "CHECK_IN",
     inputs,
     completeness,
-  }
+  };
 }
 
 export function buildRisingFragmentationTimeline(days = 5): DailyInputs[] {
@@ -78,7 +78,7 @@ export function buildRisingFragmentationTimeline(days = 5): DailyInputs[] {
       distractionPatterns: 28 + day * 10,
       pacingQuality: 70 - day * 4,
     }),
-  )
+  );
 }
 
 export function buildDecliningExecutionTimeline(days = 5): DailyInputs[] {
@@ -88,7 +88,7 @@ export function buildDecliningExecutionTimeline(days = 5): DailyInputs[] {
       deepWorkContinuity: 70 - day * 9,
       executionIntegrity: 74 - day * 11,
     }),
-  )
+  );
 }
 
 export function buildRecoveryCollapseTimeline(days = 6): DailyInputs[] {
@@ -100,11 +100,11 @@ export function buildRecoveryCollapseTimeline(days = 6): DailyInputs[] {
       meaningfulAdvancementQuality: 55 - day * 2,
       executionIntegrity: 52 - day * 2,
     }),
-  )
+  );
 }
 
 export function buildVolatilityTimeline(): DailyInputs[] {
-  const swings = [35, 88, 30, 92, 28, 90, 32, 85]
+  const swings = [35, 88, 30, 92, 28, 90, 32, 85];
   return swings.map((fragmentationLevel, day) =>
     makeDailyInputs(day, {
       fragmentationLevel,
@@ -113,11 +113,11 @@ export function buildVolatilityTimeline(): DailyInputs[] {
       pacingQuality: 45 + (day % 2 === 0 ? 20 : -15),
       emotionalResistance: 40 + (day % 3) * 15,
     }),
-  )
+  );
 }
 
 export function buildStableBaselineTimeline(days = 5): DailyInputs[] {
-  return Array.from({ length: days }, (_, day) => makeDailyInputs(day))
+  return Array.from({ length: days }, (_, day) => makeDailyInputs(day));
 }
 
 export function buildSingleDaySpikeTimeline(): DailyInputs[] {
@@ -127,5 +127,5 @@ export function buildSingleDaySpikeTimeline(): DailyInputs[] {
     makeDailyInputs(2, { fragmentationLevel: 90, distractionPatterns: 88 }),
     makeDailyInputs(3),
     makeDailyInputs(4),
-  ]
+  ];
 }

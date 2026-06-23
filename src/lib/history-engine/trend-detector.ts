@@ -1,30 +1,33 @@
-import type { AggregationSnapshot } from '@/core/contracts/history/snapshot'
-import type { TrendRecord, TrendMetricKey } from '@/core/contracts/history/trend'
-import type { TrendDirection, ConfidenceBand } from '@/core/contracts/primitives'
+import type { AggregationSnapshot } from "@/core/contracts/history/snapshot";
+import type { TrendRecord, TrendMetricKey } from "@/core/contracts/history/trend";
+import type { TrendDirection, ConfidenceBand } from "@/core/contracts/primitives";
 
 function generateId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function extractMetricValue(
-  snapshot: AggregationSnapshot,
-  metric: TrendMetricKey,
-): number {
-  const m = snapshot.metrics
+function extractMetricValue(snapshot: AggregationSnapshot, metric: TrendMetricKey): number {
+  const m = snapshot.metrics;
   switch (metric) {
-    case 'executionScore': return m.avgExecutionScore
-    case 'sleepHours': return m.avgSleepHours
-    case 'focus': return m.avgFocus
-    case 'distractionCount': return m.avgDistractionCount
-    case 'completionRate': return m.avgCompletionRate * 100
-    case 'consistency': return m.consistencyRate
+    case "executionScore":
+      return m.avgExecutionScore;
+    case "sleepHours":
+      return m.avgSleepHours;
+    case "focus":
+      return m.avgFocus;
+    case "distractionCount":
+      return m.avgDistractionCount;
+    case "completionRate":
+      return m.avgCompletionRate * 100;
+    case "consistency":
+      return m.consistencyRate;
   }
 }
 
 function confidenceFromEvidence(evidenceDays: number): ConfidenceBand {
-  if (evidenceDays >= 10) return 'HIGH'
-  if (evidenceDays >= 5) return 'MEDIUM'
-  return 'LOW'
+  if (evidenceDays >= 10) return "HIGH";
+  if (evidenceDays >= 5) return "MEDIUM";
+  return "LOW";
 }
 
 export function detectTrends(
@@ -33,46 +36,51 @@ export function detectTrends(
   existing: TrendRecord[],
 ): TrendRecord[] {
   const metrics: TrendMetricKey[] = [
-    'executionScore',
-    'sleepHours',
-    'focus',
-    'distractionCount',
-    'completionRate',
-    'consistency',
-  ]
+    "executionScore",
+    "sleepHours",
+    "focus",
+    "distractionCount",
+    "completionRate",
+    "consistency",
+  ];
 
   return metrics.map((metric) => {
-    const currentAvg = extractMetricValue(w7, metric)
-    const priorAvg = extractMetricValue(w7Prior, metric)
-    const magnitude = currentAvg - priorAvg
+    const currentAvg = extractMetricValue(w7, metric);
+    const priorAvg = extractMetricValue(w7Prior, metric);
+    const magnitude = currentAvg - priorAvg;
 
     const direction: TrendDirection =
-      magnitude > 2 ? 'RISING' : magnitude < -2 ? 'DECLINING' : 'STABLE'
+      magnitude > 2 ? "RISING" : magnitude < -2 ? "DECLINING" : "STABLE";
 
-    const velocity = w7.windowDays > 0 ? magnitude / w7.windowDays : 0
+    const velocity = w7.windowDays > 0 ? magnitude / w7.windowDays : 0;
 
     // Consistency: 1 - normalized stdDev (for executionScore; approximated for others)
-    const range = w7.metrics.maxExecutionScore - w7.metrics.minExecutionScore
+    const range = w7.metrics.maxExecutionScore - w7.metrics.minExecutionScore;
     const consistency =
-      metric === 'executionScore' && range > 0
+      metric === "executionScore" && range > 0
         ? Math.max(0, Math.min(1, 1 - w7.metrics.scoreStdDev / range))
-        : 0.5
+        : 0.5;
 
     // Persistence: fraction of evidence days where day-over-day delta matched direction
     // Approximated from evidence days and direction magnitude — exact requires day-level deltas
     const persistence =
       w7.evidenceDays > 1
-        ? Math.min(1, Math.max(0, 0.5 + (Math.abs(magnitude) / (w7.metrics.scoreStdDev + 1)) * 0.15))
-        : 0
+        ? Math.min(
+            1,
+            Math.max(0, 0.5 + (Math.abs(magnitude) / (w7.metrics.scoreStdDev + 1)) * 0.15),
+          )
+        : 0;
 
     // Extend existing trend's duration if same direction
-    const existing_ = existing.find((t) => t.metric === metric)
-    const sameDirAsBefore = existing_?.direction === direction
-    const durationDays = sameDirAsBefore ? (existing_.durationDays ?? 0) + 1 : 1
+    const existing_ = existing.find((t) => t.metric === metric);
+    const sameDirAsBefore = existing_?.direction === direction;
+    const durationDays = sameDirAsBefore ? (existing_.durationDays ?? 0) + 1 : 1;
     const periodStartDate =
-      sameDirAsBefore && existing_?.periodStartDate ? existing_.periodStartDate : new Date().toISOString().slice(0, 10)
+      sameDirAsBefore && existing_?.periodStartDate
+        ? existing_.periodStartDate
+        : new Date().toISOString().slice(0, 10);
 
-    const confidence = confidenceFromEvidence(w7.evidenceDays)
+    const confidence = confidenceFromEvidence(w7.evidenceDays);
 
     return {
       trendId: existing_?.trendId ?? generateId(),
@@ -90,11 +98,11 @@ export function detectTrends(
       confidence,
       priorWindowAvg: Math.round(priorAvg * 10) / 10,
       currentWindowAvg: Math.round(currentAvg * 10) / 10,
-    } satisfies TrendRecord
-  })
+    } satisfies TrendRecord;
+  });
 }
 
 export function pruneTrends(trends: TrendRecord[], maxAgeDays: number): TrendRecord[] {
-  const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString()
-  return trends.filter((t) => t.detectedAt >= cutoff)
+  const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
+  return trends.filter((t) => t.detectedAt >= cutoff);
 }

@@ -714,9 +714,7 @@ function Insights() {
                 Phase 4: State Dynamics
               </h3>
             </div>
-            <MetricSurface metric="stateDynamics">
-              {() => <StateDynamicsCard />}
-            </MetricSurface>
+            <MetricSurface metric="stateDynamics">{() => <StateDynamicsCard />}</MetricSurface>
           </section>
         </StaggerItem>
 

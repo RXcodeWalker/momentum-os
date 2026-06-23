@@ -1,14 +1,14 @@
-import { Brain } from 'lucide-react'
-import { Card, StatLabel } from '@/components/ui-bits'
-import { TapCard } from '@/lib/motion'
+import { Brain } from "lucide-react";
+import { Card, StatLabel } from "@/components/ui-bits";
+import { TapCard } from "@/lib/motion";
 
 interface LearningCardProps {
-  observation: string | null
-  isObservation: boolean
+  observation: string | null;
+  isObservation: boolean;
 }
 
 export function LearningCard({ observation, isObservation }: LearningCardProps) {
-  if (!observation) return null
+  if (!observation) return null;
 
   return (
     <TapCard>
@@ -28,5 +28,5 @@ export function LearningCard({ observation, isObservation }: LearningCardProps) 
         </div>
       </Card>
     </TapCard>
-  )
+  );
 }

@@ -26,7 +26,7 @@ Major Systems Completed
 - Intervention Engine
   - Purpose: Evaluate intervention triggers, apply suppression and cooldowns, resolve priority/levels, and produce adaptation directives.
   - Key responsibilities: intervention matrix, trigger evaluation, suppression (hard/soft), cooldowns, eligibility, adaptation blueprints.
-  - Current implementation status: Implemented in src/engine/interventions (matrix, eligibility, suppression, cooldown, evaluate.ts). Extensive tests in src/engine/interventions/*.test.ts. Adaptation directives are produced but the Adaptation Engine itself is not implemented.
+  - Current implementation status: Implemented in src/engine/interventions (matrix, eligibility, suppression, cooldown, evaluate.ts). Extensive tests in src/engine/interventions/\*.test.ts. Adaptation directives are produced but the Adaptation Engine itself is not implemented.
 
 - Trajectory Analysis
   - Purpose: Compute long-window behavioral trajectory (EXPANDING, STABLE, FRAGILE, CONTRACTING) independently from operational mode.
