@@ -2,6 +2,7 @@ import type { ConfidenceBand, Scalar } from '@/core/contracts/primitives'
 import type { UserMode } from '@/core/contracts/state/modes'
 import type { CompatibilityBand } from '@/core/contracts/tasks/compatibility'
 import type { TaskEvaluation } from '@/core/contracts/tasks/scores'
+import type { RecoveryCompatibilityResult } from '@/core/contracts/tasks/recovery-compatibility'
 
 export type PortfolioPattern =
   | 'MAINTENANCE_ADVANCEMENT_GAP'
@@ -21,6 +22,7 @@ export type CompatibilityAssessment = {
   band: CompatibilityBand
   burdenRelativeToCapacity: Scalar
   modeAppropriate: boolean
+  recoveryCompatibility?: RecoveryCompatibilityResult
 }
 
 /** Engine-internal bundle passed from analysis to decision layer. */

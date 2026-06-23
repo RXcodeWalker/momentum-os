@@ -2757,3 +2757,74 @@ export function useMomentumModel(): MomentumModel {
     [dynamics, profile, streakCtx, momentum, consistency, checkInsCount, recoveryMode, lastPipelineResult, trendRecords, w14Metrics],
   );
 }
+
+// ---------------------------------------------------------------------------
+// Phase 5B: Recovery Compatibility hooks
+// ---------------------------------------------------------------------------
+
+import type { RecoveryCompatibilityResult, RecoveryCompatibilityTier } from "@/core/contracts/tasks/recovery-compatibility";
+import { evaluateRecoveryCompatibility } from "@/engine/tasks/analysis/recovery-compatibility-engine";
+
+/** Per-task recovery compatibility result derived from current pipeline state. */
+export function useRecoveryCompatibility(taskId: string): RecoveryCompatibilityResult | null {
+  const pipeline = useApp((s) => s.lastPipelineResult);
+  const dynamicsProfile = useStateDynamicsProfile();
+
+  return useMemo(() => {
+    if (!pipeline) return null;
+    const evalRow = pipeline.taskEvaluation.find((e) => e.task.id === taskId);
+    if (!evalRow) return null;
+    // Return cached result if the pipeline already computed it
+    if (evalRow.score.recoveryCompatibility) return evalRow.score.recoveryCompatibility;
+    // Fallback: compute on-the-fly from pipeline state interpretation
+    return evaluateRecoveryCompatibility({
+      task: evalRow.task,
+      userState: pipeline.stateInterpretation,
+      dynamicsProfile,
+    });
+  }, [pipeline, dynamicsProfile, taskId]);
+}
+
+/** Aggregate compatibility distribution across all current task evaluations. */
+export function useTaskCompatibilityProfile(): {
+  distribution: Record<RecoveryCompatibilityTier, number>;
+  harmfulTaskIds: string[];
+  excellentTaskIds: string[];
+  averageScore: number;
+} | null {
+  const pipeline = useApp((s) => s.lastPipelineResult);
+  const dynamicsProfile = useStateDynamicsProfile();
+
+  return useMemo(() => {
+    if (!pipeline || pipeline.taskEvaluation.length === 0) return null;
+
+    const distribution: Record<RecoveryCompatibilityTier, number> = {
+      excellent: 0, good: 0, moderate: 0, poor: 0, harmful: 0,
+    };
+    const harmfulTaskIds: string[] = [];
+    const excellentTaskIds: string[] = [];
+    let totalScore = 0;
+
+    for (const evalRow of pipeline.taskEvaluation) {
+      const rc =
+        evalRow.score.recoveryCompatibility ??
+        evaluateRecoveryCompatibility({
+          task: evalRow.task,
+          userState: pipeline.stateInterpretation,
+          dynamicsProfile,
+        });
+
+      distribution[rc.tier] += 1;
+      totalScore += rc.score;
+      if (rc.tier === 'harmful') harmfulTaskIds.push(evalRow.task.id);
+      if (rc.tier === 'excellent') excellentTaskIds.push(evalRow.task.id);
+    }
+
+    return {
+      distribution,
+      harmfulTaskIds,
+      excellentTaskIds,
+      averageScore: totalScore / pipeline.taskEvaluation.length,
+    };
+  }, [pipeline, dynamicsProfile]);
+}

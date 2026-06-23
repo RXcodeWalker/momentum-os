@@ -3,4 +3,5 @@ export * from './compatibility'
 export * from './scores'
 export * from './sequencing'
 export * from './reasoning'
+export * from './recovery-compatibility'
 

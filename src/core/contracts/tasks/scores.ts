@@ -32,6 +32,7 @@ export type TaskScore = {
   burden: RecoveryBurden
   /** Net priority after sustainability weighting. */
   netPriority: Scalar
+  recoveryCompatibility?: import('./recovery-compatibility').RecoveryCompatibilityResult
   evaluatedAt: Timestamp
 }
 

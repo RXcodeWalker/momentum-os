@@ -53,8 +53,12 @@ function computeSuitability(
 
   let suitability = execution - resistance * 0.4 - burden * 0.25 + bandScalar * 0.3
 
+  const rcTier = compatibility.recoveryCompatibility?.tier
+
   switch (mode) {
     case 'RECOVERY':
+      if (rcTier === 'excellent') suitability += 15
+      if (rcTier === 'harmful')   suitability -= 40
       suitability += task.recoveryCompatibility * 0.35
       suitability -= compatibility.burdenRelativeToCapacity * 0.3
       suitability += task.meaningfulness * 0.1
@@ -149,7 +153,15 @@ function rankTasks(context: SequencingContext): SequencingSuitability[] {
 
 function collectSuppressed(context: SequencingContext): string[] {
   return context.compatibilities
-    .filter(c => !c.modeAppropriate)
+    .filter(c => {
+      if (!c.modeAppropriate) return true
+      // Suppress harmful-tier tasks in RECOVERY mode even if band allowed them
+      if (
+        context.state.currentMode === 'RECOVERY' &&
+        c.recoveryCompatibility?.tier === 'harmful'
+      ) return true
+      return false
+    })
     .map(c => c.taskId)
 }
 
