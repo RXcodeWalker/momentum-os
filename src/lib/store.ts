@@ -85,6 +85,8 @@ import { detectPatterns } from "@/engine/patterns";
 import type { PatternDetectionProfile } from "@/core/contracts/patterns";
 import { buildReplay } from "@/engine/replay/replay-engine";
 import type { ReplayResult, ReplayWindowScope } from "@/core/contracts/replay";
+import { computeMomentumModel } from "@/engine/momentum";
+import type { MomentumModel } from "@/core/contracts/momentum";
 
 export type Task = {
   id: string;
@@ -2708,4 +2710,35 @@ export function useReplayAnalysis(scope: ReplayWindowScope = 'W7'): ReplayResult
     if (evidence.summary.totalCheckIns < 5) return null;
     return buildReplay(evidence, dynamics, patterns, scope);
   }, [evidence, dynamics, patterns, scope]);
+}
+
+// E16: Momentum Model — higher-order interpretation of behavioral movement quality
+export function useMomentumModel(): MomentumModel {
+  const dynamics = useStateDynamics();
+  const profile = useStateDynamicsProfile();
+  const streakCtx = useStreakContext();
+  const momentum = useMomentum();
+  const consistency = useConsistency(28);
+  const checkInsCount = useApp((s) => s.checkIns.length);
+  const recoveryMode = useApp((s) => s.recoveryMode);
+  const lastPipelineResult = useApp((s) => s.lastPipelineResult);
+  const trendRecords = useApp((s) => s.trendRecords);
+  const w14Metrics = useApp((s) => s.aggregationSnapshots.W14?.metrics ?? null);
+
+  return useMemo(
+    () =>
+      computeMomentumModel({
+        dynamics,
+        profile,
+        streakCtx,
+        momentum,
+        consistency,
+        checkInsCount,
+        recoveryMode,
+        trajectoryFromPipeline: lastPipelineResult?.trajectoryAnalysis ?? null,
+        trendRecords,
+        recoveryDebtAccumulating: w14Metrics?.recoveryDebtAccumulating ?? false,
+      }),
+    [dynamics, profile, streakCtx, momentum, consistency, checkInsCount, recoveryMode, lastPipelineResult, trendRecords, w14Metrics],
+  );
 }

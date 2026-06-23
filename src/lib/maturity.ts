@@ -21,7 +21,8 @@ export type MetricKey =
   | "interventionEffectiveness"
   | "stateDynamics"
   | "patternDetection"
-  | "behavioralReplay";
+  | "behavioralReplay"
+  | "momentumModel";
 
 export type DataReadiness = {
   hasMinimum: boolean;
@@ -66,6 +67,7 @@ const METRIC_THRESHOLDS: Record<MetricKey, { checkIns: number; window: number }>
   stateDynamics: { checkIns: 14, window: 28 },
   patternDetection: { checkIns: 14, window: 56 },
   behavioralReplay: { checkIns: 21, window: 28 },
+  momentumModel: { checkIns: 7, window: 14 },
 };
 
 function confidenceFor(evidence: number, minimum: number): DataReadiness["confidence"] {
