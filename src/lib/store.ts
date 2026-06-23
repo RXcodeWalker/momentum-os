@@ -87,6 +87,7 @@ import { buildReplay } from "@/engine/replay/replay-engine";
 import type { ReplayResult, ReplayWindowScope } from "@/core/contracts/replay";
 import { computeMomentumModel } from "@/engine/momentum";
 import type { MomentumModel } from "@/core/contracts/momentum";
+import { detectAvoidance } from "@/engine/avoidance/detect-avoidance";
 
 export type Task = {
   id: string;
@@ -2665,6 +2666,20 @@ export function useInterventionIntelligence() {
     void history;
     void checkIns;
   }, [history, checkIns]);
+}
+
+// E12: Avoidance pattern detection — pure computation over the last 7 days of store data
+export function useAvoidanceProfile() {
+  const tasks = useApp((s) => s.tasks);
+  const checkIns = useApp((s) => s.checkIns);
+  const history = useApp((s) => s.history);
+  const blockerHistory = useApp((s) => s.blockerHistory);
+  const distractionLog = useApp((s) => s.distractionLog);
+  const recoveryMode = useApp((s) => s.recoveryMode);
+
+  return useMemo(() => {
+    return detectAvoidance({ tasks, checkIns, history, blockerHistory, distractionLog, recoveryMode });
+  }, [tasks, checkIns, history, blockerHistory, distractionLog, recoveryMode]);
 }
 
 // E12: Longitudinal state dynamics — primary intelligence layer for future phases

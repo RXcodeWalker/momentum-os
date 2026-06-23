@@ -17,6 +17,8 @@ export type MomentumModelInput = {
   trajectoryFromPipeline: UserTrajectory | null
   trendRecords: TrendRecord[]
   recoveryDebtAccumulating: boolean
+  /** Optional avoidance pressure (0–100) from the AvoidanceDetection engine. Contributes ~0.10 to fragilityScore when >= 60. */
+  avoidancePressure?: number
 }
 
 function clamp(v: number, min: number, max: number): number {
@@ -95,6 +97,7 @@ export function computeMomentumModel(input: MomentumModelInput): MomentumModel {
     trajectoryFromPipeline,
     trendRecords,
     recoveryDebtAccumulating,
+    avoidancePressure,
   } = input
 
   if (checkInsCount < 7) return buildConservativeStable(checkInsCount)
@@ -109,12 +112,17 @@ export function computeMomentumModel(input: MomentumModelInput): MomentumModel {
   const isOscillating = profile.oscillation.isOscillating
   const streakAtRisk = streakCtx.atRisk
 
+  const avoidanceFragilityContribution = avoidancePressure !== undefined && avoidancePressure >= 60
+    ? avoidancePressure
+    : 0
+
   const fragilityScore = clamp(
     volatilityScore * 0.35 +
     (isOscillating ? 100 : 0) * 0.20 +
     invertedRecoverySuccessRate * 0.25 +
     (streakAtRisk ? 100 : 0) * 0.10 +
-    (recoveryDebtAccumulating ? 100 : 0) * 0.10,
+    (recoveryDebtAccumulating ? 100 : 0) * 0.10 +
+    avoidanceFragilityContribution * 0.10,
     0, 100,
   )
 
@@ -206,6 +214,16 @@ export function computeMomentumModel(input: MomentumModelInput): MomentumModel {
       rawValue: recoveryDebtAccumulating ? 100 : 0,
       normalizedValue: recoveryDebtAccumulating ? 1 : 0,
     },
+    ...(avoidancePressure !== undefined && avoidancePressure >= 60
+      ? [{
+          id: 'avoidancePressure',
+          label: 'Avoidance activity pressure',
+          contribution: 'fragility' as const,
+          weight: 0.10,
+          rawValue: avoidancePressure,
+          normalizedValue: clamp(avoidancePressure / 100, 0, 1),
+        }]
+      : []),
   ]
 
   return {

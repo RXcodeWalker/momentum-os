@@ -68,6 +68,11 @@ export type PipelineRunnerInput = {
   activeReentryProtocol?: ReentryProtocol;
   /** Optional intelligence advisories from the outcome measurement layer. Absent for fresh users. */
   intelligenceAdvisories?: { cooldown: CooldownAdvisory[]; suppression: SuppressionAdvisory[] };
+  /**
+   * Optional avoidance pressure scalar (0–100) from the AvoidanceDetection engine.
+   * When provided, overrides the default 25 in behavioralInputs for the final DailyInputs entry.
+   */
+  avoidancePressure?: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -82,6 +87,7 @@ export function runBehavioralPipeline(input: PipelineRunnerInput): BehavioralPip
     sequencing,
     activeReentryProtocol,
     intelligenceAdvisories,
+    avoidancePressure,
   } = input;
 
   // ── 1. Signal Engine ─────────────────────────────────────────────────────
@@ -139,8 +145,20 @@ export function runBehavioralPipeline(input: PipelineRunnerInput): BehavioralPip
   });
 
   // ── 7. Assemble BehavioralPipeline ────────────────────────────────────────
+  const baseInputCollection = dailyInputs[dailyInputs.length - 1] ?? emptyDailyInputs();
+  const inputCollection =
+    avoidancePressure !== undefined
+      ? {
+          ...baseInputCollection,
+          behavioralInputs: {
+            ...baseInputCollection.behavioralInputs,
+            avoidancePressure,
+          },
+        }
+      : baseInputCollection;
+
   const pipeline: BehavioralPipeline = {
-    inputCollection: dailyInputs[dailyInputs.length - 1] ?? emptyDailyInputs(),
+    inputCollection,
     signalSnapshot,
     stateInterpretation: state,
     pendingTransition: transition,

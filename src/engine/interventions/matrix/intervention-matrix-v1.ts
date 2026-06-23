@@ -101,6 +101,25 @@ export const MIN_SIGNAL_DURATION_BY_LEVEL: Record<number, number> = {
 /** Hard cap on RESTART_ASSISTANCE level. */
 export const RESTART_ASSISTANCE_MAX_LEVEL = 1
 
+/**
+ * Avoidance pattern → BehavioralSignal mapping.
+ * When the AvoidanceDetection engine detects one of these patterns at HIGH/CRITICAL
+ * severity with MEDIUM+ confidence, the mapped signal is treated as active for
+ * AVOIDANCE_INTERRUPTION trigger evaluation.
+ */
+export const AVOIDANCE_PATTERN_SIGNAL_MAP = {
+  MAINTENANCE_LOOP: 'AVOIDANCE_CLUSTERING',
+  ADVANCEMENT_DEFERRAL: 'MEANINGFULNESS_DEFERRAL',
+  PREPARATION_ESCAPE: 'PLANNING_ESCAPE',
+  FRAGMENTATION_ESCAPE: 'RISING_FRAGMENTATION',
+} as const
+
+/** Minimum severity required for AVOIDANCE_INTERRUPTION to fire from avoidance profile. */
+export const AVOIDANCE_INTERRUPTION_MIN_SEVERITY = 'HIGH' as const
+
+/** Minimum confidence required for AVOIDANCE_INTERRUPTION to fire from avoidance profile. */
+export const AVOIDANCE_INTERRUPTION_MIN_CONFIDENCE = 'MEDIUM' as const
+
 /** Hard cap on DEEP_WORK_PROTECTION level. */
 export const DEEP_WORK_PROTECTION_MAX_LEVEL = 1
 
