@@ -572,6 +572,16 @@ export function detectAvoidance(inputs: AvoidanceDetectionInputs): AvoidanceProf
     overallAvoidancePressure = Math.round((maxScore * 0.6 + avgScore * 0.4) * 100)
   }
 
+  // Recovery grace: if the user completed deep work AND reported meaningful progress
+  // in the most recent check-in, apply a 20% proportional pressure reduction.
+  // Both conditions must hold simultaneously to prevent single-signal resets.
+  const lastCheckIn = inputs.checkIns[inputs.checkIns.length - 1]
+  const hasRecentMeaningfulProgress = lastCheckIn?.meaningfulProgress === 'yes'
+  const hasCompletedDeepWork = inputs.tasks.some((t) => t.done && t.type === 'deep')
+  if (hasRecentMeaningfulProgress && hasCompletedDeepWork) {
+    overallAvoidancePressure = Math.round(overallAvoidancePressure * 0.80)
+  }
+
   // Dominant pattern: highest severity active pattern, tie-break by score
   let dominantPattern: AvoidancePatternId | null = null
   const severityRank: Record<RiskLevel, number> = { LOW: 0, MODERATE: 1, HIGH: 2, CRITICAL: 3 }

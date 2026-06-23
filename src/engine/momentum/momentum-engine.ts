@@ -75,10 +75,10 @@ function buildConservativeStable(checkInsCount: number): MomentumModel {
 
 function buildSummary(classification: MomentumClassification, confidence: 'low' | 'medium' | 'high'): string {
   const base: Record<MomentumClassification, string> = {
-    expanding: 'Your momentum is building on solid structural ground.',
-    stable: 'Consistent execution at a sustainable level.',
-    fragile: 'Progress appears positive, but structural signals indicate risk.',
-    contracting: 'Your execution pattern is in a downward phase.',
+    expanding:   'Execution scores have trended upward with low structural volatility.',
+    stable:      'Consistent execution at a sustainable level.',
+    fragile:     'Progress appears positive, but structural signals indicate risk.',
+    contracting: 'Execution scores have declined over the observed window.',
   }
   const text = base[classification]
   if (confidence === 'low') return `Early signal: ${text} (limited data)`
@@ -112,17 +112,22 @@ export function computeMomentumModel(input: MomentumModelInput): MomentumModel {
   const isOscillating = profile.oscillation.isOscillating
   const streakAtRisk = streakCtx.atRisk
 
-  const avoidanceFragilityContribution = avoidancePressure !== undefined && avoidancePressure >= 60
-    ? avoidancePressure
-    : 0
+  const avoidanceActive = avoidancePressure !== undefined && avoidancePressure >= 60
+  const avoidanceFragilityContribution = avoidanceActive ? avoidancePressure! : 0
+
+  // Divide by total active weight so avoidance addition doesn't inflate the 0-100 scale.
+  // Without avoidance: sum / 1.00 (no-op). With avoidance: sum / 1.10 (~9.1% contribution).
+  const totalWeight = avoidanceActive ? 1.10 : 1.00
 
   const fragilityScore = clamp(
-    volatilityScore * 0.35 +
-    (isOscillating ? 100 : 0) * 0.20 +
-    invertedRecoverySuccessRate * 0.25 +
-    (streakAtRisk ? 100 : 0) * 0.10 +
-    (recoveryDebtAccumulating ? 100 : 0) * 0.10 +
-    avoidanceFragilityContribution * 0.10,
+    (
+      volatilityScore                      * 0.35 +
+      (isOscillating ? 100 : 0)            * 0.20 +
+      invertedRecoverySuccessRate          * 0.25 +
+      (streakAtRisk ? 100 : 0)             * 0.10 +
+      (recoveryDebtAccumulating ? 100 : 0) * 0.10 +
+      avoidanceFragilityContribution       * 0.10
+    ) / totalWeight,
     0, 100,
   )
 

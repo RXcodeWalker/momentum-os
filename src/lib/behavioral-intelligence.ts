@@ -130,6 +130,7 @@ function synthesize(
   );
 
   let primaryGuidance: string;
+  // Rule 1: Avoidance gate active (highest priority)
   if (
     avoidance &&
     avoidance.activePatterns.length > 0 &&
@@ -137,10 +138,20 @@ function synthesize(
     expansion.safetyConstraints.some((c) => c.id === "AVOIDANCE_GATE" && c.triggered)
   ) {
     primaryGuidance = avoidance.observationalSummary;
-  } else if (momentum.quality.fragilityScore > 60 && expansion?.directive === "increase") {
-    primaryGuidance = `Momentum is fragile — capping expansion pace. ${momentum.summary}`;
+  // Rule 2: Fragility with any upward directive (covers both 'increase' and 'gradual_increase')
+  } else if (
+    momentum.quality.fragilityScore > 60 &&
+    expansion?.directive &&
+    (expansion.directive === "increase" || expansion.directive === "gradual_increase")
+  ) {
+    primaryGuidance = `Structural signals indicate increased fragility. Expansion pace is being held. ${momentum.summary}`;
+  // Rule 3: Active reduce directive (prevents contradictory stability affirmation)
+  } else if (expansion?.directive === "reduce") {
+    primaryGuidance = `Active constraints require reducing challenge level. ${expansion.rationale}`;
+  // Rule 4: Sustainability affirmation — only when directive is not 'reduce'
   } else if (momentum.quality.sustainabilityScore > 70) {
-    primaryGuidance = `Execution is structurally sound. ${momentum.summary}`;
+    primaryGuidance = `Execution patterns show structural stability. ${momentum.summary}`;
+  // Rule 5: Fallback
   } else {
     primaryGuidance = expansion?.rationale ?? momentum.summary;
   }

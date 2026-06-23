@@ -11,14 +11,15 @@ import { evaluateSafetyGates, hasBlockingGate } from './safety-gates'
 import { computePaceModifier } from './pace-calculator'
 
 // ── Signal group weights (all sum ≈ 1.0) ────────────────────────────────────
-// Max contributions: 40 + 30 + 10 + 20 + 10 + 10 = 120 total
-const TOTAL_MAX = 120
-const W_MOMENTUM = 40 / TOTAL_MAX   // ≈ 0.333
-const W_STRUCTURAL = 30 / TOTAL_MAX // = 0.250
-const W_VELOCITY = 10 / TOTAL_MAX   // ≈ 0.083
-const W_PATTERN = 20 / TOTAL_MAX    // ≈ 0.167
-const W_RECOVERY = 10 / TOTAL_MAX   // ≈ 0.083
-const W_AVOIDANCE = 10 / TOTAL_MAX  // ≈ 0.083
+// Max contributions: 40 + 30 + 10 + 20 + 10 + 10 + 10 = 130 total
+const TOTAL_MAX = 130
+const W_MOMENTUM    = 40 / TOTAL_MAX  // ≈ 0.308
+const W_STRUCTURAL  = 30 / TOTAL_MAX  // ≈ 0.231
+const W_VELOCITY    = 10 / TOTAL_MAX  // ≈ 0.077
+const W_PATTERN     = 20 / TOTAL_MAX  // ≈ 0.154
+const W_RECOVERY    = 10 / TOTAL_MAX  // ≈ 0.077
+const W_AVOIDANCE   = 10 / TOTAL_MAX  // ≈ 0.077
+const W_TASK_COMPAT = 10 / TOTAL_MAX  // ≈ 0.077
 
 function normalizeSignal(contribution: number, maxAbs: number): number {
   return Math.min(1, Math.max(0, (contribution + maxAbs) / (2 * maxAbs)))
@@ -37,7 +38,7 @@ function clamp(value: number, min: number, max: number): number {
 function computeReadinessAndSignals(
   input: ExpansionEngineInput,
 ): { readinessScore: number; signals: ExpansionSignal[] } {
-  const { momentumModel, dynamicsProfile, stateDynamics, avoidancePressure, consistency } = input
+  const { momentumModel, dynamicsProfile, stateDynamics, avoidancePressure, consistency, taskCompatibilityAvgScore } = input
   const signals: ExpansionSignal[] = []
   let readinessScore = 0
 
@@ -145,6 +146,25 @@ function computeReadinessAndSignals(
     weight: W_AVOIDANCE,
     normalizedValue: normalizeSignal(avoidanceScore, 10),
     description: `Avoidance pressure=${avoidancePressure}, 7d consistency=${(consistency * 100).toFixed(0)}%`,
+  })
+
+  // ── Group 7: Task compatibility (±10) ───────────────────────────────────
+  let taskCompatScore = 0
+  if (taskCompatibilityAvgScore !== null && taskCompatibilityAvgScore !== undefined) {
+    if (taskCompatibilityAvgScore >= 75) taskCompatScore = 8
+    else if (taskCompatibilityAvgScore >= 55) taskCompatScore = 4
+    else if (taskCompatibilityAvgScore < 35) taskCompatScore = -8
+  }
+  readinessScore += taskCompatScore
+  signals.push({
+    id: 'task_compatibility',
+    label: 'Task Compatibility',
+    direction: signalDirection(taskCompatScore),
+    weight: W_TASK_COMPAT,
+    normalizedValue: normalizeSignal(taskCompatScore, 10),
+    description: taskCompatibilityAvgScore !== null && taskCompatibilityAvgScore !== undefined
+      ? `Avg recovery compatibility score ${taskCompatibilityAvgScore.toFixed(0)} (${taskCompatScore > 0 ? '+' : ''}${taskCompatScore})`
+      : 'No task compatibility data available',
   })
 
   return { readinessScore, signals }
