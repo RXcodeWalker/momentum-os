@@ -28,6 +28,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useApp, type OnboardingProfile } from "@/lib/store";
+import { seedFirstSessionTasks } from "@/lib/first-session";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
@@ -266,6 +267,7 @@ type Profile = {
 function Onboarding() {
   const nav = useNavigate();
   const setOnboardingProfile = useApp((s) => s.setOnboardingProfile);
+  const storeSeedTasks = useApp((s) => s.seedFirstSessionTasks);
 
   const [step, setStep] = useState(0);
   const [animating, setAnimating] = useState(false);
@@ -306,6 +308,7 @@ function Onboarding() {
       baselineScore: deriveBaselineScore(profile),
     };
     setOnboardingProfile(fullProfile);
+    storeSeedTasks(seedFirstSessionTasks(fullProfile));
     nav({ to: "/" });
   }
 

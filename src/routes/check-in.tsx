@@ -27,11 +27,16 @@ function CheckInPage() {
   const recoveryMode = useApp((s) => s.recoveryMode);
   const checkInStyle = useApp((s) => s.checkInStyle);
   const insights = useApp((s) => s.insights);
+  const checkIns = useApp((s) => s.checkIns);
+  const profile = useApp((s) => s.profile);
   const { state } = useUserState();
   useLatestInsight(); // keep insight system warm
 
+  const isFirstCheckIn = checkIns.length === 0;
+  const firstBaselineScore = profile?.baselineScore ?? null;
+
   const [unlockedInsight, setUnlockedInsight] = useState<string | undefined>();
-  const [saved, setSaved] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ newScore: number; delta: number } | null>(null);
 
   const handleSave = (data: Omit<CheckIn, "date">) => {
     const r = saveCheckIn(data);
@@ -47,12 +52,19 @@ function CheckInPage() {
     }
 
     setUnlockedInsight(insight);
-    setSaved(true);
+    setSaveResult(r);
     toast.success("Check-in complete", { description: "Your behavioral signal has been logged." });
   };
 
-  if (saved) {
-    return <EveningResultScreen unlockedInsight={unlockedInsight} />;
+  if (saveResult) {
+    return (
+      <EveningResultScreen
+        unlockedInsight={unlockedInsight}
+        isFirstCheckIn={isFirstCheckIn}
+        firstBaselineScore={firstBaselineScore}
+        newScore={saveResult.newScore}
+      />
+    );
   }
 
   return (

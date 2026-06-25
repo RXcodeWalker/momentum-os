@@ -59,6 +59,9 @@ import { CapacityDots } from "@/components/task/CapacityDots";
 import { useDormancyDetection, useMomentumMemory } from "@/lib/reentry";
 import { ReentryCard } from "@/components/cards/ReentryCard";
 import { ReentryModal } from "@/components/ReentryModal";
+import { useFirstSession } from "@/lib/first-session";
+import { FirstSessionBanner } from "@/components/cards/FirstSessionBanner";
+import { FirstCheckInNudge } from "@/components/cards/FirstCheckInNudge";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -172,6 +175,10 @@ function Home() {
 
   const todayDate = new Date().toISOString().slice(0, 10);
   const hasCheckedInToday = checkIns.some((c) => c.date === todayDate);
+
+  const firstSession = useFirstSession();
+  const dismissFirstSessionBanner = useApp((s) => s.dismissFirstSessionBanner);
+  const firstSessionBannerDismissed = useApp((s) => s.firstSessionBannerDismissed);
 
   // Re-entry detection
   const dormancy = useDormancyDetection();
@@ -453,6 +460,12 @@ function Home() {
             </div>
           )}
         </StaggerItem>
+
+        {firstSession.active && !firstSessionBannerDismissed && !focusEnv.active && (
+          <StaggerItem className="lg:col-span-12">
+            <FirstSessionBanner session={firstSession} onDismiss={dismissFirstSessionBanner} />
+          </StaggerItem>
+        )}
 
         {tasks.length > 0 && shell.surfaceLevel !== "minimal" && !focusEnv.active && (
           <StaggerItem className="lg:col-span-12">
@@ -925,16 +938,20 @@ function Home() {
       {/* Evening check-in CTA — shown when directive is not already check-in */}
       {phase === "evening" && !hasCheckedInToday && directive.kind !== "check-in" && (
         <section className="px-5 lg:px-0">
-          <Link to="/check-in">
-            <motion.button
-              whileHover={{ scale: 1.005 }}
-              whileTap={{ scale: 0.985 }}
-              className="relative w-full overflow-hidden rounded-2xl bg-foreground py-4 text-sm font-semibold text-background lg:max-w-md"
-            >
-              <span className="relative z-10">Start evening check-in</span>
-              <span className="absolute inset-0 animate-shimmer" />
-            </motion.button>
-          </Link>
+          {firstSession.active ? (
+            <FirstCheckInNudge session={firstSession} />
+          ) : (
+            <Link to="/check-in">
+              <motion.button
+                whileHover={{ scale: 1.005 }}
+                whileTap={{ scale: 0.985 }}
+                className="relative w-full overflow-hidden rounded-2xl bg-foreground py-4 text-sm font-semibold text-background lg:max-w-md"
+              >
+                <span className="relative z-10">Start evening check-in</span>
+                <span className="absolute inset-0 animate-shimmer" />
+              </motion.button>
+            </Link>
+          )}
         </section>
       )}
     </div>

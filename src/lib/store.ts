@@ -322,6 +322,7 @@ type State = {
   upgradePromptDismissedAt: string | null;
   dataIsSeeded: boolean;
   firstCheckInAt: string | null;
+  firstSessionBannerDismissed: boolean;
   consentedToAutoRecovery: boolean;
   recoverySuggestion: { reason: string; suggestedAt: string } | null;
   /** ISO datetime when the user acknowledged re-entry UX for this session. Cleared after midnight. */
@@ -364,6 +365,8 @@ type State = {
   setOnboardingProfile: (profile: OnboardingProfile) => void;
   setGoals: (goals: string[]) => void;
   setStruggles: (struggles: string[]) => void;
+  seedFirstSessionTasks: (tasks: Omit<Task, "id">[]) => void;
+  dismissFirstSessionBanner: () => void;
   addTask: (params: { label: string; estMin: number; type: Task["type"] }) => void;
   toggleTask: (id: string) => void;
   rescheduleTask: (id: string) => void;
@@ -783,6 +786,7 @@ export const useApp = create<State>()(
         upgradePromptDismissedAt: null,
         dataIsSeeded: false,
         firstCheckInAt: null,
+        firstSessionBannerDismissed: false,
         consentedToAutoRecovery: false,
         recoverySuggestion: null,
         reentryAcknowledgedAt: null,
@@ -877,6 +881,14 @@ export const useApp = create<State>()(
             });
           }
         },
+        seedFirstSessionTasks: (seedTasks) => {
+          const state = get();
+          if (state.tasks.length > 0) return; // idempotent
+          const tasks = seedTasks.map((t) => ({ ...t, id: crypto.randomUUID() }));
+          set({ tasks });
+          if (state.currentUserId) syncTasks(state.currentUserId, tasks);
+        },
+        dismissFirstSessionBanner: () => set({ firstSessionBannerDismissed: true }),
         setGoals: (goals) => set({ goals }),
         setStruggles: (struggles) => set({ struggles }),
         addTask: ({ label, estMin, type }) => {

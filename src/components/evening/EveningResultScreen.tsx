@@ -11,6 +11,9 @@ import { TomorrowCard } from "./TomorrowCard";
 
 interface EveningResultScreenProps {
   unlockedInsight?: string;
+  isFirstCheckIn?: boolean;
+  firstBaselineScore?: number | null;
+  newScore?: number;
 }
 
 const DISPLAY_HEADERS: Record<string, { title: string; subtitle: string }> = {
@@ -32,7 +35,12 @@ const DISPLAY_HEADERS: Record<string, { title: string; subtitle: string }> = {
   },
 };
 
-export function EveningResultScreen({ unlockedInsight }: EveningResultScreenProps) {
+export function EveningResultScreen({
+  unlockedInsight,
+  isFirstCheckIn,
+  firstBaselineScore,
+  newScore,
+}: EveningResultScreenProps) {
   const nav = useNavigate();
   const currentUserId = useApp((s) => s.currentUserId);
   const addProof = useApp((s) => s.addProof);
@@ -55,7 +63,9 @@ export function EveningResultScreen({ unlockedInsight }: EveningResultScreenProp
     recoveryMessage,
   } = view;
 
-  const header = DISPLAY_HEADERS[displayMode];
+  const header = isFirstCheckIn
+    ? { title: "Day 1 logged.", subtitle: "The pattern starts here." }
+    : DISPLAY_HEADERS[displayMode];
 
   const primaryLearning = hasObservations ? observations[0].text : stateHeadline;
 
@@ -76,6 +86,24 @@ export function EveningResultScreen({ unlockedInsight }: EveningResultScreenProp
       <div className="flex flex-col gap-5 pb-10">
         <ScreenHeader eyebrow="Check-in saved" title={header.title} subtitle={header.subtitle} />
         <Stagger className="flex flex-col gap-4 px-5">
+          {isFirstCheckIn && firstBaselineScore != null && newScore != null && (
+            <StaggerItem>
+              <Card className="border-accent/30 bg-gradient-to-br from-accent/10 to-transparent">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent/70 mb-1">
+                  First execution score
+                </p>
+                <div className="flex items-baseline gap-3 mb-2">
+                  <span className="font-display text-4xl text-foreground">{newScore}</span>
+                  <span className="text-sm text-muted-foreground">
+                    vs ~{firstBaselineScore} estimate
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  This is your Day 1 signal. It will update every time you reflect.
+                </p>
+              </Card>
+            </StaggerItem>
+          )}
           <StaggerItem>
             <LearningCard observation={primaryLearning} isObservation={hasObservations} />
           </StaggerItem>
@@ -120,6 +148,31 @@ export function EveningResultScreen({ unlockedInsight }: EveningResultScreenProp
       />
 
       <Stagger className="flex flex-col gap-4 px-5">
+        {/* 0. First score reveal — Day 1 only */}
+        {isFirstCheckIn && firstBaselineScore != null && newScore != null && (
+          <StaggerItem>
+            <Card className="border-accent/30 bg-gradient-to-br from-accent/10 to-transparent">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent/70 mb-1">
+                First execution score
+              </p>
+              <div className="flex items-baseline gap-3 mb-2">
+                <span className="font-display text-4xl text-foreground">{newScore}</span>
+                <span className="text-sm text-muted-foreground">
+                  vs ~{firstBaselineScore} estimate
+                  {newScore > firstBaselineScore
+                    ? ` · +${newScore - firstBaselineScore} above baseline`
+                    : newScore < firstBaselineScore
+                      ? ` · ${newScore - firstBaselineScore} below baseline`
+                      : " · exactly on baseline"}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                This is your Day 1 signal. It will update every time you reflect.
+              </p>
+            </Card>
+          </StaggerItem>
+        )}
+
         {/* 1. Learning card — always first */}
         {primaryLearning && (
           <StaggerItem>
