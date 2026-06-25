@@ -13,6 +13,7 @@ import {
   useStreakContext,
   useDayOfWeekProfile,
   useDistractionProfile,
+  useBlockerPattern,
 } from "@/lib/store";
 import {
   ArrowLeft,
@@ -60,6 +61,7 @@ function Weekly() {
   const streakCtx = useStreakContext();
   const dowProfile = useDayOfWeekProfile();
   const distractionProfile = useDistractionProfile();
+  const blockerPattern = useBlockerPattern();
 
   const week = history.slice(-7);
 
@@ -247,6 +249,48 @@ function Weekly() {
           </Card>
         </StaggerItem>
       )}
+
+      {/* This Week's Friction */}
+      {(() => {
+        const topFriction = distractionProfile.topDistractors.find((d) => d.avgScoreImpact < -3);
+        const hasBlockerStreak = !!blockerPattern.streak;
+        if (!topFriction && !hasBlockerStreak) return null;
+        return (
+          <StaggerItem className="px-5">
+            <Card className="border-warning/15 bg-warning/5">
+              <StatLabel className="mb-3 block text-warning">This Week's Friction</StatLabel>
+              <div className="space-y-2.5">
+                {topFriction && (
+                  <div className="flex items-center gap-2">
+                    <Pill tone="warning" className="text-[9px]">
+                      distraction
+                    </Pill>
+                    <span className="text-sm text-foreground capitalize flex-1">
+                      {topFriction.id.replace("-", " ")}
+                    </span>
+                    <span className="text-xs font-semibold text-danger">
+                      {topFriction.avgScoreImpact} pts avg
+                    </span>
+                  </div>
+                )}
+                {hasBlockerStreak && blockerPattern.streak && (
+                  <div className="flex items-center gap-2">
+                    <Pill tone="warning" className="text-[9px]">
+                      blocker
+                    </Pill>
+                    <span className="text-sm text-foreground capitalize flex-1">
+                      {blockerPattern.streak.type}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {blockerPattern.streak.days}d in a row
+                    </span>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </StaggerItem>
+        );
+      })()}
 
       {/* Distraction mix */}
       {distractionProfile.topDistractors.length > 0 && (

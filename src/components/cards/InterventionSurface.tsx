@@ -9,9 +9,10 @@ type Props = {
   surface: BehavioralInterventionsView["ui"]["surface"];
   // Priority-tier resolution must happen at the call site; component displays exactly one intervention.
   intervention: BehavioralInterventionsView["active"][number] | undefined;
+  isDemoted?: boolean;
 };
 
-export function InterventionSurface({ surface, intervention: primary }: Props) {
+export function InterventionSurface({ surface, intervention: primary, isDemoted }: Props) {
   const acknowledgedInterventions = useApp((s) => s.acknowledgedInterventions);
   const acknowledgeIntervention = useApp((s) => s.acknowledgeIntervention);
   const isAcknowledged = primary
@@ -45,8 +46,17 @@ export function InterventionSurface({ surface, intervention: primary }: Props) {
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.35 }}
         >
-          <Card className="border-amber-500/30 bg-amber-950/20">
-            <p className="text-sm font-medium text-foreground leading-snug">{primary.message}</p>
+          <Card
+            className={
+              isDemoted ? "border-border/20 bg-card/40" : "border-amber-500/30 bg-amber-950/20"
+            }
+          >
+            <p className="text-sm font-medium text-foreground leading-snug">
+              {isDemoted ? "Worth noting" : primary.message}
+              {isDemoted && (
+                <span className="ml-1 text-muted-foreground font-normal">— {primary.message}</span>
+              )}
+            </p>
             {primary.intent && (
               <p className="mt-1 text-xs text-muted-foreground">{primary.intent}</p>
             )}

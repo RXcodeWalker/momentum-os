@@ -5,6 +5,8 @@ import { BarRow, Card, Pill, ScreenHeader, Sparkline, StatLabel } from "@/compon
 import { MetricSurface } from "@/components/MetricSurface";
 import { StateDynamicsCard } from "@/components/cards/StateDynamicsCard";
 import { PatternCard } from "@/components/cards/PatternCard";
+import { AvoidanceBreakdownCard } from "@/components/cards/AvoidanceBreakdownCard";
+import { InterventionEffectivenessPanel } from "@/components/cards/InterventionEffectivenessPanel";
 import { ExecutionHeatmap } from "@/components/heatmap";
 import {
   AlertTriangle,
@@ -34,6 +36,7 @@ import {
   useBlockerPattern,
   useInsightEffectiveness,
   useTaskIntelligence,
+  useAvoidanceProfile,
 } from "@/lib/store";
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -225,6 +228,7 @@ function Insights() {
   const distractionProfile = useDistractionProfile();
   const dowProfile = useDayOfWeekProfile();
   const blockerPattern = useBlockerPattern();
+  const avoidanceProfile = useAvoidanceProfile();
   const insightEffectiveness = useInsightEffectiveness();
   const taskIntel = useTaskIntelligence();
   const last14 = history.slice(-14);
@@ -391,6 +395,18 @@ function Insights() {
             </Card>
 
             <RootCauseDiagnostics />
+
+            {/* Avoidance Pattern Breakdown */}
+            {avoidanceProfile && avoidanceProfile.activePatterns.length > 0 && (
+              <MetricSurface metric="distractionProfile">
+                {() => (
+                  <AvoidanceBreakdownCard
+                    avoidance={avoidanceProfile}
+                    showEvidenceDetail={avoidanceProfile.confidence === "HIGH"}
+                  />
+                )}
+              </MetricSurface>
+            )}
 
             {/* Distraction Attribution */}
             {distractionProfile.topDistractors.length > 0 && (
@@ -593,6 +609,11 @@ function Insights() {
                   })}
               </div>
             )}
+
+            {/* Intervention Effectiveness */}
+            <MetricSurface metric="interventionEffectiveness">
+              {() => <InterventionEffectivenessPanel />}
+            </MetricSurface>
 
             {/* Earned behavioral insights (Not committed) */}
             <div className="space-y-4">

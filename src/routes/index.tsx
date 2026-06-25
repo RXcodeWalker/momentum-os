@@ -31,6 +31,7 @@ import {
   useBlockerPattern,
   useInsightEffectiveness,
   useScoreVelocity,
+  useInterventionIntelligence,
 } from "@/lib/store";
 import { useState, useEffect } from "react";
 import { Stagger, StaggerItem, TapCard } from "@/lib/motion";
@@ -148,6 +149,7 @@ function Home() {
   const blockerPattern = useBlockerPattern();
   const insightEffectiveness = useInsightEffectiveness();
   const velocity = useScoreVelocity();
+  const interventionIntelligence = useInterventionIntelligence();
   const todayScoreReadiness = useDataReadiness("todayScore");
   const momentumReadiness = useDataReadiness("momentum");
   const consistencyReadiness = useDataReadiness("consistency");
@@ -176,7 +178,13 @@ function Home() {
   const showReentryCard =
     (dormancy.tier === "short" || dormancy.tier === "medium") && !recoveryMode;
   const reentryTaskCap =
-    dormancy.tier === "extended" ? 1 : dormancy.tier === "medium" ? 2 : dormancy.tier === "short" ? 3 : undefined;
+    dormancy.tier === "extended"
+      ? 1
+      : dormancy.tier === "medium"
+        ? 2
+        : dormancy.tier === "short"
+          ? 3
+          : undefined;
 
   // Session-only dismiss state for yesterday card
   const [dismissedYesterday, setDismissedYesterday] = useState(false);
@@ -499,6 +507,12 @@ function Home() {
           <InterventionSurface
             surface={behavioral.interventions.ui.surface}
             intervention={behavioral.interventions.active[0]}
+            isDemoted={
+              !!behavioral.interventions.active[0] &&
+              interventionIntelligence.suppressionAdvisories.some(
+                (a) => a.type === behavioral.interventions.active[0]?.type && a.action === "DEMOTE",
+              )
+            }
           />
         </section>
       )}
@@ -563,7 +577,10 @@ function Home() {
 
       {activeCards.has("avoidance") && intelligence.avoidance && (
         <section className="px-5 lg:px-0">
-          <AvoidanceNote avoidance={intelligence.avoidance} />
+          <AvoidanceNote
+            avoidance={intelligence.avoidance}
+            showInsightsLink={checkIns.length >= 10}
+          />
         </section>
       )}
 
