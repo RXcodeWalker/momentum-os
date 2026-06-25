@@ -18,6 +18,8 @@ import { Task, CheckIn, useSmartCheckInDefaults } from "@/lib/store";
 import { MOODS, DISTRACTIONS, CHECK_IN_PLACEHOLDERS, CHECK_IN_DEFAULTS } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { useDormancyDetection, useMomentumMemory } from "@/lib/reentry";
+import { FadeUp } from "@/lib/motion";
 
 interface CheckInWizardProps {
   tasks: Task[];
@@ -35,6 +37,8 @@ export function CheckInWizard({
   rescheduleTask,
 }: CheckInWizardProps) {
   const smartDefaults = useSmartCheckInDefaults();
+  const dormancy = useDormancyDetection();
+  const momentumMemory = useMomentumMemory();
   const [step, setStep] = useState(0);
   const [focus, setFocus] = useState(smartDefaults.focus ?? CHECK_IN_DEFAULTS.focus);
   const [mood, setMood] = useState(CHECK_IN_DEFAULTS.mood);
@@ -352,6 +356,23 @@ export function CheckInWizard({
           </button>
         )}
       </div>
+
+      {/* Re-entry banner — shown on step 0 when returning after a gap */}
+      {step === 0 && dormancy.tier !== null && (
+        <FadeUp className="mb-5">
+          <div className="rounded-2xl bg-secondary/60 border border-border/50 px-4 py-3.5">
+            <p className="text-sm font-medium text-foreground">
+              Checking in after {dormancy.gapDays} day{dormancy.gapDays !== 1 ? "s" : ""} away.
+              That counts.
+            </p>
+            {momentumMemory && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Your last intention: {momentumMemory.statement.replace(/^Your (last north star|last intention): /, "")}
+              </p>
+            )}
+          </div>
+        </FadeUp>
+      )}
 
       <AnimatePresence mode="wait">
         <motion.div

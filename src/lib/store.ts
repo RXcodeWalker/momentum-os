@@ -14,6 +14,7 @@ import {
 } from "@/lib/sync";
 import { buildMigrationPayload } from "@/lib/migration";
 import type { BehavioralPipeline } from "@/core/contracts/pipeline/behavioral-pipeline";
+import type { ReentryProtocol } from "@/core/contracts/reentry";
 import type { EveningReflectionRecord } from "@/core/contracts/flow/reflection";
 import type {
   FocusEnvironmentState,
@@ -289,6 +290,8 @@ type State = {
   firstCheckInAt: string | null;
   consentedToAutoRecovery: boolean;
   recoverySuggestion: { reason: string; suggestedAt: string } | null;
+  /** ISO datetime when the user acknowledged re-entry UX for this session. Cleared after midnight. */
+  reentryAcknowledgedAt: string | null;
   /** Last behavioral pipeline result — updated on each saveCheckIn(). null until first check-in. */
   lastPipelineResult: BehavioralPipeline | null;
   /** Morning calibration record for today — null until first morning calibration. */
@@ -379,6 +382,7 @@ type State = {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   startGuestSession: () => void;
+  acknowledgeReentry: () => void;
   dismissUpgradePrompt: () => void;
   migrateGuestToAccount: (
     userId: string,
@@ -542,10 +546,52 @@ function buildTomorrowPlan(
   };
 }
 
+function buildReentryProtocolFromGap(gapDays: number): ReentryProtocol | undefined {
+  if (gapDays <= 1) return undefined;
+  if (gapDays <= 2) {
+    return {
+      currentStage: "ASSESSMENT",
+      backlogCompressionEnabled: false,
+      visibleScopeReduction: 0.3,
+      restartFrictionFactors: ["UNCERTAINTY"],
+      recoveryPriorityWeight: 0.5,
+      rhythmRebuildIntensity: 0.7,
+    };
+  }
+  if (gapDays <= 6) {
+    return {
+      currentStage: "COMPRESSION",
+      backlogCompressionEnabled: true,
+      visibleScopeReduction: 0.6,
+      restartFrictionFactors: ["UNCERTAINTY", "AVOIDANCE"],
+      recoveryPriorityWeight: 0.7,
+      rhythmRebuildIntensity: 0.5,
+    };
+  }
+  return {
+    currentStage: "MINIMUM_VIABLE_RESTART",
+    backlogCompressionEnabled: true,
+    visibleScopeReduction: 0.85,
+    restartFrictionFactors: ["OVERWHELM", "SHAME", "COGNITIVE_CHAOS"],
+    recoveryPriorityWeight: 0.9,
+    rhythmRebuildIntensity: 0.3,
+  };
+}
+
+function computeGapDays(checkIns: CheckIn[]): number {
+  if (checkIns.length === 0) return 0;
+  const sorted = [...checkIns].sort((a, b) => b.date.localeCompare(a.date));
+  const lastDate = sorted[0].date;
+  const today = new Date(todayStr());
+  const last = new Date(lastDate);
+  return Math.floor((today.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 function runEveningPipeline(
   prevResult: BehavioralPipeline | null,
   history: DayData[],
   updatedCheckIns: CheckIn[],
+  activeReentryProtocol?: ReentryProtocol,
 ): BehavioralPipeline | null {
   const lastResultAge = prevResult
     ? Date.now() - new Date(prevResult.inputCollection.capturedAt).getTime()
@@ -585,6 +631,7 @@ function runEveningPipeline(
       evidence: buildSessionEvidence(history, updatedCheckIns),
       context: { flowPhase: "evening", historicalSnapshots: [], previousMode: previousEngineMode },
       recentInterventions: readRecentAuditRecords(),
+      activeReentryProtocol,
       intelligenceAdvisories: {
         cooldown: report.cooldownAdvisories,
         suppression: report.suppressionAdvisories,
@@ -699,6 +746,7 @@ export const useApp = create<State>()(
         firstCheckInAt: null,
         consentedToAutoRecovery: false,
         recoverySuggestion: null,
+        reentryAcknowledgedAt: null,
         lastPipelineResult: null,
         lastMorningCalibration: null,
         lastReflectionResult: null,
@@ -874,10 +922,13 @@ export const useApp = create<State>()(
           ];
           const streaks = computeStreaks(history, s.streaks);
           const tomorrowPlan = buildTomorrowPlan(history, s.tasks, data);
+          const gapDaysAtCheckin = computeGapDays(s.checkIns);
+          const activeReentryProtocol = buildReentryProtocolFromGap(gapDaysAtCheckin);
           const lastPipelineResult = runEveningPipeline(
             s.lastPipelineResult,
             history,
             updatedCheckIns,
+            activeReentryProtocol,
           );
           const { lastReflectionResult, reflectionHistory } = runEveningReflection(
             data,
@@ -967,6 +1018,7 @@ export const useApp = create<State>()(
             behavioralEvents: prunedEvents,
             aggregationSnapshots: nextSnapshots,
             trendRecords: nextTrends,
+            reentryAcknowledgedAt: new Date().toISOString(),
           }));
 
           const userId = get().currentUserId;
@@ -1225,11 +1277,13 @@ export const useApp = create<State>()(
 
         clearExpiredEnvironmentOverrides: () => {
           const now = Date.now();
-          set((s) => ({
-            environmentOverrides: s.environmentOverrides.filter(
+          set((s) => {
+            const filtered = s.environmentOverrides.filter(
               (o) => o.expiresAt === 0 || o.expiresAt > now,
-            ),
-          }));
+            );
+            if (filtered.length === s.environmentOverrides.length) return s;
+            return { environmentOverrides: filtered };
+          });
         },
 
         setCommittedEnvironment: (snapshot) => set({ committedEnvironment: snapshot }),
@@ -1277,6 +1331,9 @@ export const useApp = create<State>()(
             user: "",
             guestSince: get().guestSince ?? todayStr(),
           });
+        },
+        acknowledgeReentry: () => {
+          set({ reentryAcknowledgedAt: new Date().toISOString() });
         },
         dismissUpgradePrompt: () => {
           set({
@@ -1483,6 +1540,7 @@ export const useApp = create<State>()(
               new Date(nowMs).toISOString(),
             );
 
+            const morningGapDays = computeGapDays(s.checkIns);
             lastPipelineResult = runBehavioralPipeline({
               evidence: mergedEvidence,
               context: {
@@ -1491,6 +1549,7 @@ export const useApp = create<State>()(
                 previousMode,
               },
               recentInterventions: readRecentAuditRecords(),
+              activeReentryProtocol: buildReentryProtocolFromGap(morningGapDays),
               intelligenceAdvisories: {
                 cooldown: report.cooldownAdvisories,
                 suppression: report.suppressionAdvisories,

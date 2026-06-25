@@ -54,6 +54,9 @@ import { useDataReadiness } from "@/lib/maturity";
 import { useTaskCreationIntelligence } from "@/hooks/useTaskCreationIntelligence";
 import { IntelligentTaskWarning } from "@/components/task/IntelligentTaskWarning";
 import { CapacityDots } from "@/components/task/CapacityDots";
+import { useDormancyDetection, useMomentumMemory } from "@/lib/reentry";
+import { ReentryCard } from "@/components/cards/ReentryCard";
+import { ReentryModal } from "@/components/ReentryModal";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -165,6 +168,16 @@ function Home() {
   const todayDate = new Date().toISOString().slice(0, 10);
   const hasCheckedInToday = checkIns.some((c) => c.date === todayDate);
 
+  // Re-entry detection
+  const dormancy = useDormancyDetection();
+  const momentumMemory = useMomentumMemory();
+  const acknowledgeReentry = useApp((s) => s.acknowledgeReentry);
+  const showReentryModal = dormancy.tier === "extended" && !recoveryMode;
+  const showReentryCard =
+    (dormancy.tier === "short" || dormancy.tier === "medium") && !recoveryMode;
+  const reentryTaskCap =
+    dormancy.tier === "extended" ? 1 : dormancy.tier === "medium" ? 2 : dormancy.tier === "short" ? 3 : undefined;
+
   // Session-only dismiss state for yesterday card
   const [dismissedYesterday, setDismissedYesterday] = useState(false);
 
@@ -205,6 +218,20 @@ function Home() {
 
   return (
     <div className="flex flex-col gap-5 pb-8 lg:gap-8 lg:pb-12">
+      {/* Re-entry modal — extended tier (7+ days away), outside card budget */}
+      {showReentryModal && (
+        <ReentryModal
+          gapDays={dormancy.gapDays}
+          momentum={momentumMemory}
+          primaryTask={tasks.find((t) => !t.done) ?? null}
+          onAcknowledge={acknowledgeReentry}
+          onRecovery={() => {
+            acknowledgeReentry();
+            navigate({ to: "/recovery" });
+          }}
+        />
+      )}
+
       {/* Morning calibration sheet */}
       <AnimatePresence>
         {morningCal.shouldShow && (
@@ -449,6 +476,23 @@ function Home() {
       </Stagger>
 
       {/* ── Tier 2: Signal cards — scored, budget-capped ─────────────────────── */}
+
+      {/* Re-entry card — short/medium tiers */}
+      {showReentryCard && dormancy.tier && (
+        <section className="px-5 lg:px-0">
+          <ReentryCard
+            tier={dormancy.tier}
+            gapDays={dormancy.gapDays}
+            taskCount={tasks.filter((t) => !t.done).length}
+            momentum={momentumMemory}
+            onAcknowledge={acknowledgeReentry}
+            onRecovery={() => {
+              acknowledgeReentry();
+              navigate({ to: "/recovery" });
+            }}
+          />
+        </section>
+      )}
 
       {activeCards.has("intervention") && (
         <section className="px-5 lg:px-0">
@@ -789,6 +833,7 @@ function Home() {
           completed={completed}
           behavioral={behavioral}
           focusEnv={focusEnv}
+          reentryTaskCap={reentryTaskCap}
           onEnterFocus={() => {
             const windowMin = behavioral.tasks.sequencing.focusWindowMinutes;
             enterFocusEnvironment("manual", windowMin ? windowMin * 60_000 : null);
@@ -903,6 +948,7 @@ function TasksSection({
   completed,
   behavioral,
   focusEnv,
+  reentryTaskCap,
   onEnterFocus,
   onExitFocus,
 }: {
@@ -911,6 +957,7 @@ function TasksSection({
   completed: number;
   behavioral: BehavioralView;
   focusEnv: FocusEnvironmentView;
+  reentryTaskCap?: number;
   onEnterFocus: () => void;
   onExitFocus: () => void;
 }) {
@@ -950,6 +997,9 @@ function TasksSection({
     if (surfaceLevel === "minimal") {
       const pt = behavioral.tasks.primaryTask;
       return pt ? incompleteTasks.filter((t) => t.id === pt.id) : [];
+    }
+    if (reentryTaskCap !== undefined) {
+      return incompleteTasks.slice(0, reentryTaskCap);
     }
     if (pipelineReady) {
       const allowedSet = new Set(pipelineVisibleIds);
@@ -1127,7 +1177,16 @@ function TasksSection({
             </span>
           </div>
 
-          {overCapacity && workloadGuidance !== "expand" && (
+          {reentryTaskCap !== undefined && hiddenCount > 0 && (
+            <div className="mb-3 flex items-start gap-2 rounded-xl bg-secondary/60 border border-border/50 px-3 py-2.5">
+              <Shield className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-none" />
+              <span className="text-muted-foreground text-[11px] font-medium leading-relaxed">
+                +{hiddenCount} more hidden during re-entry — one step at a time.
+              </span>
+            </div>
+          )}
+
+          {!reentryTaskCap && overCapacity && workloadGuidance !== "expand" && (
             <div className="mb-3 flex items-start gap-2 rounded-xl bg-warning/8 border border-warning/20 px-3 py-2.5">
               <Shield className="h-3.5 w-3.5 text-warning mt-0.5 flex-none" />
               <span className="text-warning text-[11px] font-semibold leading-relaxed">
