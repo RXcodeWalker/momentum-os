@@ -1,4 +1,5 @@
 import type { BehavioralInsight, Circle, DayData, ExecutionProof, Member, Task } from "@/lib/store";
+import type { FocusSession } from "@/core/contracts/focus/session";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -253,3 +254,39 @@ export const emptyCircle: Circle = {
   charter: "",
   memberIds: [],
 };
+
+export function buildDemoFocusSessions(): FocusSession[] {
+  const sessions: FocusSession[] = [];
+  const now = Date.now();
+  const TASK_TYPES: FocusSession["taskType"][] = ["deep", "shallow", "deep", "admin", "deep"];
+  const QUALITIES: FocusSession["quality"][] = ["deep", "done", "scattered", "done", "deep"];
+  const WINDOW = 25 * 60_000;
+
+  for (let i = 19; i >= 0; i--) {
+    const daysAgo = Math.floor(i / 1.3);
+    const startedAt = new Date(
+      now - daysAgo * 86_400_000 - Math.random() * 4 * 3_600_000,
+    ).toISOString();
+    const taskType = TASK_TYPES[i % TASK_TYPES.length];
+    const durationMs = Math.round((18 + Math.random() * 40) * 60_000);
+    const reachedWindow = durationMs >= WINDOW;
+    const outcome: FocusSession["outcome"] = Math.random() > 0.25 ? "completed" : "interrupted";
+
+    sessions.push({
+      id: `demo-${i}`,
+      taskId: null,
+      taskType,
+      startedAt,
+      endedAt: new Date(new Date(startedAt).getTime() + durationMs).toISOString(),
+      durationMs,
+      windowMs: WINDOW,
+      reachedWindow,
+      outcome,
+      exitReason: outcome === "completed" ? "completion" : "interruption",
+      primaryCompleted: outcome === "completed",
+      mode: "FOCUSED",
+      quality: outcome === "completed" ? QUALITIES[i % QUALITIES.length] : undefined,
+    });
+  }
+  return sessions;
+}

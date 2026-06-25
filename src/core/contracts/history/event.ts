@@ -11,7 +11,9 @@ export type BehavioralEventType =
   | "SCORE_THRESHOLD_CROSSED"
   | "BLOCKER_CAPTURED"
   | "DISTRACTION_LOGGED"
-  | "REFLECTION_GENERATED";
+  | "REFLECTION_GENERATED"
+  | "FOCUS_SESSION_COMPLETED"
+  | "FOCUS_SESSION_INTERRUPTED";
 
 export type EventPayloadMap = {
   CHECK_IN_COMPLETED: {
@@ -34,6 +36,17 @@ export type EventPayloadMap = {
   REFLECTION_GENERATED: {
     workloadGuidance: "REDUCE" | "HOLD" | "EXPAND";
     confidenceBand: string;
+  };
+  FOCUS_SESSION_COMPLETED: {
+    taskType: string | null;
+    durationMs: number;
+    reachedWindow: boolean;
+    quality?: string;
+  };
+  FOCUS_SESSION_INTERRUPTED: {
+    taskType: string | null;
+    durationMs: number;
+    exitReason: string;
   };
 };
 

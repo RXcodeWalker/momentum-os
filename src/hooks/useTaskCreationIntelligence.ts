@@ -26,8 +26,7 @@ export function useTaskCreationIntelligence({
     const inBurnout = state === "burnout";
 
     // Tier 1 — silent adaptation
-    const orderedTypes: TaskType[] =
-      inRecovery || inBurnout ? RECOVERY_ORDER : DEFAULT_ORDER;
+    const orderedTypes: TaskType[] = inRecovery || inBurnout ? RECOVERY_ORDER : DEFAULT_ORDER;
 
     const degradedTypes: TaskType[] = [];
     if ((actual.deep ?? 0) >= (recommended.deep ?? 1)) {
@@ -41,10 +40,7 @@ export function useTaskCreationIntelligence({
         positiveSignal = "Recovery-compatible — builds momentum without depleting reserves.";
       } else if (inBurnout && type === "shallow") {
         positiveSignal = "Good fit for today — low cognitive cost, real completion.";
-      } else if (
-        todayLoadRisk === "overloaded" &&
-        (type === "movement" || type === "shallow")
-      ) {
+      } else if (todayLoadRisk === "overloaded" && (type === "movement" || type === "shallow")) {
         positiveSignal = "This keeps your load in range.";
       }
     }

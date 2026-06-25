@@ -20,6 +20,7 @@ import type {
   FocusEntrySource,
   FocusExitReason,
 } from "@/core/contracts/focus/environment";
+import type { FocusSession, FocusSessionQuality } from "@/core/contracts/focus/session";
 import type { EnvironmentOverride, CommittedEnvironmentSnapshot } from "@/engine/environment";
 import { SSR_ENVIRONMENT_SNAPSHOT } from "@/engine/environment";
 import type { BehavioralEvent } from "@/core/contracts/history/event";
@@ -36,6 +37,8 @@ import {
   emitRecoveryTriggered,
   emitRecoveryExited,
   emitReflectionGenerated,
+  emitFocusSessionCompleted,
+  emitFocusSessionInterrupted,
   pruneEvents,
   computeThresholdCrossings,
   computeAllSnapshots,
@@ -71,6 +74,7 @@ import {
   buildDemoInsights,
   buildDemoMembers,
   buildDemoProofs,
+  buildDemoFocusSessions,
   demoCircle,
   demoPersonalProofs,
   demoPrinciples,
@@ -295,6 +299,8 @@ type State = {
   reflectionHistory: EveningReflectionRecord[];
   /** Focus Environment state — persisted so it survives page refresh. */
   focusEnvironment: FocusEnvironmentState;
+  /** Measured focus sessions, pruned to last 60. */
+  focusSessions: FocusSession[];
   /** Persisted acknowledgements for level-3 intervention modals — cleared after 24h. */
   acknowledgedInterventions: { type: string; acknowledgedAt: string }[];
   /** Persisted temporary environment overrides — e.g. from deep-work sessions or recovery protocols. */
@@ -350,10 +356,17 @@ type State = {
   ) => void;
   acknowledgeIntervention: (type: string) => void;
   skipMorningCalibration: () => void;
-  enterFocusEnvironment: (source: FocusEntrySource) => void;
+  enterFocusEnvironment: (source: FocusEntrySource, windowMs?: number | null) => void;
   exitFocusEnvironment: (
     reason: FocusExitReason,
     heldInterventions?: FocusEnvironmentState["pendingPostFocusInterventions"],
+    opts?: {
+      primaryCompleted?: boolean;
+      quality?: FocusSessionQuality;
+      taskId?: string | null;
+      taskType?: Task["type"] | null;
+      mode?: string;
+    },
   ) => void;
   clearPostFocusInterventions: () => void;
   applyEnvironmentOverride: (override: EnvironmentOverride) => void;
@@ -696,7 +709,10 @@ export const useApp = create<State>()(
           entrySource: null,
           lastManualDismissAt: null,
           pendingPostFocusInterventions: [],
+          sessionWindowMs: null,
+          sessionEntryMode: null,
         },
+        focusSessions: [],
         acknowledgedInterventions: [],
         environmentOverrides: [],
         committedEnvironment: SSR_ENVIRONMENT_SNAPSHOT,
@@ -1384,6 +1400,7 @@ export const useApp = create<State>()(
             principles: demoPrinciples,
             members: buildDemoMembers(),
             circle: demoCircle,
+            focusSessions: buildDemoFocusSessions(),
             dataIsSeeded: true,
           });
         },
@@ -1561,34 +1578,81 @@ export const useApp = create<State>()(
           });
         },
 
-        enterFocusEnvironment: (source) =>
-          set((s) => ({
-            focusEnvironment: {
-              ...s.focusEnvironment,
-              active: true,
-              enteredAt: new Date().toISOString(),
-              entrySource: source,
-              pendingPostFocusInterventions: [],
-            },
-          })),
+        enterFocusEnvironment: (source, windowMs) =>
+          set((s) => {
+            const mode = s.lastPipelineResult?.stateInterpretation.currentMode ?? null;
+            return {
+              focusEnvironment: {
+                ...s.focusEnvironment,
+                active: true,
+                enteredAt: new Date().toISOString(),
+                entrySource: source,
+                pendingPostFocusInterventions: [],
+                sessionWindowMs: windowMs ?? null,
+                sessionEntryMode: mode,
+              },
+            };
+          }),
 
-        exitFocusEnvironment: (reason, heldInterventions) =>
-          set((s) => ({
-            focusEnvironment: {
-              ...s.focusEnvironment,
-              active: false,
-              enteredAt: null,
-              entrySource: null,
-              lastManualDismissAt:
-                reason === "interruption"
-                  ? new Date().toISOString()
-                  : s.focusEnvironment.lastManualDismissAt,
-              pendingPostFocusInterventions:
-                heldInterventions && heldInterventions.length > 0
-                  ? heldInterventions
-                  : s.focusEnvironment.pendingPostFocusInterventions,
-            },
-          })),
+        exitFocusEnvironment: (reason, heldInterventions, opts) =>
+          set((s) => {
+            const now = new Date().toISOString();
+            const endedAt = now;
+            const startedAt = s.focusEnvironment.enteredAt ?? endedAt;
+            const durationMs = new Date(endedAt).getTime() - new Date(startedAt).getTime();
+            const windowMs = s.focusEnvironment.sessionWindowMs;
+            const reachedWindow = windowMs !== null && durationMs >= windowMs;
+            const outcome = reason === "completion" ? "completed" : "interrupted";
+            const mode = (s.focusEnvironment.sessionEntryMode ?? "STEADY") as FocusSession["mode"];
+
+            const session: FocusSession = {
+              id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+              taskId: opts?.taskId ?? null,
+              taskType: opts?.taskType ?? null,
+              startedAt,
+              endedAt,
+              durationMs,
+              windowMs,
+              reachedWindow,
+              outcome,
+              exitReason: reason,
+              primaryCompleted: opts?.primaryCompleted ?? false,
+              mode,
+              quality: opts?.quality,
+            };
+
+            const newEvent =
+              outcome === "completed"
+                ? emitFocusSessionCompleted(
+                    opts?.taskType ?? null,
+                    durationMs,
+                    reachedWindow,
+                    opts?.quality,
+                  )
+                : emitFocusSessionInterrupted(opts?.taskType ?? null, durationMs, reason);
+
+            const updatedSessions = [...s.focusSessions, session].slice(-60);
+            const updatedEvents = pruneEvents([...s.behavioralEvents, newEvent], 90);
+
+            return {
+              focusEnvironment: {
+                ...s.focusEnvironment,
+                active: false,
+                enteredAt: null,
+                entrySource: null,
+                sessionWindowMs: null,
+                sessionEntryMode: null,
+                lastManualDismissAt:
+                  reason === "interruption" ? now : s.focusEnvironment.lastManualDismissAt,
+                pendingPostFocusInterventions:
+                  heldInterventions && heldInterventions.length > 0
+                    ? heldInterventions
+                    : s.focusEnvironment.pendingPostFocusInterventions,
+              },
+              focusSessions: updatedSessions,
+              behavioralEvents: updatedEvents,
+            };
+          }),
 
         clearPostFocusInterventions: () =>
           set((s) => ({
@@ -1609,7 +1673,7 @@ export const useApp = create<State>()(
     },
     {
       name: "cadence-store-v1",
-      version: 10,
+      version: 11,
       // committedEnvironment is ephemeral — EnvironmentRenderer recomputes it on mount
       partialize: (s) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1693,6 +1757,8 @@ export const useApp = create<State>()(
               entrySource: prev?.entrySource ?? null,
               lastManualDismissAt: prev?.lastManualDismissAt ?? null,
               pendingPostFocusInterventions: [],
+              sessionWindowMs: null,
+              sessionEntryMode: null,
             },
           };
         }
@@ -1730,6 +1796,22 @@ export const useApp = create<State>()(
             aggregationSnapshots: backfilledSnapshots,
             trendRecords: backfilledTrends,
             behavioralPeriods: backfilledPeriods,
+          };
+        }
+        if (version < 11) {
+          const prev = (s as Partial<State>).focusEnvironment;
+          s = {
+            ...s,
+            focusSessions: (s as Partial<State>).focusSessions ?? [],
+            focusEnvironment: {
+              active: prev?.active ?? false,
+              enteredAt: prev?.enteredAt ?? null,
+              entrySource: prev?.entrySource ?? null,
+              lastManualDismissAt: prev?.lastManualDismissAt ?? null,
+              pendingPostFocusInterventions: prev?.pendingPostFocusInterventions ?? [],
+              sessionWindowMs: prev?.sessionWindowMs ?? null,
+              sessionEntryMode: prev?.sessionEntryMode ?? null,
+            },
           };
         }
         return s as State;
@@ -1785,13 +1867,47 @@ export function useMomentumScore(): number {
   }, [h, score]);
 }
 
+export function useFocusSessionStats(days = 28) {
+  const sessions = useApp((s) => s.focusSessions);
+  return useMemo(() => {
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const recent = sessions.filter((s) => s.startedAt >= cutoff);
+    if (recent.length === 0) return null;
+    const totalMs = recent.reduce((a, s) => a + s.durationMs, 0);
+    const completed = recent.filter((s) => s.outcome === "completed");
+    const avgSessionMinutes = Math.round(totalMs / recent.length / 60000);
+    const totalFocusMinutes = Math.round(totalMs / 60000);
+    const completionRate = Math.round((completed.length / recent.length) * 100);
+    const reachedWindowRate = Math.round(
+      (recent.filter((s) => s.reachedWindow).length / recent.length) * 100,
+    );
+    const deepShare = Math.round(
+      (recent.filter((s) => s.taskType === "deep").length / recent.length) * 100,
+    );
+    return {
+      sessionCount: recent.length,
+      totalFocusMinutes,
+      avgSessionMinutes,
+      completionRate,
+      reachedWindowRate,
+      deepShare,
+    };
+  }, [sessions, days]);
+}
+
 export function useDeepWorkStats() {
   const h = useApp((s) => s.history);
+  const sessionStats = useFocusSessionStats(28);
   return useMemo(() => {
-    const last28 = h.slice(-28);
-    const avgFocus = last28.reduce((a, d) => a + d.focus, 0) / Math.max(1, last28.length);
-    // Deep work hours estimated from focus score (10 focus -> ~4h deep work)
-    const avgHours = (avgFocus / 10) * 4;
+    // Prefer real session data when available
+    let avgHours: number;
+    if (sessionStats && sessionStats.totalFocusMinutes > 0) {
+      avgHours = Math.round((sessionStats.totalFocusMinutes / 28 / 60) * 10) / 10;
+    } else {
+      const last28 = h.slice(-28);
+      const avgFocus = last28.reduce((a, d) => a + d.focus, 0) / Math.max(1, last28.length);
+      avgHours = Math.round((avgFocus / 10) * 4 * 10) / 10;
+    }
 
     // Calculate execution drop after low sleep
     const lowSleepDays = h.filter((d) => d.sleepHours < 6.5);
@@ -1807,13 +1923,13 @@ export function useDeepWorkStats() {
     const sleepImpact =
       avgNormalSleepScore > 0
         ? Math.round(((avgNormalSleepScore - avgLowSleepScore) / avgNormalSleepScore) * 100)
-        : 35; // Fallback to 35% if no data
+        : 35;
 
     return {
-      avgHours: Math.round(avgHours * 10) / 10,
+      avgHours,
       sleepImpact: Math.max(5, sleepImpact),
     };
-  }, [h]);
+  }, [h, sessionStats]);
 }
 
 export function useDistractionStats() {

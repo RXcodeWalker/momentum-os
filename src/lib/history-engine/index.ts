@@ -9,6 +9,8 @@ export {
   emitRecoveryExited,
   emitReflectionGenerated,
   emitScoreThresholdCrossed,
+  emitFocusSessionCompleted,
+  emitFocusSessionInterrupted,
   pruneEvents,
   computeThresholdCrossings,
 } from "./event-emitter";

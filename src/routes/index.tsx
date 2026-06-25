@@ -47,7 +47,6 @@ import { MorningCalibrationSheet } from "@/components/morning/MorningCalibration
 import type { BehavioralView } from "@/hooks/internal/contracts";
 import { useFocusEnvironment } from "@/hooks/internal/useFocusEnvironment";
 import type { FocusEnvironmentView } from "@/core/contracts/focus/environment";
-import { useFocusInactivityTimer } from "@/hooks/useFocusInactivityTimer";
 import { useBehavioralIntelligence } from "@/lib/behavioral-intelligence";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -132,7 +131,6 @@ function Home() {
   const focusEnv = useFocusEnvironment();
   const enterFocusEnvironment = useApp((s) => s.enterFocusEnvironment);
   const exitFocusEnvironment = useApp((s) => s.exitFocusEnvironment);
-  useFocusInactivityTimer();
 
   const pendingPostFocusInterventions = useApp(
     (s) => s.focusEnvironment.pendingPostFocusInterventions,
@@ -791,7 +789,10 @@ function Home() {
           completed={completed}
           behavioral={behavioral}
           focusEnv={focusEnv}
-          onEnterFocus={() => enterFocusEnvironment("manual")}
+          onEnterFocus={() => {
+            const windowMin = behavioral.tasks.sequencing.focusWindowMinutes;
+            enterFocusEnvironment("manual", windowMin ? windowMin * 60_000 : null);
+          }}
           onExitFocus={() => exitFocusEnvironment("interruption", focusEnv.heldInterventions)}
         />
       </section>

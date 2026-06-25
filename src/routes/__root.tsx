@@ -38,6 +38,7 @@ import { Toaster } from "sonner";
 import { motion, LayoutGroup } from "framer-motion";
 import { ThemeToggle, useTheme } from "@/components/ThemeToggle";
 import { AdaptationDebugOverlay } from "@/components/debug/AdaptationDebugOverlay";
+import { FocusOverlay } from "@/components/focus/FocusOverlay";
 
 function NotFoundComponent() {
   return (
@@ -423,6 +424,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <FocusOverlay />
       <EnvironmentRenderer />
       {import.meta.env.DEV && <AdaptationDebugOverlay />}
       <AuroraBackground />

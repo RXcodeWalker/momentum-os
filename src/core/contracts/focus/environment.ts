@@ -12,6 +12,10 @@ export type FocusEnvironmentState = {
   lastManualDismissAt: string | null;
   /** Level-2 interventions held during focus, surfaced on exit. Cleared on dismiss or re-entry. */
   pendingPostFocusInterventions: ActiveInterventionView[];
+  /** Engine-recommended focus window at session start, for session record. */
+  sessionWindowMs: number | null;
+  /** User mode at session start, for session record. */
+  sessionEntryMode: string | null;
 };
 
 export type FocusEnvironmentView = {

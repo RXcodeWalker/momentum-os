@@ -123,6 +123,31 @@ export function emitScoreThresholdCrossed(
   return createEvent("SCORE_THRESHOLD_CROSSED", { threshold, direction, score }, "saveCheckIn");
 }
 
+export function emitFocusSessionCompleted(
+  taskType: string | null,
+  durationMs: number,
+  reachedWindow: boolean,
+  quality?: string,
+): BehavioralEvent<"FOCUS_SESSION_COMPLETED"> {
+  return createEvent(
+    "FOCUS_SESSION_COMPLETED",
+    { taskType, durationMs, reachedWindow, quality },
+    "exitFocusEnvironment",
+  );
+}
+
+export function emitFocusSessionInterrupted(
+  taskType: string | null,
+  durationMs: number,
+  exitReason: string,
+): BehavioralEvent<"FOCUS_SESSION_INTERRUPTED"> {
+  return createEvent(
+    "FOCUS_SESSION_INTERRUPTED",
+    { taskType, durationMs, exitReason },
+    "exitFocusEnvironment",
+  );
+}
+
 export function pruneEvents(events: BehavioralEvent[], maxAgeDays: number): BehavioralEvent[] {
   const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
   return events

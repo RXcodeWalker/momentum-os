@@ -1,6 +1,7 @@
 export * from "./version";
 export * from "./primitives";
 export * from "./state";
+export * from "./focus/session";
 export * from "./signals";
 export * from "./tasks";
 export * from "./interventions";
