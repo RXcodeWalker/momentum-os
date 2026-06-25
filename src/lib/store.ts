@@ -236,6 +236,38 @@ export type TomorrowPlan = {
   generatedAt: string;
 };
 
+export type WeeklyOutcome = {
+  text: string;
+  linkedTaskIds?: string[];
+  progressSignal?: "on-track" | "at-risk" | "complete" | "deferred";
+};
+
+export type DayCapacity = {
+  baseTaskCap: number;
+  adaptedTaskCap: number;
+  deepWorkCap: number;
+  warningFlags: string[];
+  source: "historical" | "recovery-override" | "user-nudge";
+};
+
+export type WeeklyPlan = {
+  weekStartDate: string;
+  northStar: string;
+  keyOutcomes: [WeeklyOutcome, WeeklyOutcome, WeeklyOutcome];
+  blockerGuard: { blockerType: string; countermeasure: string } | null;
+  distractionGuard: { distractionType: string; countermeasure: string } | null;
+  baseCapacities: Record<number, { taskCap: number; deepWorkCap: number }>;
+  capacityNudges: Record<number, number>;
+  generatedAt: string;
+  acceptedAt: string | null;
+  revisions: { at: string; reason: string }[];
+};
+
+export type WeeklyAlignmentEntry = {
+  date: string;
+  signal: "yes" | "partial" | "off-track";
+};
+
 type State = {
   user: string;
   currentUserId: string;
@@ -254,6 +286,8 @@ type State = {
   distractionLog: DistractionLogEntry[];
   streaks: StreakState;
   tomorrowPlan: TomorrowPlan | null;
+  weeklyPlan: WeeklyPlan | null;
+  weeklyAlignmentLog: WeeklyAlignmentEntry[];
   recoveryMode: boolean;
   recoveryHighScoreDays: number;
   recoveryReason?: string;
@@ -319,6 +353,11 @@ type State = {
 
   // Actions
   acceptTomorrowPlan: () => void;
+  acceptWeeklyPlan: (plan: Omit<WeeklyPlan, "acceptedAt" | "revisions">) => void;
+  clearWeeklyPlan: () => void;
+  nudgeWeeklyCapacity: (day: number, delta: number) => void;
+  reviseWeeklyPlan: (reason: string) => void;
+  logWeeklyAlignment: (signal: WeeklyAlignmentEntry["signal"]) => void;
   completeOnboarding: () => void;
   updateSetup: (step: number) => void;
   finishSetup: (archetype: string, score: number) => void;
@@ -784,6 +823,8 @@ export const useApp = create<State>()(
           quickRecoveries: 0,
         },
         tomorrowPlan: null,
+        weeklyPlan: null,
+        weeklyAlignmentLog: [],
         recoveryMode: false,
         recoveryHighScoreDays: 0,
         premium: false,
@@ -1114,6 +1155,56 @@ export const useApp = create<State>()(
           }
           set({ tasks: updated, tomorrowPlan: null });
         },
+
+        acceptWeeklyPlan: (plan) => {
+          set({
+            weeklyPlan: {
+              ...plan,
+              acceptedAt: new Date().toISOString(),
+              revisions: [],
+            },
+          });
+        },
+
+        clearWeeklyPlan: () => set({ weeklyPlan: null }),
+
+        nudgeWeeklyCapacity: (day, delta) => {
+          set((s) => {
+            if (!s.weeklyPlan) return s;
+            const current = s.weeklyPlan.capacityNudges[day] ?? 0;
+            const next = Math.max(-2, Math.min(2, current + delta));
+            return {
+              weeklyPlan: {
+                ...s.weeklyPlan,
+                capacityNudges: { ...s.weeklyPlan.capacityNudges, [day]: next },
+              },
+            };
+          });
+        },
+
+        reviseWeeklyPlan: (reason) => {
+          set((s) => {
+            if (!s.weeklyPlan) return s;
+            return {
+              weeklyPlan: {
+                ...s.weeklyPlan,
+                acceptedAt: new Date().toISOString(),
+                revisions: [...s.weeklyPlan.revisions, { at: new Date().toISOString(), reason }],
+              },
+            };
+          });
+        },
+
+        logWeeklyAlignment: (signal) => {
+          const today = todayStr();
+          set((s) => ({
+            weeklyAlignmentLog: [
+              ...s.weeklyAlignmentLog.filter((e) => e.date !== today),
+              { date: today, signal },
+            ],
+          }));
+        },
+
         setPremium: (v) => set({ premium: v }),
         setCheckInStyle: (style) => set({ checkInStyle: style }),
         dismissInsight: (id) => {
@@ -3177,6 +3268,229 @@ export function useCapabilityExpansion(): ExpansionDecision | null {
     lastPipelineResult,
     w14Metrics,
   ]);
+}
+
+// ---------------------------------------------------------------------------
+// Weekly Planning selectors
+// ---------------------------------------------------------------------------
+
+function getISOWeekMonday(date: Date): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function buildBaseCapacities(
+  byDay: Record<number, { avgScore: number }>,
+  w14RecoveryDebt: boolean,
+): Record<number, { taskCap: number; deepWorkCap: number }> {
+  const caps: Record<number, { taskCap: number; deepWorkCap: number }> = {};
+  for (let i = 0; i <= 6; i++) {
+    const avg = byDay[i]?.avgScore ?? 0;
+    let taskCap = avg >= 70 ? 4 : avg >= 60 ? 3 : avg >= 50 ? 2 : 1;
+    let deepWorkCap = avg >= 70 ? 3 : avg >= 60 ? 2 : avg >= 50 ? 1 : 0;
+    // Wednesday recovery buffer when recovery debt is accumulating
+    if (w14RecoveryDebt && i === 3) {
+      taskCap = Math.min(taskCap, 2);
+      deepWorkCap = Math.min(deepWorkCap, 1);
+    }
+    caps[i] = { taskCap, deepWorkCap };
+  }
+  return caps;
+}
+
+export function useWeeklyAdaptation(): {
+  dayCapacities: Record<number, DayCapacity>;
+  todayFocusEmphasis: "deep" | "recovery" | "admin" | "hold";
+  weekMomentum: "building" | "holding" | "declining";
+  recoveryOverlay: boolean;
+  remainingCapacityMin: number;
+  outcomeProgress: WeeklyOutcome[];
+} | null {
+  const weeklyPlan = useApp((s) => s.weeklyPlan);
+  const recoveryMode = useApp((s) => s.recoveryMode);
+  const history = useApp((s) => s.history);
+  const checkIns = useApp((s) => s.checkIns);
+  const tasks = useApp((s) => s.tasks);
+  const weeklyAlignmentLog = useApp((s) => s.weeklyAlignmentLog);
+
+  return useMemo(() => {
+    if (!weeklyPlan || !weeklyPlan.acceptedAt) return null;
+
+    const currentMonday = getISOWeekMonday(new Date());
+    if (weeklyPlan.weekStartDate !== currentMonday) return null;
+
+    const today = new Date();
+    const todayDow = today.getDay();
+
+    // Build day capacities
+    const dayCapacities: Record<number, DayCapacity> = {};
+    for (let i = 0; i <= 6; i++) {
+      const base = weeklyPlan.baseCapacities[i] ?? { taskCap: 2, deepWorkCap: 1 };
+      const nudge = weeklyPlan.capacityNudges[i] ?? 0;
+
+      if (recoveryMode) {
+        dayCapacities[i] = {
+          baseTaskCap: base.taskCap,
+          adaptedTaskCap: 1,
+          deepWorkCap: 0,
+          warningFlags: ["Recovery mode — capacity compressed"],
+          source: "recovery-override",
+        };
+        continue;
+      }
+
+      let adapted = base.taskCap + nudge;
+      const flags: string[] = [];
+
+      if (i === todayDow) {
+        // Check prior day score
+        const yesterday = history[history.length - 1];
+        if (yesterday && yesterday.executionScore < 50) {
+          adapted = Math.max(1, adapted - 1);
+          flags.push("Adjusted for yesterday's dip");
+        }
+        // Check last check-in sleep
+        const lastCheckIn = checkIns[checkIns.length - 1];
+        if (lastCheckIn && lastCheckIn.sleepHours < 6) {
+          flags.push("Low sleep — keep it light");
+        }
+      }
+
+      const source = nudge !== 0 ? ("user-nudge" as const) : ("historical" as const);
+      dayCapacities[i] = {
+        baseTaskCap: base.taskCap,
+        adaptedTaskCap: Math.max(1, adapted),
+        deepWorkCap: recoveryMode ? 0 : base.deepWorkCap,
+        warningFlags: flags,
+        source,
+      };
+    }
+
+    // Today focus emphasis
+    const lastCheckIn = checkIns[checkIns.length - 1];
+    const recentHistory = history.slice(-3);
+    const avgRecentScore =
+      recentHistory.length > 0
+        ? recentHistory.reduce((a, d) => a + d.executionScore, 0) / recentHistory.length
+        : 70;
+
+    let todayFocusEmphasis: "deep" | "recovery" | "admin" | "hold";
+    if (recoveryMode) {
+      todayFocusEmphasis = "recovery";
+    } else if (avgRecentScore < 45) {
+      todayFocusEmphasis = "hold";
+    } else if (lastCheckIn && lastCheckIn.energy < 4) {
+      todayFocusEmphasis = "admin";
+    } else {
+      todayFocusEmphasis = "deep";
+    }
+
+    // Week momentum from alignment log
+    const thisWeekAlignments = weeklyAlignmentLog.filter(
+      (e) => e.date >= currentMonday,
+    );
+    const positiveCount = thisWeekAlignments.filter(
+      (e) => e.signal === "yes" || e.signal === "partial",
+    ).length;
+    const offTrackCount = thisWeekAlignments.filter((e) => e.signal === "off-track").length;
+
+    let weekMomentum: "building" | "holding" | "declining";
+    if (offTrackCount > positiveCount) {
+      weekMomentum = "declining";
+    } else if (positiveCount >= offTrackCount && positiveCount > 0) {
+      weekMomentum = "building";
+    } else {
+      weekMomentum = "holding";
+    }
+
+    // Remaining capacity (task-minutes remaining this week)
+    const daysSoFar = todayDow === 0 ? 7 : todayDow; // days elapsed including today
+    let remainingCapacityMin = 0;
+    for (let i = todayDow; i <= 5; i++) {
+      // Mon-Fri remaining (i=1..5)
+      if (i >= 1) {
+        remainingCapacityMin += (dayCapacities[i]?.adaptedTaskCap ?? 2) * 45;
+      }
+    }
+
+    // Outcome progress
+    const outcomeProgress: WeeklyOutcome[] = weeklyPlan.keyOutcomes.map((outcome) => {
+      if (!outcome.linkedTaskIds || outcome.linkedTaskIds.length === 0) {
+        return outcome;
+      }
+      const linked = tasks.filter((t) => outcome.linkedTaskIds!.includes(t.id));
+      const completedCount = linked.filter((t) => t.done).length;
+      let signal: WeeklyOutcome["progressSignal"];
+      if (completedCount === linked.length && linked.length > 0) {
+        signal = "complete";
+      } else if (completedCount > 0) {
+        signal = "on-track";
+      } else {
+        signal = undefined;
+      }
+      return { ...outcome, progressSignal: signal };
+    });
+
+    void daysSoFar;
+
+    return {
+      dayCapacities,
+      todayFocusEmphasis,
+      weekMomentum,
+      recoveryOverlay: recoveryMode,
+      remainingCapacityMin,
+      outcomeProgress,
+    };
+  }, [weeklyPlan, recoveryMode, history, checkIns, tasks, weeklyAlignmentLog]);
+}
+
+export function useWeeklyBriefing(): {
+  active: boolean;
+  northStar: string | null;
+  adaptedCapToday: number | null;
+  recoveryOverlay: boolean;
+  todayFocusEmphasis: "deep" | "recovery" | "admin" | "hold" | null;
+} {
+  const adaptation = useWeeklyAdaptation();
+  const weeklyPlan = useApp((s) => s.weeklyPlan);
+
+  return useMemo(() => {
+    if (!adaptation || !weeklyPlan) {
+      return { active: false, northStar: null, adaptedCapToday: null, recoveryOverlay: false, todayFocusEmphasis: null };
+    }
+    const todayDow = new Date().getDay();
+    const todayCap = adaptation.dayCapacities[todayDow];
+    return {
+      active: true,
+      northStar: weeklyPlan.northStar || null,
+      adaptedCapToday: todayCap?.adaptedTaskCap ?? null,
+      recoveryOverlay: adaptation.recoveryOverlay,
+      todayFocusEmphasis: adaptation.todayFocusEmphasis,
+    };
+  }, [adaptation, weeklyPlan]);
+}
+
+export function buildWeeklyPlanDraft(
+  byDay: Record<number, { avgScore: number }>,
+  w14RecoveryDebt: boolean,
+  blockerType?: string,
+  distractionType?: string,
+): Omit<WeeklyPlan, "acceptedAt" | "revisions"> {
+  const weekStart = getISOWeekMonday(new Date());
+  const baseCapacities = buildBaseCapacities(byDay, w14RecoveryDebt);
+  return {
+    weekStartDate: weekStart,
+    northStar: "",
+    keyOutcomes: [{ text: "" }, { text: "" }, { text: "" }],
+    blockerGuard: blockerType ? { blockerType, countermeasure: "" } : null,
+    distractionGuard: distractionType ? { distractionType, countermeasure: "" } : null,
+    baseCapacities,
+    capacityNudges: {},
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 /** Aggregate compatibility distribution across all current task evaluations. */

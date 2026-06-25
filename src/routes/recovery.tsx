@@ -32,6 +32,7 @@ import {
   useRootCauseAnalysis,
   useDeepWorkStats,
   usePersonalizedRecoveryMatch,
+  useWeeklyBriefing,
 } from "@/lib/store";
 import {
   mvdProtocols,
@@ -71,6 +72,7 @@ function Recovery() {
   const analysis = useRootCauseAnalysis();
   const deepWorkStats = useDeepWorkStats();
   const protocolMatch = usePersonalizedRecoveryMatch();
+  const weeklyBriefing = useWeeklyBriefing();
 
   const rootCauses = useMemo(
     () => [
@@ -201,6 +203,21 @@ function Recovery() {
         }
         right={recoveryMode ? <Pill tone="warning">Active</Pill> : undefined}
       />
+
+      {/* Weekly commitment note */}
+      {weeklyBriefing.active && weeklyBriefing.northStar && (
+        <section className="px-5">
+          <div className="rounded-2xl bg-accent/8 border border-accent/20 px-4 py-3">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-accent/60 mb-1">
+              Your commitment stands
+            </p>
+            <p className="text-sm text-foreground font-medium leading-snug">{weeklyBriefing.northStar}</p>
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Entering recovery doesn't reset your intentions — it adjusts how you execute them.
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* Step indicator */}
       <section className="px-5">

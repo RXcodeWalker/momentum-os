@@ -14,7 +14,7 @@ import {
   ChevronRight,
   Target,
 } from "lucide-react";
-import { Task, CheckIn, useSmartCheckInDefaults } from "@/lib/store";
+import { Task, CheckIn, useSmartCheckInDefaults, useWeeklyBriefing, useApp } from "@/lib/store";
 import { MOODS, DISTRACTIONS, CHECK_IN_PLACEHOLDERS, CHECK_IN_DEFAULTS } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -54,6 +54,9 @@ export function CheckInWizard({
   const [meaningfulProgress, setMeaningfulProgress] = useState<"yes" | "partial" | "no" | null>(
     null,
   );
+  const [weeklyAlignment, setWeeklyAlignment] = useState<"yes" | "partial" | "off-track" | null>(null);
+  const weeklyBriefing = useWeeklyBriefing();
+  const logWeeklyAlignment = useApp((s) => s.logWeeklyAlignment);
 
   const completed = tasks.filter((t) => t.done).length;
 
@@ -63,6 +66,9 @@ export function CheckInWizard({
   const back = () => setStep((s) => s - 1);
 
   const save = () => {
+    if (weeklyAlignment !== null) {
+      logWeeklyAlignment(weeklyAlignment);
+    }
     onSave({
       focus,
       mood,
@@ -320,6 +326,24 @@ export function CheckInWizard({
               placeholder={CHECK_IN_PLACEHOLDERS.tomorrowFocus}
             />
           </div>
+
+          {weeklyBriefing.active && (
+            <div className="space-y-2.5">
+              <StatLabel className="block">Did today connect to your week's focus?</StatLabel>
+              <p className="text-[11px] text-muted-foreground -mt-1">"{weeklyBriefing.northStar}"</p>
+              <div className="grid grid-cols-3 gap-2">
+                {(["yes", "partial", "off-track"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => setWeeklyAlignment(opt)}
+                    className={`rounded-2xl py-2.5 text-xs font-medium capitalize transition ${weeklyAlignment === opt ? "bg-accent text-accent-foreground" : "bg-secondary text-muted-foreground"}`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button
             onClick={save}

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { useVisibleRoutes } from "@/lib/maturity";
+import { useEffect, useState } from "react";
+import { useVisibleRoutes, useUserStage } from "@/lib/maturity";
 import { BarRow, Card, Pill, Ring, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
 import { ExecutionHeatmap } from "@/components/heatmap";
 import {
@@ -14,6 +14,7 @@ import {
   useDayOfWeekProfile,
   useDistractionProfile,
   useBlockerPattern,
+  useWeeklyAdaptation,
 } from "@/lib/store";
 import {
   ArrowLeft,
@@ -26,8 +27,12 @@ import {
   Shield,
   Zap,
   CheckCircle2,
+  Lock,
+  ChevronRight,
+  CalendarCheck,
 } from "lucide-react";
 import { Stagger, StaggerItem, TapCard, FadeUp } from "@/lib/motion";
+import { WeeklyReviewWizard } from "@/components/weekly/WeeklyReviewWizard";
 
 export const Route = createFileRoute("/weekly")({
   head: () => ({
@@ -45,10 +50,15 @@ export const Route = createFileRoute("/weekly")({
 function Weekly() {
   const navigate = useNavigate();
   const visibleRoutes = useVisibleRoutes();
+  const userStage = useUserStage();
   const isUnlocked = visibleRoutes.includes("this-week");
   useEffect(() => {
     if (!isUnlocked) navigate({ to: "/" });
   }, [isUnlocked, navigate]);
+
+  const [showWizard, setShowWizard] = useState(false);
+  const weeklyPlan = useApp((s) => s.weeklyPlan);
+  const weeklyAdaptation = useWeeklyAdaptation();
 
   const history = useApp((s) => s.history);
   const principles = useApp((s) => s.principles);
@@ -95,6 +105,16 @@ function Weekly() {
 
   if (!isUnlocked) return null;
 
+  if (showWizard) {
+    return (
+      <div className="flex flex-col">
+        <WeeklyReviewWizard onClose={() => setShowWizard(false)} />
+      </div>
+    );
+  }
+
+  const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
   return (
     <Stagger className="flex flex-col gap-5 pb-6">
       <ScreenHeader
@@ -110,6 +130,138 @@ function Weekly() {
           </Link>
         }
       />
+
+      {/* Active weekly plan banner */}
+      {weeklyAdaptation && weeklyPlan && (
+        <StaggerItem className="px-5">
+          <Card className="bg-gradient-surface border-accent/20">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Lock className="h-3 w-3 text-accent" />
+                  <StatLabel>This week's commitment</StatLabel>
+                </div>
+                <p className="text-sm font-medium text-foreground">{weeklyPlan.northStar}</p>
+              </div>
+              <Pill
+                tone={weeklyAdaptation.weekMomentum === "building" ? "success" : weeklyAdaptation.weekMomentum === "declining" ? "danger" : "muted"}
+                className="text-[9px] flex-none capitalize"
+              >
+                {weeklyAdaptation.weekMomentum}
+              </Pill>
+            </div>
+            <div className="space-y-1.5">
+              {weeklyAdaptation.outcomeProgress.map((outcome, i) => (
+                outcome.text ? (
+                  <div key={i} className="flex items-start gap-2">
+                    <div className={`flex h-4 w-4 flex-none items-center justify-center rounded-full text-[9px] font-bold mt-0.5 ${outcome.progressSignal === "complete" ? "bg-success/20 text-success" : outcome.progressSignal === "on-track" ? "bg-accent/20 text-accent" : "bg-secondary text-muted-foreground"}`}>
+                      {outcome.progressSignal === "complete" ? "✓" : i + 1}
+                    </div>
+                    <p className="text-xs text-muted-foreground flex-1">{outcome.text}</p>
+                  </div>
+                ) : null
+              ))}
+            </div>
+            {(weeklyPlan.blockerGuard || weeklyPlan.distractionGuard) && (
+              <div className="mt-3 pt-3 border-t border-border/40 flex flex-wrap gap-1.5">
+                {weeklyPlan.blockerGuard && (
+                  <Pill tone="warning" className="text-[9px] capitalize">
+                    <Shield className="h-2.5 w-2.5 mr-0.5" />
+                    {weeklyPlan.blockerGuard.blockerType}
+                  </Pill>
+                )}
+                {weeklyPlan.distractionGuard && (
+                  <Pill tone="accent" className="text-[9px] capitalize">
+                    <Zap className="h-2.5 w-2.5 mr-0.5" />
+                    {weeklyPlan.distractionGuard.distractionType}
+                  </Pill>
+                )}
+              </div>
+            )}
+          </Card>
+        </StaggerItem>
+      )}
+
+      {/* Week tracking card */}
+      {weeklyAdaptation && (
+        <StaggerItem className="px-5">
+          <Card>
+            <StatLabel className="mb-3 block">Week capacity · today's view</StatLabel>
+            <div className="flex gap-1.5 mb-2">
+              {[1, 2, 3, 4, 5].map((dow) => {
+                const cap = weeklyAdaptation.dayCapacities[dow];
+                const todayDow = new Date().getDay();
+                const isToday = dow === todayDow;
+                return (
+                  <div key={dow} className={`flex-1 rounded-xl px-1 py-2 text-center ${isToday ? "bg-accent/10 ring-1 ring-accent/30" : "bg-secondary/40"}`}>
+                    <p className={`text-[9px] font-medium mb-1 ${isToday ? "text-accent" : "text-muted-foreground"}`}>
+                      {DAY_NAMES_SHORT[dow].slice(0, 1)}
+                    </p>
+                    <p className={`font-display text-lg ${isToday ? "text-accent" : "text-foreground"}`}>{cap?.adaptedTaskCap ?? "—"}</p>
+                    {cap?.warningFlags[0] && (
+                      <p className="text-[8px] text-warning/80 leading-tight mt-0.5">{cap.warningFlags[0].slice(0, 12)}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-muted-foreground">
+                Remaining capacity: ~{Math.round(weeklyAdaptation.remainingCapacityMin / 45)} task slots
+              </span>
+              <span className={`font-medium ${weeklyAdaptation.todayFocusEmphasis === "deep" ? "text-accent" : weeklyAdaptation.todayFocusEmphasis === "recovery" ? "text-warning" : "text-muted-foreground"}`}>
+                Today: {weeklyAdaptation.todayFocusEmphasis}
+              </span>
+            </div>
+          </Card>
+        </StaggerItem>
+      )}
+
+      {/* CTA to start weekly review — gated to establishing+ */}
+      {!weeklyAdaptation && (userStage === "establishing" || userStage === "established") && (
+        <StaggerItem className="px-5">
+          <button onClick={() => setShowWizard(true)} className="w-full">
+            <TapCard className="bg-gradient-surface p-5 hairline rounded-3xl">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <CalendarCheck className="h-4 w-4 text-accent" />
+                    <StatLabel>Weekly plan</StatLabel>
+                  </div>
+                  <p className="font-display text-lg text-foreground">Start weekly review</p>
+                  <p className="mt-1 text-xs text-muted-foreground max-w-[30ch]">
+                    Set your north star, lock in 3 outcomes, and shape your capacity for the week.
+                  </p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-accent flex-none" />
+              </div>
+            </TapCard>
+          </button>
+        </StaggerItem>
+      )}
+
+      {/* Revise plan CTA when plan is active */}
+      {weeklyAdaptation && (
+        <StaggerItem className="px-5">
+          <button
+            onClick={() => setShowWizard(true)}
+            className="w-full text-center text-xs text-muted-foreground py-1"
+          >
+            Revise this week's plan
+          </button>
+        </StaggerItem>
+      )}
+
+      {/* Maturity gate nudge for fresh/exploring users */}
+      {!weeklyAdaptation && userStage !== "establishing" && userStage !== "established" && (
+        <StaggerItem className="px-5">
+          <Card className="border-dashed">
+            <p className="text-xs text-muted-foreground text-center">
+              Weekly planning unlocks after 7 check-ins. Keep going.
+            </p>
+          </Card>
+        </StaggerItem>
+      )}
 
       <StaggerItem className="px-5">
         <Card className="bg-gradient-surface">

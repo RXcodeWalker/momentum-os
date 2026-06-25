@@ -32,6 +32,7 @@ import {
   useInsightEffectiveness,
   useScoreVelocity,
   useInterventionIntelligence,
+  useWeeklyBriefing,
 } from "@/lib/store";
 import { useState, useEffect } from "react";
 import { Stagger, StaggerItem, TapCard } from "@/lib/motion";
@@ -167,6 +168,8 @@ function Home() {
     ? Math.floor((Date.now() - new Date(recoveryPlan.startedAt).getTime()) / 86400000) + 1
     : 1;
 
+  const weeklyBriefing = useWeeklyBriefing();
+
   const todayDate = new Date().toISOString().slice(0, 10);
   const hasCheckedInToday = checkIns.some((c) => c.date === todayDate);
 
@@ -285,6 +288,30 @@ function Home() {
           </div>
         }
       />
+
+      {/* Weekly plan north star banner */}
+      {weeklyBriefing.active && weeklyBriefing.northStar && (
+        <div className="px-5 -mt-1">
+          <div className={`rounded-2xl px-4 py-3 flex items-start gap-2.5 ${weeklyBriefing.recoveryOverlay ? "bg-warning/8 border border-warning/20" : "bg-accent/8 border border-accent/20"}`}>
+            <div className="flex-1">
+              <p className="text-[10px] uppercase tracking-widest font-semibold text-accent/70 mb-0.5">
+                This week's focus
+              </p>
+              <p className="text-sm text-foreground font-medium leading-snug">{weeklyBriefing.northStar}</p>
+              {weeklyBriefing.recoveryOverlay && (
+                <p className="text-[10px] text-warning/80 mt-1">
+                  Recovery day — commitments preserved, load reduced
+                </p>
+              )}
+            </div>
+            {weeklyBriefing.todayFocusEmphasis && (
+              <span className={`text-[9px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full flex-none mt-0.5 ${weeklyBriefing.todayFocusEmphasis === "deep" ? "bg-accent/15 text-accent" : weeklyBriefing.todayFocusEmphasis === "recovery" ? "bg-warning/15 text-warning" : "bg-secondary text-muted-foreground"}`}>
+                {weeklyBriefing.todayFocusEmphasis}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       <Stagger className="grid grid-cols-1 gap-4 px-5 lg:px-0 lg:grid-cols-12 lg:gap-6" gap={0.07}>
         <StaggerItem className="lg:col-span-12">
