@@ -52,6 +52,9 @@ import { useBehavioralIntelligence } from "@/lib/behavioral-intelligence";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDataReadiness } from "@/lib/maturity";
+import { useTaskCreationIntelligence } from "@/hooks/useTaskCreationIntelligence";
+import { IntelligentTaskWarning } from "@/components/task/IntelligentTaskWarning";
+import { CapacityDots } from "@/components/task/CapacityDots";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -912,12 +915,16 @@ function TasksSection({
 }) {
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
-  const [type, setType] = useState<"deep" | "shallow" | "movement" | "wind-down">("deep");
+  const [labelFocused, setLabelFocused] = useState(false);
+  const [type, setType] = useState<"deep" | "shallow" | "movement" | "admin" | "wind-down">("deep");
+  const [dismissedWarnings, setDismissedWarnings] = useState<Set<string>>(new Set());
+  const [avoidanceDismissed, setAvoidanceDismissed] = useState(false);
   const addTask = useApp((s) => s.addTask);
   const rescheduleTask = useApp((s) => s.rescheduleTask);
   const resetDemo = useApp((s) => s.resetDemo);
   const acknowledgeIntervention = useApp((s) => s.acknowledgeIntervention);
   const taskIntel = useTaskIntelligence();
+  const creationIntel = useTaskCreationIntelligence({ type, labelFocused });
   const stretchOpp = behavioral.execution.stretchOpportunity;
 
   const surfaceLevel = behavioral.shell.surfaceLevel;
@@ -1200,7 +1207,31 @@ function TasksSection({
             })}
 
             {adding ? (
-              <div className="hairline space-y-4 rounded-3xl bg-card p-4 shadow-xl border-accent/20">
+              <div className="hairline space-y-3 rounded-3xl bg-card p-4 shadow-xl border-accent/20">
+                {/* Avoidance prompt — structural, session-dismissible */}
+                <AnimatePresence>
+                  {creationIntel.avoidancePrompt && !avoidanceDismissed && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex items-start gap-2 rounded-xl bg-muted/40 border border-border/50 px-3 py-2"
+                    >
+                      <p className="text-[11px] text-muted-foreground/70 flex-1 leading-relaxed">
+                        {creationIntel.avoidancePrompt}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setAvoidanceDismissed(true)}
+                        className="text-muted-foreground/40 hover:text-muted-foreground transition-colors flex-none mt-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -1208,6 +1239,9 @@ function TasksSection({
                       addTask({ label: label.trim(), estMin: type === "deep" ? 90 : 30, type });
                       setLabel("");
                       setAdding(false);
+                      setDismissedWarnings(new Set());
+                      setAvoidanceDismissed(false);
+                      setLabelFocused(false);
                     }
                   }}
                 >
@@ -1215,35 +1249,103 @@ function TasksSection({
                     autoFocus
                     value={label}
                     onChange={(e) => setLabel(e.target.value)}
+                    onFocus={() => setLabelFocused(true)}
+                    onBlur={() => setLabelFocused(false)}
                     placeholder="One thing that actually matters…"
                     className="w-full bg-transparent text-lg font-medium text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
                   />
-                  <div className="mt-4 flex items-center justify-between">
-                    <div className="flex gap-1.5">
-                      {[
-                        { id: "deep", icon: Zap, label: "Deep" },
-                        { id: "shallow", icon: Wind, label: "Shallow" },
-                        { id: "movement", icon: Dumbbell, label: "Move" },
-                      ].map((item) => {
-                        const Icon = item.icon;
-                        const active = type === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => setType(item.id as typeof type)}
-                            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
-                              active
-                                ? "bg-accent text-background"
+
+                  {/* Capacity dots */}
+                  <div className="mt-3">
+                    <CapacityDots
+                      fill={creationIntel.capacityFill}
+                      cap={creationIntel.suggestedCap}
+                      taskCount={tasks.length}
+                    />
+                  </div>
+
+                  {/* Type selector — state-adapted order */}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {creationIntel.orderedTypes.map((id) => {
+                      const META: Record<string, { icon: typeof Zap; label: string }> = {
+                        deep: { icon: Zap, label: "Deep" },
+                        shallow: { icon: Wind, label: "Shallow" },
+                        movement: { icon: Dumbbell, label: "Move" },
+                        admin: { icon: BookOpen, label: "Admin" },
+                        "wind-down": { icon: Moon, label: "Wind" },
+                      };
+                      const meta = META[id];
+                      if (!meta) return null;
+                      const Icon = meta.icon;
+                      const active = type === id;
+                      const degraded = creationIntel.degradedTypes.includes(id);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setType(id as typeof type)}
+                          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                            active
+                              ? "bg-accent text-background"
+                              : degraded
+                                ? "bg-secondary text-muted-foreground/40 hover:text-muted-foreground border border-border/30"
                                 : "bg-secondary text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            <Icon className="h-3 w-3" />
-                            {item.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                          }`}
+                        >
+                          <Icon className="h-3 w-3" />
+                          {meta.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Tier 2 / Tier 3 inline signal */}
+                  <AnimatePresence mode="wait">
+                    {(creationIntel.positiveSignal || creationIntel.guidanceSignal) && (
+                      <motion.p
+                        key={creationIntel.positiveSignal ?? creationIntel.guidanceSignal}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: creationIntel.positiveSignal ? 0.7 : 0.6 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="text-[11px] text-muted-foreground mt-1.5"
+                      >
+                        {creationIntel.positiveSignal ?? creationIntel.guidanceSignal}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Tier 4 — explicit warning banner */}
+                  <AnimatePresence>
+                    {creationIntel.activeWarning &&
+                      !dismissedWarnings.has(creationIntel.activeWarning) && (
+                        <div className="mt-2">
+                          <IntelligentTaskWarning
+                            kind={creationIntel.activeWarning}
+                            onDismiss={() =>
+                              setDismissedWarnings(
+                                (prev) => new Set([...prev, creationIntel.activeWarning!]),
+                              )
+                            }
+                          />
+                        </div>
+                      )}
+                  </AnimatePresence>
+
+                  <div className="mt-3 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdding(false);
+                        setLabel("");
+                        setDismissedWarnings(new Set());
+                        setAvoidanceDismissed(false);
+                        setLabelFocused(false);
+                      }}
+                      className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
                     <button
                       type="submit"
                       className="rounded-xl bg-foreground px-5 py-2 text-xs font-bold text-background shadow-lg shadow-foreground/10"
@@ -1256,21 +1358,30 @@ function TasksSection({
             ) : (
               <div className="flex flex-col gap-3">
                 <button
-                  onClick={() => setAdding(true)}
-                  disabled={tasks.length >= MAX_TASKS}
+                  onClick={() => {
+                    setAdding(true);
+                    setDismissedWarnings(new Set());
+                    setAvoidanceDismissed(false);
+                  }}
+                  disabled={creationIntel.atHardCap}
                   className="group hairline flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-card/50 transition-all disabled:opacity-40"
                 >
                   <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
-                  Add Priority {tasks.length >= MAX_TASKS && "(cap reached)"}
+                  Add Priority {creationIntel.atHardCap && "(cap reached)"}
                 </button>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => addTask({ label: "30m Deep Work", estMin: 30, type: "deep" })}
-                    className="hairline py-3 px-4 rounded-xl text-[11px] font-bold text-muted-foreground hover:text-accent hover:bg-accent/5 transition-all text-left flex items-center gap-2"
-                  >
-                    <Zap className="h-3 w-3" /> +30m Deep Work
-                  </button>
+                  {/* Deep Work quick-add absent in recovery (orderedTypes[0] === "movement" signals recovery order) */}
+                  {creationIntel.orderedTypes[0] !== "movement" ? (
+                    <button
+                      onClick={() => addTask({ label: "30m Deep Work", estMin: 30, type: "deep" })}
+                      className="hairline py-3 px-4 rounded-xl text-[11px] font-bold text-muted-foreground hover:text-accent hover:bg-accent/5 transition-all text-left flex items-center gap-2"
+                    >
+                      <Zap className="h-3 w-3" /> +30m Deep Work
+                    </button>
+                  ) : (
+                    <div />
+                  )}
                   <button
                     onClick={() =>
                       addTask({ label: "Movement Session", estMin: 20, type: "movement" })
