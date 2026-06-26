@@ -444,28 +444,32 @@ function Weekly() {
         );
       })()}
 
-      {/* Distraction mix */}
+      {/* Distraction reference — #9: Insights owns the full breakdown; Weekly only
+          references the single top friction and links out. */}
       {distractionProfile.topDistractors.length > 0 && (
         <StaggerItem className="px-5">
-          <Card>
-            <StatLabel className="mb-3 block">Distraction Mix · This Week</StatLabel>
-            <div className="space-y-2.5">
-              {distractionProfile.topDistractors.slice(0, 4).map((d) => (
-                <div key={d.id} className="flex items-center gap-2">
-                  <span className="text-sm text-foreground capitalize flex-1">
-                    {d.id.replace("-", " ")}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">{d.frequency}d</span>
-                  <span
-                    className={`text-xs font-semibold ${d.avgScoreImpact < -3 ? "text-danger" : d.avgScoreImpact < 0 ? "text-warning" : "text-muted-foreground"}`}
-                  >
-                    {d.avgScoreImpact > 0 ? "+" : ""}
-                    {d.avgScoreImpact} pts
-                  </span>
+          <Link to="/insights" className="group block">
+            <Card>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <StatLabel className="mb-1 block">Top friction this week</StatLabel>
+                  <p className="text-sm text-foreground">
+                    <span className="capitalize font-medium">
+                      {distractionProfile.topDistractors[0].id.replace("-", " ")}
+                    </span>{" "}
+                    <span className="text-muted-foreground">
+                      ({distractionProfile.topDistractors[0].frequency}d ·{" "}
+                      {distractionProfile.topDistractors[0].avgScoreImpact > 0 ? "+" : ""}
+                      {distractionProfile.topDistractors[0].avgScoreImpact} pts)
+                    </span>
+                  </p>
                 </div>
-              ))}
-            </div>
-          </Card>
+                <span className="text-xs font-medium text-accent group-hover:underline whitespace-nowrap">
+                  Full breakdown →
+                </span>
+              </div>
+            </Card>
+          </Link>
         </StaggerItem>
       )}
 

@@ -30,7 +30,7 @@ export const Route = createFileRoute("/dashboard")({
       { title: "Execution Status — Cadence" },
       {
         name: "description",
-        content: "Your capacity, priorities, and focus window for today.",
+        content: "An at-a-glance read of your execution status, momentum, and risks.",
       },
     ],
   }),
@@ -104,10 +104,13 @@ function DashboardPage() {
           day: "numeric",
         })}
         title="Execution Status"
-        subtitle="Your capacity, priorities, and focus window for today."
+        subtitle="An at-a-glance read of your execution status, momentum, and risks."
         right={
           <div className="hidden lg:flex items-center gap-2">
-            <Pill tone={tone}>{label}</Pill>
+            {/* #3 — references Today's state headline, does not re-declare it */}
+            <Link to="/" title="Set by Today">
+              <Pill tone={tone}>{label}</Pill>
+            </Link>
             <Link
               to="/premium"
               className="hairline rounded-full px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
@@ -223,8 +226,9 @@ function DashboardPage() {
       <section className="px-5 lg:px-0">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card>
+            {/* #5 — read-only status. Task interaction lives on Today, not here. */}
             <div className="mb-4 flex items-center justify-between">
-              <StatLabel>Active priorities</StatLabel>
+              <StatLabel>Today's load</StatLabel>
               {taskIntel.todayLoadRisk && (
                 <Pill
                   tone={
@@ -258,6 +262,13 @@ function DashboardPage() {
                 </p>
               )}
             </div>
+            {tasks.filter((t) => !t.done).length > 0 && (
+              <div className="mt-3 border-t border-border/50 pt-3">
+                <Link to="/" className="text-xs font-medium text-accent hover:underline">
+                  Execute in Today →
+                </Link>
+              </div>
+            )}
           </Card>
 
           <Card>

@@ -89,6 +89,11 @@ import type { PatternDetectionProfile } from "@/core/contracts/patterns";
 import { buildReplay } from "@/engine/replay/replay-engine";
 import type { ReplayResult, ReplayWindowScope } from "@/core/contracts/replay";
 import { computeMomentumModel } from "@/engine/momentum";
+import {
+  computeCapacity,
+  capacityToMinutes,
+  classifyLoad,
+} from "@/engine/capacity/compute-capacity";
 import type { MomentumModel } from "@/core/contracts/momentum";
 import { detectAvoidance } from "@/engine/avoidance/detect-avoidance";
 
@@ -2018,17 +2023,6 @@ export function useMomentum(): { delta: number; trend: "up" | "down" | "flat" } 
   }, [h, w7, w7Prior]);
 }
 
-export function useMomentumScore(): number {
-  const h = useApp((s) => s.history);
-  const score = useExecutionScore();
-  return useMemo(() => {
-    const last7 = h.slice(-7).map((d) => d.executionScore);
-    const avg = last7.length ? last7.reduce((x, y) => x + y, 0) / last7.length : 0;
-    // Momentum is a blend of current score and recent average, weighted towards current
-    return Math.round(score * 0.6 + avg * 0.4);
-  }, [h, score]);
-}
-
 export function useFocusSessionStats(days = 28) {
   const sessions = useApp((s) => s.focusSessions);
   return useMemo(() => {
@@ -2745,18 +2739,17 @@ export function useTaskIntelligence() {
       .filter((t) => (t.rescheduled ?? 0) >= 2)
       .map((t) => ({ taskId: t.id, label: t.label, count: t.rescheduled ?? 0 }));
 
-    // Load risk based on estimated minutes
+    // Load risk via the single capacity authority (#4): derive today's task cap
+    // from a recent-score baseline, convert to a minute budget, classify load.
     const last7 = history.slice(-7);
-    const avgCapacityMin = last7.length
-      ? Math.round(last7.reduce((a, d) => a + d.completed * 45, 0) / last7.length)
-      : 135;
+    const recoveryMode = (pipeline as any)?.stateInterpretation?.currentMode === "RECOVERY";
+    const recentAvgScore = last7.length
+      ? last7.reduce((a, d) => a + d.executionScore, 0) / last7.length
+      : 60;
+    const todayCapacity = computeCapacity(recentAvgScore, { recoveryMode });
+    const capacityMin = capacityToMinutes(todayCapacity.taskCap);
     const totalEstimated = tasks.reduce((a, t) => a + t.estMin, 0);
-    const todayLoadRisk: "overloaded" | "optimal" | "underloaded" =
-      totalEstimated > avgCapacityMin * 1.4
-        ? "overloaded"
-        : totalEstimated < avgCapacityMin * 0.5
-          ? "underloaded"
-          : "optimal";
+    const todayLoadRisk = classifyLoad(totalEstimated, capacityMin);
 
     const stateCap =
       recommended.deep + recommended.shallow + recommended.admin + recommended.movement;
@@ -3326,14 +3319,8 @@ function buildBaseCapacities(
   const caps: Record<number, { taskCap: number; deepWorkCap: number }> = {};
   for (let i = 0; i <= 6; i++) {
     const avg = byDay[i]?.avgScore ?? 0;
-    let taskCap = avg >= 70 ? 4 : avg >= 60 ? 3 : avg >= 50 ? 2 : 1;
-    let deepWorkCap = avg >= 70 ? 3 : avg >= 60 ? 2 : avg >= 50 ? 1 : 0;
-    // Wednesday recovery buffer when recovery debt is accumulating
-    if (w14RecoveryDebt && i === 3) {
-      taskCap = Math.min(taskCap, 2);
-      deepWorkCap = Math.min(deepWorkCap, 1);
-    }
-    caps[i] = { taskCap, deepWorkCap };
+    // Single capacity authority (#4) — Wednesday (i===3) is the mid-week buffer day.
+    caps[i] = computeCapacity(avg, { recoveryDebt: w14RecoveryDebt, isBufferDay: i === 3 });
   }
   return caps;
 }
@@ -3578,6 +3565,17 @@ export function useTaskCompatibilityProfile(): {
   }, [pipeline, dynamicsProfile]);
 }
 
+/**
+ * Navigation signal (6I) — DESCOPED to ephemeral, derived-only (#8).
+ *
+ * This is recomputed each render from already-persisted state (check-ins,
+ * recovery, insights, focus, streak, task load). There is intentionally NO
+ * persisted `navigationEvents[]` array: the architecture review (#8) found the
+ * harvested-event store had no engine/pipeline consumer, so it was never landed.
+ * Until a pipeline consumer exists, navigation stays a read-only presentation
+ * signal with zero persistence cost — do not add a persisted event log here
+ * without an authority that consumes it (see Integration Checklist §12.8).
+ */
 export function useNavSignals() {
   const checkIns = useApp((s) => s.checkIns);
   const recoveryMode = useApp((s) => s.recoveryMode);

@@ -94,27 +94,24 @@ function CurrentStateBanner() {
 
   const Icon = config.icon;
 
+  // #3 — Today owns the state headline. Here we only *reference* it as a compact
+  // chip that links back to Today, rather than re-declaring state as a hero.
   return (
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       className="px-5 mb-2"
     >
-      <div
-        className={`flex items-center gap-3 rounded-2xl border ${config.border} ${config.bg} px-4 py-3`}
+      <Link
+        to="/"
+        className={`inline-flex items-center gap-2 rounded-full border ${config.border} ${config.bg} px-3 py-1.5 ${config.text} transition-opacity hover:opacity-80`}
       >
-        <div
-          className={`flex h-8 w-8 items-center justify-center rounded-full bg-background/50 ${config.text}`}
-        >
-          <Icon className="h-4 w-4" />
-        </div>
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">
-            Current Biological State
-          </p>
-          <p className={`font-display text-lg ${config.text}`}>{label}</p>
-        </div>
-      </div>
+        <Icon className="h-3.5 w-3.5" />
+        <span className="text-xs font-medium">
+          Diagnosing while <span className="font-semibold">{label}</span>
+        </span>
+        <ArrowRight className="h-3 w-3 opacity-60" />
+      </Link>
     </motion.div>
   );
 }
