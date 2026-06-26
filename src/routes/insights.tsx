@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useVisibleRoutes } from "@/lib/maturity";
-import { BarRow, Card, Pill, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
+import { BarRow, Card, ScreenHeader, Sparkline, StatLabel } from "@/components/ui-bits";
 import { MetricSurface } from "@/components/MetricSurface";
 import { StateDynamicsCard } from "@/components/cards/StateDynamicsCard";
 import { PatternCard } from "@/components/cards/PatternCard";
@@ -31,6 +31,7 @@ import {
   useMomentum,
   useRootCauseAnalysis,
   useDeepWorkStats,
+  useDistractionStats,
   useDistractionProfile,
   useDayOfWeekProfile,
   useBlockerPattern,
@@ -38,12 +39,9 @@ import {
   useTaskIntelligence,
   useAvoidanceProfile,
 } from "@/lib/store";
-import { useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Stagger, StaggerItem, TapCard } from "@/lib/motion";
+import { motion } from "framer-motion";
+import { Stagger, StaggerItem } from "@/lib/motion";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 
 export const Route = createFileRoute("/insights")({
   head: () => ({
@@ -51,7 +49,7 @@ export const Route = createFileRoute("/insights")({
       { title: "Insights — Cadence" },
       {
         name: "description",
-        content: "Behavioral patterns, earned insights, and anti-fake-productivity analysis.",
+        content: "Root cause analysis, distraction attribution, and behavioral patterns.",
       },
     ],
   }),
@@ -231,42 +229,24 @@ function Insights() {
   const avoidanceProfile = useAvoidanceProfile();
   const insightEffectiveness = useInsightEffectiveness();
   const taskIntel = useTaskIntelligence();
-  const last14 = history.slice(-14);
+  const { sleepImpact } = useDeepWorkStats();
+  const { avg: avgDist, peakWindow, reduction } = useDistractionStats();
 
-  const focusByHour = useMemo(() => {
-    const avgFocus = last14.reduce((a, d) => a + d.focus, 0) / Math.max(1, last14.length);
-    const avgSleep = last14.reduce((a, d) => a + d.sleepHours, 0) / Math.max(1, last14.length);
-    const startHour = avgSleep > 7.5 ? 8 : 10;
-    // Indices 0-12 represent 8am to 8pm (1 hour increments)
-    const base = Array.from({ length: 13 }, (_, i) => {
-      const hour = i + 8;
-      // Bell curve centered at startHour + 1.5 with some evening secondary peak
-      const morningPeak = 100 * Math.exp(-Math.pow(hour - (startHour + 1.5), 2) / 8);
-      const eveningBump = 40 * Math.exp(-Math.pow(hour - 17, 2) / 4);
-      return Math.max(20, morningPeak + eveningBump);
-    });
-    return base.map((v) => Math.round(v * (avgFocus / 7)));
-  }, [last14]);
+  const last28 = history.slice(-28);
 
-  const consistencyTrend = useMemo(() => {
-    const firstHalf = history.slice(-28, -14);
-    const secondHalf = history.slice(-14);
-    const avg = (arr: typeof history) =>
-      arr.reduce((a, b) => a + b.executionScore, 0) / Math.max(1, arr.length);
-    const diff = avg(secondHalf) - avg(firstHalf);
-    if (diff > 5) return "Rising trend";
-    if (diff < -5) return "Declining trend";
-    return "Stable trend";
-  }, [history]);
+  const trendData = useMemo(() => last28.map((d) => d.executionScore), [last28]);
+  const sleepData = useMemo(() => last28.map((d) => Math.round(d.sleepHours * 10)), [last28]);
+  const distractionData = useMemo(() => last28.map((d) => d.distractions), [last28]);
 
+  const avgSleep = useMemo(
+    () => last28.reduce((a, d) => a + d.sleepHours, 0) / Math.max(1, last28.length),
+    [last28],
+  );
+  const avgSleep7 = history.slice(-7).reduce((a, d) => a + d.sleepHours, 0) / Math.max(1, 7);
+
+  const consistency = useConsistency(28);
   const { score: resilienceScore, avgRecoveryDays } = useResilience();
   const { delta: momentumDelta, trend: momentumTrend } = useMomentum();
-
-  // Dynamic window info
-  const avgSleep = history.slice(-7).reduce((a, d) => a + d.sleepHours, 0) / Math.max(1, 7);
-  const startHour = avgSleep > 7.5 ? 8 : 10;
-  const endHour = startHour + 3;
-  const primeWindowStr = `${startHour}:00 AM – ${endHour}:30 AM`;
 
   const planExecuteColor =
     flags.planExecuteRatio < 60 ? "danger" : flags.planExecuteRatio < 75 ? "warning" : "accent";
@@ -296,88 +276,114 @@ function Insights() {
   return (
     <div className="flex flex-col gap-6 pb-12">
       <ScreenHeader
-        eyebrow={`Week ${getWeekNum()} · ${formatRange()}`}
-        title="Diagnostic"
-        subtitle="Moving from passive tracking to active behavioral engineering."
+        eyebrow="Behavioral Diagnostics"
+        title="Why is this happening?"
+        subtitle="Root cause analysis, distraction attribution, and behavioral patterns."
         right={
-          <Link
-            to="/weekly"
-            className="hairline rounded-full px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground"
-          >
-            Weekly &rarr;
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/dashboard"
+              className="hairline rounded-full px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              ← Execution Status
+            </Link>
+            <Link
+              to="/weekly"
+              className="hairline rounded-full px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              Weekly →
+            </Link>
+          </div>
         }
       />
 
+      {/* Section 1 — CurrentStateBanner */}
       <CurrentStateBanner />
 
       <Stagger>
-        {/* CHAPTER 1: THE PULSE */}
+        {/* Section 2 — Trajectory Snapshot */}
         <StaggerItem>
           <section className="px-5 space-y-4">
             <div className="flex items-center gap-2 px-1">
               <div className="h-1 w-1 rounded-full bg-accent" />
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Phase 1: Momentum & Resilience
+                Trajectory Snapshot
               </h3>
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <Card>
-                <StatLabel>Momentum</StatLabel>
-                <p className="font-display mt-1 text-3xl num-tabular text-foreground">
-                  {momentumDelta > 0 ? "+" : ""}
-                  {momentumDelta}
-                  <span className="text-base text-muted-foreground">pts</span>
-                </p>
-                <div
-                  className={`mt-1 flex items-center gap-1 text-[11px] ${momentumTrend === "down" ? "text-danger" : momentumTrend === "up" ? "text-success" : "text-muted-foreground"}`}
-                >
-                  {momentumTrend === "down" ? (
-                    <TrendingDown className="h-3 w-3" />
-                  ) : (
-                    <TrendingUp className="h-3 w-3" />
-                  )}
-                  {momentumTrend === "down"
-                    ? "losing steam"
-                    : momentumTrend === "up"
-                      ? "gaining traction"
-                      : "holding steady"}
-                </div>
-              </Card>
-              <Card>
-                <StatLabel>Resilience</StatLabel>
-                <p className="font-display mt-1 text-3xl num-tabular text-foreground">
-                  {resilienceScore}
-                  <span className="text-base text-muted-foreground">/100</span>
-                </p>
-                <div className="mt-1 flex items-center gap-1 text-[11px] text-success">
-                  <TrendingUp className="h-3 w-3" /> {avgRecoveryDays}d avg recovery
-                </div>
-              </Card>
-            </div>
             <Card>
-              <div className="mb-3 flex items-center justify-between">
-                <StatLabel>Consistency · 28 Days</StatLabel>
-                <span className="text-[10px] text-muted-foreground">{consistencyTrend}</span>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                    Momentum
+                  </p>
+                  <p className="font-display text-2xl num-tabular text-foreground">
+                    {momentumDelta > 0 ? "+" : ""}
+                    {momentumDelta}
+                    <span className="text-base text-muted-foreground">pts</span>
+                  </p>
+                  <div
+                    className={`mt-1 flex items-center gap-1 text-[10px] ${momentumTrend === "down" ? "text-danger" : momentumTrend === "up" ? "text-success" : "text-muted-foreground"}`}
+                  >
+                    {momentumTrend === "down" ? (
+                      <TrendingDown className="h-3 w-3" />
+                    ) : (
+                      <TrendingUp className="h-3 w-3" />
+                    )}
+                    {momentumTrend === "down"
+                      ? "losing steam"
+                      : momentumTrend === "up"
+                        ? "gaining traction"
+                        : "holding steady"}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                    Consistency
+                  </p>
+                  <p className="font-display text-2xl num-tabular text-foreground">
+                    {consistency}
+                    <span className="text-base text-muted-foreground">%</span>
+                  </p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">28-day average</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
+                    Resilience
+                  </p>
+                  <p className="font-display text-2xl num-tabular text-foreground">
+                    {resilienceScore}
+                    <span className="text-base text-muted-foreground">/100</span>
+                  </p>
+                  <p className="mt-1 text-[10px] text-success">{avgRecoveryDays}d avg recovery</p>
+                </div>
               </div>
-              <Sparkline data={history.slice(-28).map((d) => d.executionScore)} accent />
-              <div className="mt-4">
+              <div className="mt-5">
                 <ExecutionHeatmap weeks={4} />
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground">
+                <span>Mon</span>
+                <span>Wed</span>
+                <span>Fri</span>
+                <span>Sun</span>
               </div>
             </Card>
           </section>
         </StaggerItem>
 
-        {/* CHAPTER 2: ROOT CAUSE ANALYSIS */}
+        {/* Section 3 — Root Cause Diagnostics */}
         <StaggerItem>
           <section className="px-5 mt-4 space-y-4">
             <div className="flex items-center gap-2 px-1">
               <div className="h-1 w-1 rounded-full bg-warning" />
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Phase 2: Root Cause Diagnostics
+                Root Cause Diagnostics
               </h3>
             </div>
 
+            {/* Root cause leads */}
+            <RootCauseDiagnostics />
+
+            {/* Planning Accuracy BarRows */}
             <Card>
               <div className="space-y-4">
                 <BarRow
@@ -393,8 +399,6 @@ function Insights() {
                 />
               </div>
             </Card>
-
-            <RootCauseDiagnostics />
 
             {/* Avoidance Pattern Breakdown */}
             {avoidanceProfile && avoidanceProfile.activePatterns.length > 0 && (
@@ -530,13 +534,53 @@ function Insights() {
           </section>
         </StaggerItem>
 
-        {/* CHAPTER 3: DEEP PATTERNS */}
+        {/* Section 4 — Historical Trends */}
+        <StaggerItem>
+          <section className="px-5 mt-4 space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <div className="h-1 w-1 rounded-full bg-accent/60" />
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Historical Trends
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <Card>
+                <StatLabel>Sleep · 28d</StatLabel>
+                <p className="font-display mt-1 text-2xl text-foreground">
+                  {avgSleep.toFixed(1)}
+                  <span className="text-muted-foreground text-base">h avg</span>
+                </p>
+                <div className="mt-3 h-[80px]">
+                  <Sparkline data={sleepData} height={80} />
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Days under 6.5h are followed by a {sleepImpact}% drop in execution capacity.
+                </p>
+              </Card>
+              <Card>
+                <StatLabel>Distractions · 28d</StatLabel>
+                <p className="font-display mt-1 text-2xl text-foreground">
+                  {avgDist.toFixed(1)}
+                  <span className="text-muted-foreground text-base"> /day</span>
+                </p>
+                <div className="mt-3 h-[80px]">
+                  <Sparkline data={distractionData} height={80} />
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Peak distraction window: {peakWindow}. Wind-down protocol cuts this ~{reduction}%.
+                </p>
+              </Card>
+            </div>
+          </section>
+        </StaggerItem>
+
+        {/* Section 5 — Behavioral Breakthroughs */}
         <StaggerItem>
           <section className="px-5 mt-4 space-y-4">
             <div className="flex items-center gap-2 px-1">
               <div className="h-1 w-1 rounded-full bg-success" />
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Phase 3: Behavioral Breakthroughs
+                Behavioral Breakthroughs
               </h3>
             </div>
 
@@ -689,65 +733,32 @@ function Insights() {
                 ))}
               </div>
             )}
-
-            {/* Focus by hour */}
-            <Card>
-              <div className="flex items-center justify-between">
-                <StatLabel>Neurological Prime Window</StatLabel>
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/10 text-accent">
-                  <Zap className="h-3 w-3" />
-                </div>
-              </div>
-              <div className="mt-4 flex h-24 items-end gap-1">
-                {focusByHour.map((v, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-t-sm bg-accent/30 transition-all hover:bg-accent"
-                    style={{
-                      height: `${Math.min(100, v)}%`,
-                      opacity: v > 70 ? 1 : 0.4,
-                    }}
-                  />
-                ))}
-              </div>
-              <div className="mt-2 flex justify-between text-[10px] text-muted-foreground uppercase tracking-tighter">
-                <span>8a</span>
-                <span>12p</span>
-                <span>4p</span>
-                <span>8p</span>
-                <span>12a</span>
-              </div>
-              <div className="mt-4 rounded-xl bg-accent/5 p-3 border border-accent/10">
-                <p className="text-xs leading-relaxed text-foreground/80">
-                  <span className="font-bold text-accent">{primeWindowStr}</span> is your optimal
-                  cognitive window. Deep work output is significantly higher during this block.
-                </p>
-              </div>
-            </Card>
-          </section>
-        </StaggerItem>
-        {/* CHAPTER 4: STATE DYNAMICS */}
-        <StaggerItem>
-          <section className="px-5 mt-4 space-y-4">
-            <div className="flex items-center gap-2 px-1">
-              <div className="h-1 w-1 rounded-full bg-accent/60" />
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Phase 4: State Dynamics
-              </h3>
-            </div>
-            <MetricSurface metric="stateDynamics">{() => <StateDynamicsCard />}</MetricSurface>
           </section>
         </StaggerItem>
 
-        {/* CHAPTER 5: BEHAVIORAL PATTERNS */}
+        {/* Section 6 — Behavioral Growth */}
         <StaggerItem>
           <section className="px-5 mt-4 space-y-4">
             <div className="flex items-center gap-2 px-1">
               <div className="h-1 w-1 rounded-full bg-accent" />
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Phase 5: Recurring Patterns
+                Behavioral Growth
               </h3>
             </div>
+            <BehavioralGrowth />
+          </section>
+        </StaggerItem>
+
+        {/* Section 7 — Long-Run Dynamics */}
+        <StaggerItem>
+          <section className="px-5 mt-4 space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <div className="h-1 w-1 rounded-full bg-accent/60" />
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Long-Run Dynamics
+              </h3>
+            </div>
+            <MetricSurface metric="stateDynamics">{() => <StateDynamicsCard />}</MetricSurface>
             <MetricSurface
               metric="patternDetection"
               fallback={
@@ -760,9 +771,44 @@ function Insights() {
             </MetricSurface>
           </section>
         </StaggerItem>
+
+        {/* Section 8 — Execution Trend 28d */}
+        <StaggerItem>
+          <section className="px-5 mt-4 space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <div className="h-1 w-1 rounded-full bg-accent" />
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Execution Trend
+              </h3>
+            </div>
+            <Card>
+              <div className="mb-4 flex items-end justify-between">
+                <div>
+                  <StatLabel>Execution trend · 28 days</StatLabel>
+                  <p className="font-display mt-1 text-3xl text-foreground">
+                    {Math.round(
+                      trendData.reduce((a, b) => a + b, 0) / Math.max(1, trendData.length),
+                    )}
+                    <span className="text-muted-foreground text-lg"> avg</span>
+                  </p>
+                </div>
+              </div>
+              <div className="h-[200px] lg:h-[240px]">
+                <Sparkline data={trendData} accent height={240} />
+              </div>
+              <div className="mt-3 flex justify-between text-[10px] text-muted-foreground">
+                <span>4 weeks ago</span>
+                <span>3 weeks ago</span>
+                <span>2 weeks ago</span>
+                <span>1 week ago</span>
+                <span>Today</span>
+              </div>
+            </Card>
+          </section>
+        </StaggerItem>
       </Stagger>
 
-      {/* Weekly report CTA */}
+      {/* Section 9 — Weekly Report CTA */}
       <section className="px-5 mt-2">
         <Link to="/weekly" className="group block">
           <Card className="bg-foreground text-background border-none">
@@ -782,17 +828,53 @@ function Insights() {
   );
 }
 
-function getWeekNum() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 1);
-  return Math.ceil(((+now - +start) / 86400000 + start.getDay() + 1) / 7);
+function Evolution({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[12px] text-muted-foreground">{label}</span>
+        <span className="text-[11px] font-medium text-foreground num-tabular">{value}</span>
+      </div>
+      <div className="relative h-1.5 overflow-hidden rounded-full bg-secondary">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-gradient-accent"
+          style={{ width: `${Math.min(100, value)}%` }}
+        />
+      </div>
+    </div>
+  );
 }
-function formatRange() {
-  const now = new Date();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const f = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${f(monday)}–${f(sunday).split(" ")[1]}`;
+
+function BehavioralGrowth() {
+  const history = useApp((s) => s.history);
+  const checkIns = useApp((s) => s.checkIns);
+  const consistency = useConsistency(28);
+  const { score: resilience } = useResilience();
+
+  const last28 = history.slice(-28);
+  const avgFocus = useMemo(
+    () => last28.reduce((a, d) => a + d.focus, 0) / Math.max(1, last28.length),
+    [last28],
+  );
+  const avgSleep = useMemo(
+    () => last28.reduce((a, d) => a + d.sleepHours, 0) / Math.max(1, last28.length),
+    [last28],
+  );
+  const avgHonesty = useMemo(() => {
+    if (checkIns.length === 0) return 85;
+    return Math.round(checkIns.reduce((a, c) => a + c.honesty, 0) / Math.max(1, checkIns.length));
+  }, [checkIns]);
+
+  return (
+    <Card>
+      <StatLabel className="mb-3 block">5-Dimension Evolution</StatLabel>
+      <div className="space-y-3">
+        <Evolution label="Reliability" value={consistency} />
+        <Evolution label="Focus quality" value={Math.round(avgFocus * 10)} />
+        <Evolution label="Recovery speed" value={resilience} />
+        <Evolution label="Sleep discipline" value={Math.round((avgSleep / 8) * 100)} />
+        <Evolution label="Honesty" value={avgHonesty} />
+      </div>
+    </Card>
+  );
 }
