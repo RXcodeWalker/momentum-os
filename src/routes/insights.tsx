@@ -67,11 +67,11 @@ function CurrentStateBanner() {
       text: "text-success",
     },
     steady: { icon: Check, bg: "bg-accent/10", border: "border-accent/20", text: "text-accent" },
-    inconsistent: {
-      icon: TrendingDown,
-      bg: "bg-warning/10",
-      border: "border-warning/20",
-      text: "text-warning",
+    building: {
+      icon: TrendingUp,
+      bg: "bg-accent/10",
+      border: "border-accent/20",
+      text: "text-accent",
     },
     burnout: {
       icon: AlertTriangle,

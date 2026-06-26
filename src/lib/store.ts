@@ -2213,18 +2213,43 @@ export function useResilience(): { score: number; avgRecoveryDays: number } {
   }, [h]);
 }
 
+/**
+ * Single user-state authority for display surfaces.
+ *
+ * This is a PURE PROJECTION of the engine pipeline's `stateInterpretation`
+ * (the matrix authority for User State / Mode) — it derives no behavioral
+ * judgment of its own. The 4 engine modes (RECOVERY / STABILIZING / FOCUSED /
+ * EXPANDING) plus trajectory map to the 5 display states consumed by Today,
+ * Dashboard, and Insights, with `recoveryMode` (the 2-day hysteresis state) as
+ * an overlay so displays match the recovery surface even while the raw mode
+ * lags. No score thresholds — score is not a competing source of truth.
+ */
 export function useUserState() {
-  const score = useExecutionScore();
   const recovery = useApp((s) => s.recoveryMode);
+  const mode = useApp((s) => s.lastPipelineResult?.stateInterpretation.currentMode);
+  const trajectory = useApp((s) => s.lastPipelineResult?.stateInterpretation.currentTrajectory);
 
   return useMemo(() => {
-    if (recovery) return { state: "recovery", label: "Recovery Mode", tone: "warning" as const };
-    if (score >= 85) return { state: "peak", label: "Peak Performance", tone: "success" as const };
-    if (score >= 60) return { state: "steady", label: "Steady Execution", tone: "accent" as const };
-    if (score >= 45)
-      return { state: "building", label: "Building Momentum", tone: "neutral" as const };
-    return { state: "burnout", label: "Burnout Risk", tone: "danger" as const };
-  }, [score, recovery]);
+    // Hysteresis overlay: recoveryMode is the single recovery authority for displays.
+    if (recovery || mode === "RECOVERY")
+      return { state: "recovery", label: "Recovery Mode", tone: "warning" as const };
+
+    switch (mode) {
+      case "EXPANDING":
+        return { state: "peak", label: "Peak Performance", tone: "success" as const };
+      case "FOCUSED":
+        return { state: "steady", label: "Steady Execution", tone: "accent" as const };
+      case "STABILIZING":
+        // A stabilizing state under deteriorating trajectory reads as burnout risk;
+        // otherwise it's the building-momentum state.
+        if (trajectory === "CONTRACTING")
+          return { state: "burnout", label: "Burnout Risk", tone: "danger" as const };
+        return { state: "building", label: "Building Momentum", tone: "neutral" as const };
+      default:
+        // No pipeline result yet (fresh user / pre-first-check-in).
+        return { state: "building", label: "Building Momentum", tone: "neutral" as const };
+    }
+  }, [recovery, mode, trajectory]);
 }
 
 export function usePredictiveRecoveryAlert(): {

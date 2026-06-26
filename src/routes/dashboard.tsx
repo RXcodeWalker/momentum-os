@@ -152,8 +152,11 @@ function DashboardPage() {
                   <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">
                     Momentum
                   </p>
-                  <p className="font-display text-2xl text-foreground">
-                    {Math.round(score * 0.85)}
+                  <p
+                    className={`font-display text-2xl ${trend === "up" ? "text-success" : trend === "down" ? "text-danger" : "text-foreground"}`}
+                  >
+                    {delta > 0 ? "+" : ""}
+                    {delta}
                   </p>
                 </div>
                 <div>
