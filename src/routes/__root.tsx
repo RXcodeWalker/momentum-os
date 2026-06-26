@@ -22,7 +22,7 @@ import {
   Calendar,
   Clock,
 } from "lucide-react";
-import { useApp, useUserState } from "@/lib/store";
+import { useApp, useUserState, useNavSignals } from "@/lib/store";
 import { isSnapshotStale, computeAllSnapshots } from "@/lib/history-engine";
 import { useFocusEnvironment } from "@/hooks/internal/useFocusEnvironment";
 import { EnvironmentRenderer } from "@/components/environment/EnvironmentRenderer";
@@ -182,6 +182,75 @@ function filterByVisibility(items: readonly NavItem[], visible: RouteKey[]): Nav
   return items.filter((i) => !i.gate || visible.includes(i.gate));
 }
 
+type NavSignals = ReturnType<typeof useNavSignals>;
+
+function applyNavOrder(items: NavItem[], signals: NavSignals): NavItem[] {
+  const { hasCheckedInToday, phase, recoveryMode } = signals;
+  const reordered = [...items];
+
+  const recoveryIdx = reordered.findIndex((i) => i.to === "/recovery");
+  if (recoveryMode && recoveryIdx > 1) {
+    const [item] = reordered.splice(recoveryIdx, 1);
+    reordered.splice(1, 0, item);
+  }
+
+  const checkInIdx = reordered.findIndex((i) => i.to === "/check-in");
+  if (!hasCheckedInToday && (phase === "midday" || phase === "evening") && checkInIdx > 1) {
+    const [item] = reordered.splice(checkInIdx, 1);
+    reordered.splice(recoveryMode ? 2 : 1, 0, item);
+  }
+
+  return reordered;
+}
+
+type BadgeType = "pulse-dot" | "dot" | "glow-ring" | null;
+type BadgeColor = "accent" | "warning" | "danger" | "success" | "neutral";
+type BadgeSpec = { type: BadgeType; color: BadgeColor };
+
+function getNavBadge(to: string, signals: NavSignals, active: boolean): BadgeSpec {
+  const none: BadgeSpec = { type: null, color: "accent" };
+  if (active || signals.focusActive) return none;
+
+  const {
+    hasCheckedInToday, phase, recoveryMode, userState,
+    streakAtRisk, pendingInsights, todayLoadRisk,
+    rescheduleAlertCount, streakCurrentMilestoneNext, currentStreak,
+  } = signals;
+
+  if (to === "/check-in") {
+    if (phase === "evening" && !hasCheckedInToday) return { type: "pulse-dot", color: "warning" };
+    if (phase === "midday" && !hasCheckedInToday) return { type: "dot", color: "accent" };
+  }
+  if (to === "/recovery") {
+    if (recoveryMode) return { type: "glow-ring", color: "warning" };
+    if (userState === "burnout") return { type: "dot", color: "danger" };
+  }
+  if (to === "/insights" && pendingInsights > 0) return { type: "dot", color: "accent" };
+  if (to === "/" && (streakAtRisk || todayLoadRisk === "overloaded")) return { type: "dot", color: "warning" };
+  if (to === "/identity" && streakCurrentMilestoneNext === 1 && currentStreak > 0)
+    return { type: "dot", color: "success" };
+  if (to === "/weekly" && rescheduleAlertCount >= 2) return { type: "dot", color: "neutral" };
+
+  return none;
+}
+
+const badgeDotColor: Record<BadgeColor, string> = {
+  accent: "bg-accent",
+  warning: "bg-warning",
+  danger: "bg-danger",
+  success: "bg-success",
+  neutral: "bg-muted-foreground",
+};
+
+function NavBadge({ spec }: { spec: BadgeSpec }) {
+  if (!spec.type || spec.type === "glow-ring") return null;
+  return (
+    <span
+      className={`absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ${badgeDotColor[spec.color]}${spec.type === "pulse-dot" ? " animate-pulse" : ""}`}
+    />
+  );
+}
+
 function isActive(pathname: string, to: string, exact?: boolean) {
   if (exact) return pathname === to;
   return to !== "/" && pathname.startsWith(to);
@@ -190,35 +259,51 @@ function isActive(pathname: string, to: string, exact?: boolean) {
 function BottomNav() {
   const loc = useLocation();
   const visible = useVisibleRoutes();
+  const signals = useNavSignals();
   const focusActive = useApp((s) => s.focusEnvironment.active);
   const pipelineMode = useApp((s) => s.lastPipelineResult?.stateInterpretation.currentMode);
+  const exitFocusEnvironment = useApp((s) => s.exitFocusEnvironment);
   const suppressionLevel = !focusActive ? "none" : pipelineMode === "RECOVERY" ? "full" : "partial";
-  const allItems = filterByVisibility(mobileNav, visible);
+  const orderedItems = applyNavOrder(filterByVisibility(mobileNav, visible), signals);
   // During focus: reduce to Today + Check-in only
   const items = focusActive
-    ? allItems.filter((i) => i.to === "/" || i.to === "/check-in")
-    : allItems;
+    ? orderedItems.filter((i) => i.to === "/" || i.to === "/check-in")
+    : orderedItems;
   const hide = loc.pathname === "/onboarding" || loc.pathname === "/sign-in";
   if (hide) return null;
   if (suppressionLevel === "full") return null;
   return (
-    <nav
-      className={`sticky bottom-0 z-30 mt-auto lg:hidden${suppressionLevel === "partial" ? " opacity-50 pointer-events-none" : ""}`}
-    >
+    <nav className="sticky bottom-0 z-30 mt-auto lg:hidden">
+      {focusActive && (
+        <button
+          onClick={() => exitFocusEnvironment("interruption")}
+          className="mx-auto mb-1 block text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+        >
+          End session
+        </button>
+      )}
       <div className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-t from-background to-transparent" />
-      <div className="glass mx-3 mb-3 rounded-3xl px-2 py-2 shadow-elegant">
+      <div className="glass mx-3 mb-3 rounded-3xl px-2 py-2 shadow-elegant overflow-hidden">
+        {focusActive && (
+          <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-accent to-transparent animate-pulse" />
+        )}
         <LayoutGroup id="mobile-nav">
           <ul className="relative flex items-center justify-between">
             {items.map((item) => {
               const Icon = item.icon;
               const active = isActive(loc.pathname, item.to, "exact" in item ? item.exact : false);
+              const badge = getNavBadge(item.to, signals, active);
+              const isRecoveryItem = item.to === "/recovery";
+              const dimmed =
+                (!focusActive && signals.recoveryMode && !isRecoveryItem) ||
+                (focusActive && item.to !== "/" && item.to !== "/check-in");
               return (
-                <li key={item.to} className="relative flex-1">
+                <motion.li layout key={item.to} className="relative flex-1">
                   <Link
                     to={item.to}
                     className={`relative flex flex-col items-center gap-1 rounded-2xl px-2 py-2 transition-colors ${
                       active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    } ${dimmed ? "opacity-45 pointer-events-none" : ""}`}
                   >
                     {active && (
                       <motion.span
@@ -227,13 +312,24 @@ function BottomNav() {
                         transition={{ type: "spring", stiffness: 380, damping: 32 }}
                       />
                     )}
-                    <Icon
-                      className={`h-[18px] w-[18px] ${active ? "text-accent" : ""}`}
-                      strokeWidth={1.75}
-                    />
+                    <span className="relative">
+                      <Icon
+                        className={`h-[18px] w-[18px] ${
+                          active ? "text-accent" :
+                          isRecoveryItem && signals.recoveryMode ? "text-warning" : ""
+                        }`}
+                        style={
+                          isRecoveryItem && signals.recoveryMode
+                            ? { filter: "drop-shadow(0 0 6px var(--warning))" }
+                            : undefined
+                        }
+                        strokeWidth={1.75}
+                      />
+                      <NavBadge spec={badge} />
+                    </span>
                     <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
                   </Link>
-                </li>
+                </motion.li>
               );
             })}
           </ul>
@@ -247,11 +343,14 @@ function Sidebar() {
   const loc = useLocation();
   const { state, label, tone } = useUserState();
   const visible = useVisibleRoutes();
-  const sidebarItems = filterByVisibility(primaryNav, visible);
+  const signals = useNavSignals();
+  const sidebarItems = applyNavOrder(filterByVisibility(primaryNav, visible), signals);
   const checkInCount = useApp((s) => s.checkIns.length);
   const dataIsSeeded = useApp((s) => s.dataIsSeeded);
   const focusActive = useApp((s) => s.focusEnvironment.active);
+  const focusEnv = useFocusEnvironment();
   const pipelineMode = useApp((s) => s.lastPipelineResult?.stateInterpretation.currentMode);
+  const exitFocusEnvironment = useApp((s) => s.exitFocusEnvironment);
   const suppressionLevel = !focusActive ? "none" : pipelineMode === "RECOVERY" ? "full" : "partial";
   const showStatePanel = dataIsSeeded || checkInCount >= 5;
   const toneClass: Record<string, string> = {
@@ -263,9 +362,7 @@ function Sidebar() {
   };
   if (suppressionLevel === "full") return null;
   return (
-    <aside
-      className={`hidden lg:flex lg:w-[260px] lg:flex-col lg:gap-1 lg:border-r lg:border-border lg:px-5 lg:py-7 lg:sticky lg:top-0 lg:h-screen font-['Bebas_Neue',_sans-serif]${suppressionLevel === "partial" ? " opacity-50 pointer-events-none" : ""}`}
-    >
+    <aside className="hidden lg:flex lg:w-[260px] lg:flex-col lg:gap-1 lg:border-r lg:border-border lg:px-5 lg:py-7 lg:sticky lg:top-0 lg:h-screen font-['Bebas_Neue',_sans-serif]">
       <Link to="/" className="mb-4 flex items-center gap-2.5 px-2">
         <div className="relative h-8 w-8 rounded-xl bg-gradient-accent shadow-glow" />
         <div>
@@ -284,42 +381,75 @@ function Sidebar() {
         </div>
       )}
 
+      {focusActive && (
+        <div className="mb-2 overflow-hidden rounded-xl">
+          <div className="h-[2px] w-full bg-gradient-to-r from-accent to-transparent animate-pulse" />
+          {focusEnv.primaryTask && (
+            <p className="px-3 pt-1.5 pb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground truncate">
+              {focusEnv.primaryTask.title}
+            </p>
+          )}
+        </div>
+      )}
+
       <LayoutGroup id="sidebar-nav">
         <nav className="flex flex-col gap-0">
           {sidebarItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(loc.pathname, item.to, "exact" in item ? item.exact : false);
+            const badge = getNavBadge(item.to, signals, active);
+            const isRecoveryItem = item.to === "/recovery";
+            const dimmed =
+              (!focusActive && signals.recoveryMode && !isRecoveryItem) ||
+              (focusActive && item.to !== "/" && item.to !== "/check-in");
+            const glowRing = badge.type === "glow-ring" ? "ring-1 ring-warning/40" : "";
             return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`group relative flex items-center gap-3 rounded-xl px-3 py-1.5 text-sm transition-colors ${
-                  active
-                    ? "text-foreground"
-                    : focusActive && item.to !== "/" && item.to !== "/check-in"
-                      ? "text-muted-foreground/40 pointer-events-none"
-                      : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
-                }`}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="sidebar-nav-pill"
-                    className="absolute inset-0 -z-10 rounded-xl bg-secondary"
-                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                  />
-                )}
-                <Icon
-                  className={`h-[17px] w-[17px] ${active ? "text-accent" : "opacity-70 group-hover:opacity-100"}`}
-                  strokeWidth={1.75}
-                />
-                <span className="font-medium tracking-tight">{item.label}</span>
-              </Link>
+              <motion.div layout key={item.to}>
+                <Link
+                  to={item.to}
+                  className={`group relative flex items-center gap-3 rounded-xl px-3 py-1.5 text-sm transition-colors ${
+                    active
+                      ? "text-foreground"
+                      : dimmed
+                        ? "text-muted-foreground/40 pointer-events-none"
+                        : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="sidebar-nav-pill"
+                      className="absolute inset-0 -z-10 rounded-xl bg-secondary"
+                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                    />
+                  )}
+                  <span className={`relative rounded-lg ${glowRing}`}>
+                    <Icon
+                      className={`h-[17px] w-[17px] ${
+                        active ? "text-accent" :
+                        isRecoveryItem && signals.recoveryMode ? "text-warning" :
+                        "opacity-70 group-hover:opacity-100"
+                      }`}
+                      strokeWidth={1.75}
+                    />
+                    <NavBadge spec={badge} />
+                  </span>
+                  <span className="font-medium tracking-tight">{item.label}</span>
+                </Link>
+              </motion.div>
             );
           })}
         </nav>
       </LayoutGroup>
 
       <div className="mt-auto flex flex-col gap-2">
+        {focusActive && (
+          <button
+            onClick={() => exitFocusEnvironment("interruption")}
+            className="px-1 text-left text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            End session
+          </button>
+        )}
         <div className="flex items-center justify-between px-1">
           <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
             Appearance

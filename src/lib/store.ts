@@ -3552,3 +3552,48 @@ export function useTaskCompatibilityProfile(): {
     };
   }, [pipeline, dynamicsProfile]);
 }
+
+export function useNavSignals() {
+  const checkIns = useApp((s) => s.checkIns);
+  const recoveryMode = useApp((s) => s.recoveryMode);
+  const insights = useApp((s) => s.insights);
+  const focusEnv = useApp((s) => s.focusEnvironment);
+  const { atRisk, currentStreak, milestoneNext } = useStreakContext();
+  const { todayLoadRisk, rescheduleAlerts } = useTaskIntelligence();
+  const { state: userState } = useUserState();
+
+  return useMemo(() => {
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const hour = new Date().getHours();
+    const phase: "morning" | "midday" | "evening" =
+      hour < 11 ? "morning" : hour < 17 ? "midday" : "evening";
+    const hasCheckedInToday = checkIns.some((c) => c.date === todayDate);
+    const pendingInsights = insights.filter(
+      (i) => i.unlocked && !i.dismissed && !i.committed
+    ).length;
+    return {
+      phase,
+      hasCheckedInToday,
+      pendingInsights,
+      recoveryMode,
+      userState,
+      streakAtRisk: atRisk,
+      streakCurrentMilestoneNext: milestoneNext,
+      currentStreak,
+      todayLoadRisk,
+      rescheduleAlertCount: rescheduleAlerts.length,
+      focusActive: focusEnv.active,
+    };
+  }, [
+    checkIns,
+    recoveryMode,
+    insights,
+    atRisk,
+    currentStreak,
+    milestoneNext,
+    todayLoadRisk,
+    rescheduleAlerts,
+    userState,
+    focusEnv.active,
+  ]);
+}
