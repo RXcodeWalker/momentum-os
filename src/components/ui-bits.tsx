@@ -1,8 +1,9 @@
 "use client";
-import { ReactNode } from "react";
+import { ReactNode, forwardRef } from "react";
 import { AnimatedNumber } from "@/lib/motion";
 import { motion } from "framer-motion";
 
+// ─── ScreenHeader ────────────────────────────────────────────────────────────
 export function ScreenHeader({
   eyebrow,
   title,
@@ -15,38 +16,53 @@ export function ScreenHeader({
   right?: ReactNode;
 }) {
   return (
-    <header className="px-5 pt-8 pb-5 animate-fade-up">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+    <header className="px-5 pt-8 pb-4 animate-fade-up">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
           {eyebrow && (
-            <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              {eyebrow}
-            </p>
+            <p className="section-label mb-2 text-muted-foreground/70">{eyebrow}</p>
           )}
-          <h1 className="font-display text-[34px] leading-[1.05] text-foreground">{title}</h1>
+          <h1 className="font-display text-[32px] leading-[1.06] tracking-tight text-foreground lg:text-[36px]">
+            {title}
+          </h1>
           {subtitle && (
-            <p className="mt-2 max-w-[34ch] text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-2 max-w-[38ch] text-[14px] leading-[1.6] text-muted-foreground">
               {subtitle}
             </p>
           )}
         </div>
-        {right}
+        {right && <div className="flex-none">{right}</div>}
       </div>
     </header>
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+// ─── Card ────────────────────────────────────────────────────────────────────
+export const Card = forwardRef<
+  HTMLDivElement,
+  { children: ReactNode; className?: string; style?: React.CSSProperties }
+>(function Card({ children, className = "", style }, ref) {
   return (
     <div
-      className={`hairline rounded-3xl bg-card ${className}`}
-      style={{ padding: "var(--card-padding-adaptive, 1.25rem)" }}
+      ref={ref}
+      className={`card-base ${className}`}
+      style={style}
     >
+      {children}
+    </div>
+  );
+});
+
+// ─── GhostCard ───────────────────────────────────────────────────────────────
+export function GhostCard({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={`card-ghost ${className}`}>
       {children}
     </div>
   );
 }
 
+// ─── SectionLabel ────────────────────────────────────────────────────────────
 export function StatLabel({
   children,
   className = "",
@@ -55,14 +71,13 @@ export function StatLabel({
   className?: string;
 }) {
   return (
-    <p
-      className={`text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground ${className}`}
-    >
+    <p className={`section-label ${className}`}>
       {children}
     </p>
   );
 }
 
+// ─── Pill ────────────────────────────────────────────────────────────────────
 export function Pill({
   children,
   tone = "neutral",
@@ -73,21 +88,22 @@ export function Pill({
   className?: string;
 }) {
   const tones: Record<string, string> = {
-    neutral: "bg-secondary text-foreground",
-    accent: "bg-accent/15 text-accent",
-    success: "bg-success/15 text-success",
-    warning: "bg-warning/15 text-warning",
-    danger: "bg-danger/15 text-danger",
+    neutral: "bg-secondary text-foreground/80 border border-border",
+    accent: "bg-accent/12 text-accent border border-accent/20",
+    success: "bg-success/12 text-success border border-success/20",
+    warning: "bg-warning/12 text-warning border border-warning/20",
+    danger: "bg-danger/12 text-danger border border-danger/20",
   };
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${tones[tone]} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-none ${tones[tone]} ${className}`}
     >
       {children}
     </span>
   );
 }
 
+// ─── Ring ────────────────────────────────────────────────────────────────────
 export function Ring({
   value,
   size = 132,
@@ -144,16 +160,15 @@ export function Ring({
           className="font-display text-4xl num-tabular text-foreground"
         />
         {label && (
-          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mt-1">
-            {label}
-          </span>
+          <span className="section-label mt-1">{label}</span>
         )}
-        {sub && <span className="text-[10px] text-muted-foreground/80 mt-0.5">{sub}</span>}
+        {sub && <span className="text-[10px] text-muted-foreground/70 mt-0.5">{sub}</span>}
       </div>
     </div>
   );
 }
 
+// ─── Sparkline ───────────────────────────────────────────────────────────────
 export function Sparkline({
   data,
   height = 48,
@@ -182,7 +197,7 @@ export function Sparkline({
     >
       <defs>
         <linearGradient id={`sparkFill${accent ? "A" : "B"}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity="0.25" />
+          <stop offset="0%" stopColor={stroke} stopOpacity="0.3" />
           <stop offset="100%" stopColor={stroke} stopOpacity="0" />
         </linearGradient>
       </defs>
@@ -199,6 +214,7 @@ export function Sparkline({
   );
 }
 
+// ─── BarRow ──────────────────────────────────────────────────────────────────
 export function BarRow({
   label,
   value,
@@ -216,19 +232,97 @@ export function BarRow({
       ? "bg-gradient-accent"
       : tone === "danger"
         ? "bg-danger/80"
-        : "bg-foreground/80";
+        : "bg-foreground/70";
   return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="num-tabular text-foreground">{value}</span>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] text-muted-foreground">{label}</span>
+        <span className="num-tabular text-[13px] font-medium text-foreground">{value}</span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-        <div
-          className={`h-full rounded-full ${bar}`}
-          style={{ width: `${pct}%`, transition: "width 0.8s cubic-bezier(0.2,0.8,0.2,1)" }}
-        />
+      <div className="progress-track">
+        <div className={`progress-fill ${bar}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
+  );
+}
+
+// ─── IconBadge ───────────────────────────────────────────────────────────────
+export function IconBadge({
+  children,
+  tone = "neutral",
+  size = "md",
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "accent" | "success" | "warning" | "danger";
+  size?: "sm" | "md" | "lg";
+}) {
+  const tones: Record<string, string> = {
+    neutral: "bg-secondary text-muted-foreground",
+    accent: "bg-accent/15 text-accent",
+    success: "bg-success/15 text-success",
+    warning: "bg-warning/15 text-warning",
+    danger: "bg-danger/15 text-danger",
+  };
+  const sizes: Record<string, string> = {
+    sm: "h-7 w-7 rounded-lg",
+    md: "h-9 w-9 rounded-xl",
+    lg: "h-11 w-11 rounded-2xl",
+  };
+  return (
+    <span className={`flex flex-none items-center justify-center ${tones[tone]} ${sizes[size]}`}>
+      {children}
+    </span>
+  );
+}
+
+// ─── SignalRow ────────────────────────────────────────────────────────────────
+// Compact horizontal signal layout: icon + title + optional body + optional aside
+export function SignalRow({
+  icon,
+  title,
+  body,
+  aside,
+  tone = "neutral",
+}: {
+  icon: ReactNode;
+  title: string;
+  body?: string;
+  aside?: ReactNode;
+  tone?: "neutral" | "accent" | "success" | "warning" | "danger";
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <IconBadge tone={tone} size="md">{icon}</IconBadge>
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-semibold text-foreground leading-snug">{title}</p>
+        {body && <p className="text-[12px] text-muted-foreground leading-relaxed mt-0.5">{body}</p>}
+      </div>
+      {aside && <div className="flex-none">{aside}</div>}
+    </div>
+  );
+}
+
+// ─── Divider ─────────────────────────────────────────────────────────────────
+export function Divider({ className = "" }: { className?: string }) {
+  return <div className={`divider ${className}`} />;
+}
+
+// ─── InlineLabel ─────────────────────────────────────────────────────────────
+export function InlineLabel({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "accent" | "success" | "warning" | "danger";
+}) {
+  const colors: Record<string, string> = {
+    neutral: "text-muted-foreground",
+    accent: "text-accent",
+    success: "text-success",
+    warning: "text-warning",
+    danger: "text-danger",
+  };
+  return (
+    <span className={`section-label ${colors[tone]}`}>{children}</span>
   );
 }

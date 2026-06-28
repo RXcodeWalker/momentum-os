@@ -1,4 +1,4 @@
-## Cadence (momentum-os)
+## North (momentum-os)
 
 A client-first behavioral productivity app focused on measurement, intelligent check-ins, and recovery protocols to help users build consistent execution.
 

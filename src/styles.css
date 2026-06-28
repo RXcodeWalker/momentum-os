@@ -698,6 +698,155 @@
     background: var(--gradient-glow);
   }
 
+  /* ─── Surface depth layers ───────────────────────────────────────── */
+  .surface-0 { background: var(--background); }
+  .surface-1 { background: var(--surface); }
+  .surface-2 { background: var(--surface-elevated); }
+
+  /* ─── Card variants ──────────────────────────────────────────────── */
+  .card-base {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 1.5rem;
+    padding: var(--card-padding-adaptive, 1.25rem);
+  }
+
+  .card-ghost {
+    background: color-mix(in oklab, var(--card) 50%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 1.5rem;
+    padding: var(--card-padding-adaptive, 1.25rem);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .card-inset {
+    background: color-mix(in oklab, var(--muted) 60%, transparent);
+    border-radius: 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  /* ─── Interactive surfaces ───────────────────────────────────────── */
+  .interactive {
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+  }
+  .interactive:hover { opacity: 0.85; }
+  .interactive:active { transform: scale(0.985); opacity: 0.75; }
+
+  /* ─── Section label (the consistent eyebrow style) ──────────────── */
+  .section-label {
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    line-height: 1;
+  }
+
+  /* ─── Divider ────────────────────────────────────────────────────── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    border: none;
+    margin-block: 0;
+  }
+
+  /* ─── Accent line (left border accent) ──────────────────────────── */
+  .accent-line {
+    border-left: 2px solid var(--accent);
+    padding-left: 0.875rem;
+  }
+
+  /* ─── Focus ring that matches brand ─────────────────────────────── */
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: inherit;
+  }
+
+  /* ─── Glow border (used on elevated/active states) ──────────────── */
+  .glow-border {
+    box-shadow: 0 0 0 1px var(--accent), 0 0 16px -4px var(--accent-glow);
+  }
+
+  /* ─── Badge dot ──────────────────────────────────────────────────── */
+  .badge-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+  }
+
+  /* ─── Truncate with ellipsis ─────────────────────────────────────── */
+  .text-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ─── Progress track ─────────────────────────────────────────────── */
+  .progress-track {
+    height: 3px;
+    background: var(--border);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background: var(--gradient-accent);
+    transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* ─── Soft separator between content groups ─────────────────────── */
+  .content-gap { gap: var(--rhythm-4); }
+  .content-gap-sm { gap: var(--rhythm-2); }
+  .content-gap-lg { gap: var(--rhythm-6); }
+
+  /* ─── Task row interaction states ───────────────────────────────── */
+  .task-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--card);
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+  }
+  .task-row:hover { background: color-mix(in oklab, var(--card) 85%, var(--surface-elevated)); }
+  .task-row.done {
+    background: color-mix(in oklab, var(--card) 50%, transparent);
+    opacity: 0.55;
+  }
+
+  /* ─── Signal card tones (semantic backgrounds) ───────────────────── */
+  .signal-accent {
+    background: color-mix(in oklab, var(--accent) 8%, var(--card));
+    border-color: color-mix(in oklab, var(--accent) 25%, transparent);
+  }
+  .signal-warning {
+    background: color-mix(in oklab, var(--warning) 8%, var(--card));
+    border-color: color-mix(in oklab, var(--warning) 25%, transparent);
+  }
+  .signal-success {
+    background: color-mix(in oklab, var(--success) 8%, var(--card));
+    border-color: color-mix(in oklab, var(--success) 25%, transparent);
+  }
+  .signal-danger {
+    background: color-mix(in oklab, var(--danger) 8%, var(--card));
+    border-color: color-mix(in oklab, var(--danger) 25%, transparent);
+  }
+  .signal-neutral {
+    background: color-mix(in oklab, var(--muted) 60%, transparent);
+    border-color: var(--border);
+  }
+
   .shadow-elegant {
     box-shadow: var(--shadow-elegant);
   }
